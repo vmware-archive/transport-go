@@ -102,3 +102,41 @@ func TestSendMultipleMessages(t *testing.T) {
     assert.Equal(t, 3, counter)
 }
 
+func TestMultiHandlerSingleMessage(t *testing.T) {
+
+    channel := NewChannel(testChannelName)
+    counterA, counterB, counterC := 0, 0, 0
+    handlerA := func(message *Message) {
+        counterA++
+    }
+    handlerB := func(message *Message) {
+        counterB++
+    }
+    handlerC := func(message *Message) {
+        counterC++
+    }
+
+    channel.subscribeHandler(handlerA,
+        &channelEventHandler{reflect.ValueOf(handlerA), false})
+
+    channel.subscribeHandler(handlerB,
+        &channelEventHandler{reflect.ValueOf(handlerB), false})
+
+    channel.subscribeHandler(handlerC,
+        &channelEventHandler{reflect.ValueOf(handlerC), false})
+
+    var message = &Message{
+        Id:        uuid.New(),
+        Payload:   "late night munchies",
+        Channel:   testChannelName,
+        Direction: Request}
+
+    channel.Send(message)
+    channel.Send(message)
+    channel.Send(message)
+    channel.wg.Wait()
+    value := counterA + counterB + counterC
+
+    assert.Equal(t, 9, value)
+}
+

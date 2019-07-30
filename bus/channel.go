@@ -54,14 +54,14 @@ func (channel *Channel) Send(message *Message) {
 
 }
 
+func (channel *Channel) ContainsHandlers() bool {
+    return len(channel.eventHandlers) > 0
+}
+
 // send message to handler
 func (channel *Channel) sendMessageToHandler(handler *channelEventHandler, message *Message) {
     defer channel.wg.Done()
     handler.callBackFunction.Call([]reflect.Value{ reflect.ValueOf(message) })
-}
-
-func (channel *Channel) ContainsHandlers() bool {
-   return len(channel.eventHandlers) > 0
 }
 
 // subscribe a new handler.
