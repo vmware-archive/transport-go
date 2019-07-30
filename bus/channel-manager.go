@@ -1,6 +1,8 @@
 package bus
 
-import "errors"
+import (
+    "errors"
+)
 
 type ChannelManager interface {
     Boot()
@@ -20,9 +22,10 @@ func (manager *ChannelManagerImpl) Boot() {
 }
 
 func (manager *ChannelManagerImpl) CreateChannel(channelName string) *Channel {
-    channel := &Channel {
-        Name: channelName,
-        Stream: make(chan *Message)}
+    channel := &Channel{
+        Name:   channelName,
+        //Stream: make(chan *Message)
+        }
 
     manager.Channels[channelName] = channel
     return channel
@@ -32,7 +35,7 @@ func (manager *ChannelManagerImpl) DestroyChannel(channelName string) {
     delete(manager.Channels, channelName)
 }
 
-func (manager *ChannelManagerImpl) GetChannel(channelName string) (*Channel, error){
+func (manager *ChannelManagerImpl) GetChannel(channelName string) (*Channel, error) {
     if channel, ok := manager.Channels[channelName]; ok {
         return channel, nil
     } else {
