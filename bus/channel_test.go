@@ -1,61 +1,53 @@
+// Copyright 2019 VMware Inc.
+
 package bus
 
 import (
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
-    "reflect"
     "testing"
 )
 
 var testChannelName string = "testing"
 
-func TestCheckChannelCreation(t *testing.T) {
+func TestChannel_CheckChannelCreation(t *testing.T) {
 
     channel := NewChannel(testChannelName)
     assert.Empty(t, channel.eventHandlers)
 
 }
 
-func TestSubscribeHandler(t *testing.T) {
+func TestChannel_SubscribeHandler(t *testing.T) {
 
     channel := NewChannel(testChannelName)
-    handler := func(message string) {}
-    err := channel.subscribeHandler(handler,
-        &channelEventHandler{reflect.ValueOf(handler), false})
-
-    if err != nil {
-        assert.Fail(t, "unable to subscribe handler")
-    }
+    handler := func(*Message) {}
+    channel.subscribeHandler(handler,
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
 
     assert.Equal(t, 1, len(channel.eventHandlers))
 
-    err = channel.subscribeHandler(handler,
-        &channelEventHandler{reflect.ValueOf(handler), false})
+    channel.subscribeHandler(handler,
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
 
-    if err != nil {
-        assert.Fail(t, "unable to subscribe second handler")
-    }
+
 
     assert.Equal(t, 2, len(channel.eventHandlers))
 }
 
-func TestHandlerCheck(t *testing.T) {
+func TestChannel_HandlerCheck(t *testing.T) {
     channel := NewChannel(testChannelName)
 
     assert.False(t, channel.ContainsHandlers())
 
-    handler := func(message string) {}
-    err := channel.subscribeHandler(handler,
-        &channelEventHandler{reflect.ValueOf(handler), false})
+    handler := func(*Message) {}
+    channel.subscribeHandler(handler,
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
 
-    if err != nil {
-        assert.Fail(t, "unable to subscribe handler")
-    }
 
     assert.True(t, channel.ContainsHandlers())
 }
 
-func TestSendMessage(t *testing.T) {
+func TestChannel_SendMessage(t *testing.T) {
 
     channel := NewChannel(testChannelName)
     handler := func(message *Message) {
@@ -64,7 +56,7 @@ func TestSendMessage(t *testing.T) {
     }
 
     channel.subscribeHandler(handler,
-        &channelEventHandler{reflect.ValueOf(handler), false})
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
 
     var message = &Message{
         Id:        uuid.New(),
@@ -76,7 +68,7 @@ func TestSendMessage(t *testing.T) {
     channel.wg.Wait()
 }
 
-func TestSendMultipleMessages(t *testing.T) {
+func TestChannel_SendMultipleMessages(t *testing.T) {
 
     channel := NewChannel(testChannelName)
     counter := 0
@@ -87,7 +79,7 @@ func TestSendMultipleMessages(t *testing.T) {
     }
 
     channel.subscribeHandler(handler,
-        &channelEventHandler{reflect.ValueOf(handler), false})
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
 
     var message = &Message{
         Id:        uuid.New(),
@@ -102,7 +94,33 @@ func TestSendMultipleMessages(t *testing.T) {
     assert.Equal(t, 3, counter)
 }
 
-func TestMultiHandlerSingleMessage(t *testing.T) {
+func TestChannel_SendMultipleMessagesSingleRunHandler(t *testing.T) {
+
+    channel := NewChannel(testChannelName)
+    counter := 0
+    handler := func(message *Message) {
+        assert.Equal(t, message.Payload.(string), "chewy louie")
+        assert.Equal(t, message.Channel, testChannelName)
+        counter++
+    }
+
+    channel.subscribeHandler(handler,
+        &channelEventHandler{callBackFunction: handler, runOnce: true, uuid: uuid.New()})
+
+    var message = &Message{
+        Id:        uuid.New(),
+        Payload:   "chewy louie",
+        Channel:   testChannelName,
+        Direction: Request}
+
+    channel.Send(message)
+    channel.Send(message)
+    channel.Send(message)
+    channel.wg.Wait()
+    assert.Equal(t, 1, counter)
+}
+
+func TestChannel_MultiHandlerSingleMessage(t *testing.T) {
 
     channel := NewChannel(testChannelName)
     counterA, counterB, counterC := 0, 0, 0
@@ -117,13 +135,13 @@ func TestMultiHandlerSingleMessage(t *testing.T) {
     }
 
     channel.subscribeHandler(handlerA,
-        &channelEventHandler{reflect.ValueOf(handlerA), false})
+        &channelEventHandler{callBackFunction: handlerA, runOnce: false, uuid: uuid.New()})
 
     channel.subscribeHandler(handlerB,
-        &channelEventHandler{reflect.ValueOf(handlerB), false})
+        &channelEventHandler{callBackFunction: handlerB, runOnce: false, uuid: uuid.New()})
 
     channel.subscribeHandler(handlerC,
-        &channelEventHandler{reflect.ValueOf(handlerC), false})
+        &channelEventHandler{callBackFunction: handlerC, runOnce: false, uuid: uuid.New()})
 
     var message = &Message{
         Id:        uuid.New(),
@@ -140,3 +158,61 @@ func TestMultiHandlerSingleMessage(t *testing.T) {
     assert.Equal(t, 9, value)
 }
 
+func TestChannel_Privacy(t *testing.T) {
+    channel := NewChannel(testChannelName)
+    assert.False(t, channel.private)
+    channel.SetPrivate(true)
+    assert.True(t, channel.IsPrivate())
+}
+
+func TestChannel_ChannelGalactic (t *testing.T) {
+    channel := NewChannel(testChannelName)
+    assert.False(t, channel.galactic)
+    channel.SetGalactic(true)
+    assert.True(t, channel.IsGalactic())
+}
+
+func TestChannel_RemoveEventHandler(t *testing.T) {
+    channel := NewChannel(testChannelName)
+    handlerA:= func(message *Message) {}
+    handlerB:= func(message *Message) {}
+
+    idA := uuid.New()
+    idB := uuid.New()
+
+    channel.subscribeHandler(handlerA,
+        &channelEventHandler{callBackFunction: handlerA, runOnce: false, uuid: idA})
+
+    channel.subscribeHandler(handlerB,
+        &channelEventHandler{callBackFunction: handlerB, runOnce: false, uuid: idB})
+
+    assert.Len(t, channel.eventHandlers, 2)
+
+    // remove the first handler (A)
+    channel.removeEventHandler(0)
+    assert.Len(t, channel.eventHandlers, 1)
+    assert.Equal(t, idB.String(), channel.eventHandlers[0].uuid.String())
+
+    // remove the second handler B)
+    channel.removeEventHandler(0)
+    assert.True(t, len(channel.eventHandlers) == 0)
+
+}
+
+func TestChannel_RemoveEventHandlerNoHandlers(t *testing.T) {
+    channel := NewChannel(testChannelName)
+
+    channel.removeEventHandler(0)
+    assert.Len(t, channel.eventHandlers, 0)
+}
+
+func TestChannel_RemoveEventHandlerOOBIndex(t *testing.T) {
+    channel := NewChannel(testChannelName)
+
+    handler := func(*Message) {}
+    channel.subscribeHandler(handler,
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
+
+    channel.removeEventHandler(999)
+    assert.Len(t, channel.eventHandlers, 1)
+}

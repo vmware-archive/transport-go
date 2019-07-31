@@ -1,8 +1,13 @@
+// Copyright 2019 VMware Inc.
+
 package bus
 
-import "reflect"
+import (
+    "github.com/google/uuid"
+)
 
 type channelEventHandler struct {
-    callBackFunction    reflect.Value
-    runOnce             bool
+    callBackFunction MessageHandlerFunction
+    runOnce          bool
+    uuid             uuid.UUID
 }
