@@ -21,7 +21,7 @@ func checkId(msgConfig *messageConfig) {
 func generateRequest(msgConfig *messageConfig) *Message {
     checkId(msgConfig)
     return &Message{
-        Id:        uuid.New(),
+        Id:        msgConfig.id,
         Channel:   msgConfig.channel,
         Payload:   msgConfig.payload,
         Direction: Request}
@@ -30,7 +30,7 @@ func generateRequest(msgConfig *messageConfig) *Message {
 func generateResponse(msgConfig *messageConfig) *Message {
     checkId(msgConfig)
     return &Message{
-        Id:        uuid.New(),
+        Id:        msgConfig.id,
         Channel:   msgConfig.channel,
         Payload:   msgConfig.payload,
         Direction: Response}
@@ -39,7 +39,7 @@ func generateResponse(msgConfig *messageConfig) *Message {
 func generateError(msgConfig *messageConfig) *Message {
     checkId(msgConfig)
     return &Message{
-        Id:        uuid.New(),
+        Id:        msgConfig.id,
         Channel:   msgConfig.channel,
         Error:     msgConfig.err,
         Direction: Error}

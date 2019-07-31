@@ -8,8 +8,9 @@ import (
 )
 
 func TestMessageModel(t *testing.T) {
+    id := uuid.New()
     var message = &Message{
-        Id:        uuid.New(),
+        Id:        &id,
         Payload:   "A new message",
         Channel:   "123",
         Direction: Request}

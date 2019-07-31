@@ -15,7 +15,7 @@ const (
 // A Message is the encapsulation of the event sent on the bus.
 // It holds a direction, errors, a payload and more.
 type Message struct {
-    Id          uuid.UUID       `json:"id"`
+    Id          *uuid.UUID      `json:"id"`
     Channel     string          `json:"channel"`
     Payload     interface{}     `json:"payload"`
     Error       error           `json:"error"`

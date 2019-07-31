@@ -59,7 +59,7 @@ func (manager *busChannelManager) CheckChannelExists(channelName string) bool {
     return manager.Channels[channelName] != nil
 }
 
-// Subscribe new handler lambda for channel, bool flag runOnce determines if this is a single fire handler.
+// Subscribe new handler lambda for channel, bool flag runOnce determines if this is a single Fire handler.
 // Returns UUID pointer, or error if there is no channel by that name.
 func (manager *busChannelManager) SubscribeChannelHandler(channelName string, fn MessageHandlerFunction, runOnce bool) (*uuid.UUID, error) {
     channel, err := manager.GetChannel(channelName)

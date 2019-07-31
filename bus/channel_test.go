@@ -58,8 +58,9 @@ func TestChannel_SendMessage(t *testing.T) {
     channel.subscribeHandler(handler,
         &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
 
+    id := uuid.New()
     var message = &Message{
-        Id:        uuid.New(),
+        Id:        &id,
         Payload:   "pickled eggs",
         Channel:   testChannelName,
         Direction: Request}
@@ -80,9 +81,9 @@ func TestChannel_SendMultipleMessages(t *testing.T) {
 
     channel.subscribeHandler(handler,
         &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
-
+    id := uuid.New()
     var message = &Message{
-        Id:        uuid.New(),
+        Id:        &id,
         Payload:   "chewy louie",
         Channel:   testChannelName,
         Direction: Request}
@@ -106,9 +107,9 @@ func TestChannel_SendMultipleMessagesSingleRunHandler(t *testing.T) {
 
     channel.subscribeHandler(handler,
         &channelEventHandler{callBackFunction: handler, runOnce: true, uuid: uuid.New()})
-
+    id := uuid.New()
     var message = &Message{
-        Id:        uuid.New(),
+        Id:        &id,
         Payload:   "chewy louie",
         Channel:   testChannelName,
         Direction: Request}
@@ -143,8 +144,9 @@ func TestChannel_MultiHandlerSingleMessage(t *testing.T) {
     channel.subscribeHandler(handlerC,
         &channelEventHandler{callBackFunction: handlerC, runOnce: false, uuid: uuid.New()})
 
+    id := uuid.New()
     var message = &Message{
-        Id:        uuid.New(),
+        Id:        &id,
         Payload:   "late night munchies",
         Channel:   testChannelName,
         Direction: Request}

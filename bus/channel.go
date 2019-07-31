@@ -8,23 +8,23 @@ import (
 
 // Channel represents the stream and the subscribed event handlers waiting for ticks on the stream
 type Channel struct {
-    Name                string `json:"string"`
-    eventHandlers       []*channelEventHandler
-    galactic            bool
-    private             bool
-    channelLock         sync.Mutex
-    wg                  sync.WaitGroup
+    Name          string `json:"string"`
+    eventHandlers []*channelEventHandler
+    galactic      bool
+    private       bool
+    channelLock   sync.Mutex
+    wg            sync.WaitGroup
 }
 
 // Create a new channel with the supplied channel name. Returns a pointer to that channel.
 func NewChannel(channelName string) *Channel {
     c := &Channel{
-        Name:           channelName,
-        eventHandlers:  []*channelEventHandler{},
-        channelLock:    sync.Mutex{},
-        galactic:       false,
-        private:        false,
-        wg:             sync.WaitGroup{} }
+        Name:          channelName,
+        eventHandlers: []*channelEventHandler{},
+        channelLock:   sync.Mutex{},
+        galactic:      false,
+        private:       false,
+        wg:            sync.WaitGroup{}}
     return c
 }
 
@@ -78,6 +78,7 @@ func (channel *Channel) ContainsHandlers() bool {
 func (channel *Channel) sendMessageToHandler(handler *channelEventHandler, message *Message) {
     defer channel.wg.Done()
     handler.callBackFunction(message)
+
 }
 
 // Subscribe a new handler function.
