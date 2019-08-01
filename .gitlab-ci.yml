@@ -1,7 +1,7 @@
 image: autogen-docker-local.artifactory.eng.vmware.com/autogen-builder:1.4
 
 services:
-  - name: docker:dind
+  - name: docker:18-dind
 
 stages:
   - build-test
