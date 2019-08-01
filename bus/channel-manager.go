@@ -18,6 +18,7 @@ type ChannelManager interface {
     GetAllChannels() map[string]*Channel
     SubscribeChannelHandler(channelName string, fn MessageHandlerFunction, runOnce bool) (*uuid.UUID, error)
     UnsubscribeChannelHandler(channelName string, id *uuid.UUID) error
+    WaitForChannel(channelName string) error
 }
 
 type busChannelManager struct {
@@ -74,7 +75,7 @@ func (manager *busChannelManager) SubscribeChannelHandler(channelName string, fn
     return &id, nil
 }
 
-// Unsubscribe a handler for a c
+// Unsubscribe a handler for a channel event handler.
 func (manager *busChannelManager) UnsubscribeChannelHandler(channelName string, uuid *uuid.UUID) error {
     channel, err := manager.GetChannel(channelName)
     if err != nil {
@@ -90,6 +91,15 @@ func (manager *busChannelManager) UnsubscribeChannelHandler(channelName string, 
     if !found {
         return fmt.Errorf("no handler in channel '%s' for uuid [%s]", channelName, uuid)
     }
+    return nil
+}
+
+func (manager *busChannelManager) WaitForChannel(channelName string) error {
+    channel, _ := manager.GetChannel(channelName)
+    if channel == nil {
+        return fmt.Errorf("no such channel as '%s'", channelName)
+    }
+    channel.wg.Wait()
     return nil
 }
 

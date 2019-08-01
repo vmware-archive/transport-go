@@ -44,6 +44,8 @@ type messageHandler struct {
     channel         *Channel
     requestMessage  *Message
     runOnce         bool
+    hasRun          bool
+    runCount        int
     ignoreId        bool
     wrapperFunction MessageHandlerFunction
     successHandler  MessageHandlerFunction
@@ -114,8 +116,8 @@ func (bus *BifrostEventBus) SendRequestMessage(channelName string, payload inter
 // Send a Error type message (outbound) message on channel, with supplied error
 // Throws error if the channel does not exist.
 func (bus *BifrostEventBus) SendErrorMessage(channelName string, err error, id *uuid.UUID) error {
-    channelObject, err := bus.ChannelManager.GetChannel(channelName)
-    if err != nil {
+    channelObject, chanErr := bus.ChannelManager.GetChannel(channelName)
+    if chanErr != nil {
         return err
     }
 
@@ -180,7 +182,6 @@ func (bus *BifrostEventBus) ListenOnce(channelName string) (MessageHandler, erro
     return messageHandler, nil
 }
 
-
 // Send a request message with payload and wait for and Handle a single response message.
 // Returns MessageHandler
 func (bus *BifrostEventBus) RequestOnce(channelName string, payload interface{}) (MessageHandler, error) {
@@ -194,20 +195,45 @@ func (bus *BifrostEventBus) RequestOnce(channelName string, payload interface{})
     config := buildConfig(channelName, payload, nil)
     message := generateRequest(config)
     messageHandler.requestMessage = message
-    messageHandler.runOnce = false
+    messageHandler.runOnce = true
     return messageHandler, nil
+}
+
+func checkHandlerHasRun(handler *messageHandler) bool {
+    return handler.hasRun
+}
+
+func checkHandlerSingleRun(handler *messageHandler) bool {
+    return handler.runOnce
 }
 
 func (bus *BifrostEventBus) wrapMessageHandler(channel *Channel, direction Direction, ignoreId bool, allTraffic bool) *messageHandler {
     messageHandler := createMessageHandler(channel)
     errorHandler := func(err error) {
         if messageHandler.errorHandler != nil {
-            messageHandler.errorHandler(err)
+            if checkHandlerSingleRun(messageHandler) {
+                if !checkHandlerHasRun(messageHandler) {
+                    messageHandler.errorHandler(err)
+                    messageHandler.hasRun = true
+                    messageHandler.runCount++
+                }
+            } else {
+                messageHandler.errorHandler(err)
+            }
         }
     }
     successHandler := func(msg *Message) {
         if messageHandler.successHandler != nil {
-            messageHandler.successHandler(msg)
+            if checkHandlerSingleRun(messageHandler) {
+                if !checkHandlerHasRun(messageHandler) {
+                    messageHandler.successHandler(msg)
+                    messageHandler.hasRun = true
+                    messageHandler.runCount++
+                }
+            } else {
+                messageHandler.successHandler(msg)
+                messageHandler.runCount++
+            }
         }
     }
     handlerWrapper := func(msg *Message) {
@@ -217,14 +243,15 @@ func (bus *BifrostEventBus) wrapMessageHandler(channel *Channel, direction Direc
             } else {
                 successHandler(msg)
             }
-        }
-        if msg.Direction == direction {
-            if !ignoreId && messageHandler.id.ID() == msg.Id.ID() {
-                successHandler(msg)
+        } else {
+            if msg.Direction == direction {
+                if !ignoreId && messageHandler.id.ID() == msg.Id.ID() {
+                    successHandler(msg)
+                }
             }
-        }
-        if msg.Direction == Error {
-            errorHandler(msg.Error)
+            if msg.Direction == Error {
+                errorHandler(msg.Error)
+            }
         }
     }
 
@@ -234,7 +261,6 @@ func (bus *BifrostEventBus) wrapMessageHandler(channel *Channel, direction Direc
 
 func sendMessageToChannel(channelObject *Channel, message *Message) {
     channelObject.Send(message)
-    channelObject.wg.Wait()
 }
 
 func buildConfig(channelName string, payload interface{}, msgId *uuid.UUID) *messageConfig {
@@ -272,10 +298,7 @@ func (msgHandler *messageHandler) Handle(successHandler MessageHandlerFunction, 
     bus := GetBus().(*BifrostEventBus)
     channelManager := bus.GetChannelManager()
 
-    id, err := channelManager.SubscribeChannelHandler(msgHandler.channel.Name, msgHandler.wrapperFunction, msgHandler.runOnce)
-    if err != nil && errorHandler != nil {
-        errorHandler(err)
-    }
+    id, _ := channelManager.SubscribeChannelHandler(msgHandler.channel.Name, msgHandler.wrapperFunction, msgHandler.runOnce)
     msgHandler.id = id
 
     if msgHandler.requestMessage != nil {
@@ -290,6 +313,7 @@ func (msgHandler *messageHandler) GetId() *uuid.UUID {
 func (msgHandler *messageHandler) Fire() error {
     if msgHandler.requestMessage != nil {
         sendMessageToChannel(msgHandler.channel, msgHandler.requestMessage)
+        msgHandler.channel.wg.Wait()
         return nil
     } else {
         return fmt.Errorf("nothing to fire, request is empty")

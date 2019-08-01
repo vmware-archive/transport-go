@@ -3,6 +3,7 @@ package bus
 
 import (
     "errors"
+    "fmt"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
     "testing"
@@ -118,6 +119,7 @@ func TestEventBus_ListenRequestStream(t *testing.T) {
         evtBusTest.SendResponseMessage(evtbusTestChannelName, "will fail assertion if picked up", handler.GetId())
         evtBusTest.SendResponseMessage(evtbusTestChannelName, "will fail assertion again", handler.GetId())
     }
+    evtbusTestManager.WaitForChannel(evtbusTestChannelName)
     assert.Equal(t, 300, count)
     destroyTestChannel()
 }
@@ -134,22 +136,49 @@ func TestEventBus_TestErrorMessageHandling(t *testing.T) {
     assert.NotNil(t, err)
 
     handler, _ := evtBusTest.ListenStream(evtbusTestChannelName)
-    countSuccess, countError := 0, 0
+    countError := 0
     handler.Handle(
-        func(msg *Message) {
-            countSuccess++
-        },
+        func(msg *Message) {},
         func(err error) {
+            assert.Errorf(t, err, "something went wrong")
             countError++
         })
 
-    for i := 0; i < 300; i++ {
-        evtBusTest.SendResponseMessage(evtbusTestChannelName, "will fail assertion if picked up", handler.GetId())
-        evtBusTest.SendErrorMessage(evtbusTestChannelName, errors.New("something went wrong"), handler.GetId())
+    for i := 0; i < 5; i++ {
+        err := errors.New("something went wrong")
+        evtBusTest.SendErrorMessage(evtbusTestChannelName, err, handler.GetId())
     }
-    assert.Equal(t, 300, countSuccess)
-    assert.Equal(t, 300, countError)
+    evtbusTestManager.WaitForChannel(evtbusTestChannelName)
+    assert.Equal(t, 5, countError)
     destroyTestChannel()
+}
+
+func TestEventBus_ListenFirehose(t *testing.T) {
+    createTestChannel()
+    counter := 0
+
+    responseHandler, _ := evtBusTest.ListenFirehose(evtbusTestChannelName)
+    responseHandler.Handle(
+        func(msg *Message) {
+            counter++
+        },
+        func(err error) {
+            counter++
+        })
+
+    for i := 0; i < 5; i++ {
+        err := errors.New("something went wrong")
+        evtBusTest.SendErrorMessage(evtbusTestChannelName, err, responseHandler.GetId())
+        evtBusTest.SendRequestMessage(evtbusTestChannelName, 0, responseHandler.GetId())
+        evtBusTest.SendResponseMessage(evtbusTestChannelName, 1, responseHandler.GetId())
+    }
+    evtbusTestManager.WaitForChannel(evtbusTestChannelName)
+    assert.Equal(t, 15, counter)
+}
+
+func TestEventBus_ListenFirehoseNoChannel(t *testing.T) {
+    _, err := evtBusTest.ListenFirehose("missing-channel")
+    assert.NotNil(t, err)
 }
 
 func TestEventBus_RequestOnce(t *testing.T) {
@@ -158,20 +187,73 @@ func TestEventBus_RequestOnce(t *testing.T) {
         if message.Direction == Request {
             assert.Equal(t, "who is a pretty baby?", message.Payload.(string))
             config := buildConfig(channel.Name, "why melody is of course", message.Id)
-            channel.Send(generateResponse(config))
+
+            // fire a few times, ensure that the handler only ever picks up a single response.
+            for i := 0; i < 5; i++ {
+                channel.Send(generateResponse(config))
+            }
         }
     }
     id := uuid.New()
     channel.subscribeHandler(handler,
         &channelEventHandler{callBackFunction: handler, runOnce: true, uuid: id})
 
+    count := 0
     responseHandler, _ := evtBusTest.RequestOnce(evtbusTestChannelName, "who is a pretty baby?")
     responseHandler.Handle(
         func(msg *Message) {
-           assert.Equal(t, "why melody is of course", msg.Payload.(string))
+            assert.Equal(t, "why melody is of course", msg.Payload.(string))
+            count++
         },
         func(err error) {})
 
     responseHandler.Fire()
+    assert.Equal(t, 1, count)
+    destroyTestChannel()
+}
+
+func TestEventBus_HandleSingleRunError(t *testing.T) {
+    channel := createTestChannel()
+    handler := func(message *Message) {
+        if message.Direction == Request {
+            config := buildError(channel.Name, fmt.Errorf("whoops!"))
+
+            // fire a few times, ensure that the handler only ever picks up a single response.
+            for i := 0; i < 5; i++ {
+                channel.Send(generateError(config))
+            }
+        }
+    }
+    id := uuid.New()
+    channel.subscribeHandler(handler,
+        &channelEventHandler{callBackFunction: handler, runOnce: true, uuid: id})
+
+    count := 0
+    responseHandler, _ := evtBusTest.RequestOnce(evtbusTestChannelName, 0)
+    responseHandler.Handle(
+        func(msg *Message) {},
+        func(err error) {
+            assert.Error(t, err, "whoops!")
+            count++
+        })
+
+    responseHandler.Fire()
+    assert.Equal(t, 1, count)
+    destroyTestChannel()
+}
+
+func TestEventBus_RequestOnceNoChannel(t *testing.T) {
+    _, err := evtBusTest.RequestOnce("missing-channel", 0)
+    assert.NotNil(t, err)
+}
+
+func TestEventBus_HandlerWithoutRequestToFire(t *testing.T) {
+    createTestChannel()
+    responseHandler, _ := evtBusTest.ListenFirehose(evtbusTestChannelName)
+    responseHandler.Handle(
+        func(msg *Message) {},
+        func(err error) {})
+    err := responseHandler.Fire()
+    assert.Errorf(t, err, "nothing to fire, request is empty")
     destroyTestChannel()
 }

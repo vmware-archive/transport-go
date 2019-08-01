@@ -95,32 +95,6 @@ func TestChannel_SendMultipleMessages(t *testing.T) {
     assert.Equal(t, 3, counter)
 }
 
-func TestChannel_SendMultipleMessagesSingleRunHandler(t *testing.T) {
-
-    channel := NewChannel(testChannelName)
-    counter := 0
-    handler := func(message *Message) {
-        assert.Equal(t, message.Payload.(string), "chewy louie")
-        assert.Equal(t, message.Channel, testChannelName)
-        counter++
-    }
-
-    channel.subscribeHandler(handler,
-        &channelEventHandler{callBackFunction: handler, runOnce: true, uuid: uuid.New()})
-    id := uuid.New()
-    var message = &Message{
-        Id:        &id,
-        Payload:   "chewy louie",
-        Channel:   testChannelName,
-        Direction: Request}
-
-    channel.Send(message)
-    channel.Send(message)
-    channel.Send(message)
-    channel.wg.Wait()
-    assert.Equal(t, 1, counter)
-}
-
 func TestChannel_MultiHandlerSingleMessage(t *testing.T) {
 
     channel := NewChannel(testChannelName)

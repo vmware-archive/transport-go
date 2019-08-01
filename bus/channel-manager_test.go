@@ -105,3 +105,9 @@ func TestChannelManager_UnsubscribeChannelHandlerNoId(t *testing.T) {
     assert.NotNil(t, err)
     assert.Len(t, channel.eventHandlers, 1)
 }
+
+func TestChannelManager_TestWaitForGroupOnBadChannel(t *testing.T) {
+    testChannelManager = createManager()
+    err := testChannelManager.WaitForChannel("unknown")
+    assert.Error(t, err, "no such channel as 'unknown'")
+}
