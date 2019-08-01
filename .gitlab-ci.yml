@@ -1,0 +1,25 @@
+image: autogen-docker-local.artifactory.eng.vmware.com/autogen-builder:1.4
+
+services:
+  - name: docker:dind
+
+stages:
+  - build-test
+
+build:
+  stage: build-test
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_DRIVER: overlay2
+  script:
+    - mkdir -p $GOPATH/src/bifrost
+    - cp -rf . $GOPATH/src/bifrost/ && cd $GOPATH/src/bifrost
+    - go get ./...
+    - ./build-bifrost.sh -a amd64 -o linux
+    - mkdir -p $CI_PROJECT_DIR/bin
+    - cp -rvf /tmp/bifrost-dist/* $CI_PROJECT_DIR/bin
+    - ls -la $CI_PROJECT_DIR/bin
+    - go test ./...
+  artifacts:
+    paths:
+      - ./bin

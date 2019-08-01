@@ -21,35 +21,7 @@ type EventBus interface {
     ListenRequestStream(channelName string) (MessageHandler, error)
     ListenOnce(channelName string) (MessageHandler, error)
     RequestOnce(channelName string, payload interface{}) (MessageHandler, error)
-    //RequestStream(channelName string, payload interface{}) (MessageHandler, error)
-}
-
-// Signature used for all functions used on bus stream APIs to Handle messages.
-type MessageHandlerFunction func(*Message)
-
-// Signature used for all functions used on bus stream APIs to Handle errors.
-type MessageErrorFunction func(error)
-
-type MessageHandler interface {
-    GetId() *uuid.UUID
-    Handle(successHandler MessageHandlerFunction, errorHandler MessageErrorFunction)
-    Fire() error
-    //close()
-}
-
-type messageHandler struct {
-    id              *uuid.UUID
-    eventCount      int64
-    closed          bool
-    channel         *Channel
-    requestMessage  *Message
-    runOnce         bool
-    hasRun          bool
-    runCount        int
-    ignoreId        bool
-    wrapperFunction MessageHandlerFunction
-    successHandler  MessageHandlerFunction
-    errorHandler    MessageErrorFunction
+    RequestStream(channelName string, payload interface{}) (MessageHandler, error)
 }
 
 var once sync.Once
@@ -58,23 +30,23 @@ var busInstance EventBus
 // Get a reference to the EventBus.
 func GetBus() EventBus {
     once.Do(func() {
-        bf := new(BifrostEventBus)
+        bf := new(bifrostEventBus)
         bf.init()
         busInstance = bf
     })
     return busInstance
 }
 
-type BifrostEventBus struct {
+type bifrostEventBus struct {
     ChannelManager ChannelManager
     Id             uuid.UUID
 }
 
-func (bus *BifrostEventBus) GetId() *uuid.UUID {
+func (bus *bifrostEventBus) GetId() *uuid.UUID {
     return &bus.Id
 }
 
-func (bus *BifrostEventBus) init() {
+func (bus *bifrostEventBus) init() {
 
     bus.Id = uuid.New()
     bus.ChannelManager = new(busChannelManager)
@@ -83,13 +55,13 @@ func (bus *BifrostEventBus) init() {
 }
 
 // Get a pointer to the ChannelManager for managing Channels.
-func (bus *BifrostEventBus) GetChannelManager() ChannelManager {
+func (bus *bifrostEventBus) GetChannelManager() ChannelManager {
     return bus.ChannelManager
 }
 
 // Send a Response type (inbound) message on channel, with supplied payload.
 // Throws error if the channel does not exist.
-func (bus *BifrostEventBus) SendResponseMessage(channelName string, payload interface{}, id *uuid.UUID) error {
+func (bus *bifrostEventBus) SendResponseMessage(channelName string, payload interface{}, id *uuid.UUID) error {
     channelObject, err := bus.ChannelManager.GetChannel(channelName)
     if err != nil {
         return err
@@ -102,7 +74,7 @@ func (bus *BifrostEventBus) SendResponseMessage(channelName string, payload inte
 
 // Send a Request type message (outbound) message on channel, with supplied payload.
 // Throws error if the channel does not exist.
-func (bus *BifrostEventBus) SendRequestMessage(channelName string, payload interface{}, id *uuid.UUID) error {
+func (bus *bifrostEventBus) SendRequestMessage(channelName string, payload interface{}, id *uuid.UUID) error {
     channelObject, err := bus.ChannelManager.GetChannel(channelName)
     if err != nil {
         return err
@@ -115,7 +87,7 @@ func (bus *BifrostEventBus) SendRequestMessage(channelName string, payload inter
 
 // Send a Error type message (outbound) message on channel, with supplied error
 // Throws error if the channel does not exist.
-func (bus *BifrostEventBus) SendErrorMessage(channelName string, err error, id *uuid.UUID) error {
+func (bus *bifrostEventBus) SendErrorMessage(channelName string, err error, id *uuid.UUID) error {
     channelObject, chanErr := bus.ChannelManager.GetChannel(channelName)
     if chanErr != nil {
         return err
@@ -133,7 +105,7 @@ func (bus *BifrostEventBus) SendErrorMessage(channelName string, err error, id *
 //  handler, err := bus.ListenStream("my-channel")
 //  // ...
 //  handler.close() // this will close the stream.
-func (bus *BifrostEventBus) ListenStream(channelName string) (MessageHandler, error) {
+func (bus *bifrostEventBus) ListenStream(channelName string) (MessageHandler, error) {
     channelManager := bus.ChannelManager
     channel, err := channelManager.GetChannel(channelName)
     if err != nil {
@@ -150,7 +122,7 @@ func (bus *BifrostEventBus) ListenStream(channelName string) (MessageHandler, er
 //  handler, err := bus.ListenRequestStream("my-channel")
 //  // ...
 //  handler.close() // this will close the stream.
-func (bus *BifrostEventBus) ListenRequestStream(channelName string) (MessageHandler, error) {
+func (bus *bifrostEventBus) ListenRequestStream(channelName string) (MessageHandler, error) {
     channelManager := bus.ChannelManager
     channel, err := channelManager.GetChannel(channelName)
     if err != nil {
@@ -160,7 +132,7 @@ func (bus *BifrostEventBus) ListenRequestStream(channelName string) (MessageHand
     return messageHandler, nil
 }
 
-func (bus *BifrostEventBus) ListenFirehose(channelName string) (MessageHandler, error) {
+func (bus *bifrostEventBus) ListenFirehose(channelName string) (MessageHandler, error) {
     channelManager := bus.ChannelManager
     channel, err := channelManager.GetChannel(channelName)
     if err != nil {
@@ -171,7 +143,7 @@ func (bus *BifrostEventBus) ListenFirehose(channelName string) (MessageHandler, 
 }
 
 // Will listen for a single Response message on the channel before un-subscribing automatically.
-func (bus *BifrostEventBus) ListenOnce(channelName string) (MessageHandler, error) {
+func (bus *bifrostEventBus) ListenOnce(channelName string) (MessageHandler, error) {
     channelManager := bus.ChannelManager
     channel, err := channelManager.GetChannel(channelName)
     if err != nil {
@@ -183,8 +155,8 @@ func (bus *BifrostEventBus) ListenOnce(channelName string) (MessageHandler, erro
 }
 
 // Send a request message with payload and wait for and Handle a single response message.
-// Returns MessageHandler
-func (bus *BifrostEventBus) RequestOnce(channelName string, payload interface{}) (MessageHandler, error) {
+// Returns MessageHandler or error if the channel is unknown
+func (bus *bifrostEventBus) RequestOnce(channelName string, payload interface{}) (MessageHandler, error) {
     channelManager := bus.ChannelManager
     channel, err := channelManager.GetChannel(channelName)
     if err != nil {
@@ -199,6 +171,23 @@ func (bus *BifrostEventBus) RequestOnce(channelName string, payload interface{})
     return messageHandler, nil
 }
 
+// Send a request message with payload and wait for and Handle all response messages with that ID.
+// Returns MessageHandler or error if channel is unknown
+func (bus *bifrostEventBus) RequestStream(channelName string, payload interface{}) (MessageHandler, error) {
+    channelManager := bus.ChannelManager
+    channel, err := channelManager.GetChannel(channelName)
+    if err != nil {
+        return nil, err
+    }
+
+    messageHandler := bus.wrapMessageHandler(channel, Response, false, false)
+    config := buildConfig(channelName, payload, nil)
+    message := generateRequest(config)
+    messageHandler.requestMessage = message
+    messageHandler.runOnce = false
+    return messageHandler, nil
+}
+
 func checkHandlerHasRun(handler *messageHandler) bool {
     return handler.hasRun
 }
@@ -207,7 +196,7 @@ func checkHandlerSingleRun(handler *messageHandler) bool {
     return handler.runOnce
 }
 
-func (bus *BifrostEventBus) wrapMessageHandler(channel *Channel, direction Direction, ignoreId bool, allTraffic bool) *messageHandler {
+func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direction, ignoreId bool, allTraffic bool) *messageHandler {
     messageHandler := createMessageHandler(channel)
     errorHandler := func(err error) {
         if messageHandler.errorHandler != nil {
@@ -290,32 +279,4 @@ func createMessageHandler(channel *Channel) *messageHandler {
     messageHandler := new(messageHandler)
     messageHandler.channel = channel
     return messageHandler
-}
-
-func (msgHandler *messageHandler) Handle(successHandler MessageHandlerFunction, errorHandler MessageErrorFunction) {
-    msgHandler.successHandler = successHandler
-    msgHandler.errorHandler = errorHandler
-    bus := GetBus().(*BifrostEventBus)
-    channelManager := bus.GetChannelManager()
-
-    id, _ := channelManager.SubscribeChannelHandler(msgHandler.channel.Name, msgHandler.wrapperFunction, msgHandler.runOnce)
-    msgHandler.id = id
-
-    if msgHandler.requestMessage != nil {
-        msgHandler.requestMessage.Id = id // align handler and message id.
-    }
-}
-
-func (msgHandler *messageHandler) GetId() *uuid.UUID {
-    return msgHandler.id
-}
-
-func (msgHandler *messageHandler) Fire() error {
-    if msgHandler.requestMessage != nil {
-        sendMessageToChannel(msgHandler.channel, msgHandler.requestMessage)
-        msgHandler.channel.wg.Wait()
-        return nil
-    } else {
-        return fmt.Errorf("nothing to fire, request is empty")
-    }
 }
