@@ -19,6 +19,7 @@ type EventBus interface {
     ListenStream(channelName string) (MessageHandler, error)
     ListenFirehose(channelName string) (MessageHandler, error)
     ListenRequestStream(channelName string) (MessageHandler, error)
+    ListenRequestOnce(channelName string) (MessageHandler, error)
     ListenOnce(channelName string) (MessageHandler, error)
     RequestOnce(channelName string, payload interface{}) (MessageHandler, error)
     RequestStream(channelName string, payload interface{}) (MessageHandler, error)
@@ -132,6 +133,19 @@ func (bus *bifrostEventBus) ListenRequestStream(channelName string) (MessageHand
     return messageHandler, nil
 }
 
+// Listen for a single Request (outbound) messages on channel. Handler is closed after a single event.
+// Returns MessageHandler
+func (bus *bifrostEventBus) ListenRequestOnce(channelName string) (MessageHandler, error) {
+    channelManager := bus.ChannelManager
+    channel, err := channelManager.GetChannel(channelName)
+    if err != nil {
+        return nil, err
+    }
+    messageHandler := bus.wrapMessageHandler(channel, Request, false, false)
+    messageHandler.runOnce = true
+    return messageHandler, nil
+}
+
 func (bus *bifrostEventBus) ListenFirehose(channelName string) (MessageHandler, error) {
     channelManager := bus.ChannelManager
     channel, err := channelManager.GetChannel(channelName)
@@ -202,9 +216,9 @@ func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direc
         if messageHandler.errorHandler != nil {
             if checkHandlerSingleRun(messageHandler) {
                 if !checkHandlerHasRun(messageHandler) {
-                    messageHandler.errorHandler(err)
                     messageHandler.hasRun = true
                     messageHandler.runCount++
+                    messageHandler.errorHandler(err)
                 }
             } else {
                 messageHandler.errorHandler(err)
@@ -215,17 +229,18 @@ func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direc
         if messageHandler.successHandler != nil {
             if checkHandlerSingleRun(messageHandler) {
                 if !checkHandlerHasRun(messageHandler) {
-                    messageHandler.successHandler(msg)
                     messageHandler.hasRun = true
                     messageHandler.runCount++
+                    messageHandler.successHandler(msg)
                 }
             } else {
-                messageHandler.successHandler(msg)
                 messageHandler.runCount++
+                messageHandler.successHandler(msg)
             }
         }
     }
     handlerWrapper := func(msg *Message) {
+        dir := direction
         if allTraffic {
             if msg.Direction == Error {
                 errorHandler(msg.Error)
@@ -233,10 +248,11 @@ func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direc
                 successHandler(msg)
             }
         } else {
-            if msg.Direction == direction {
-                if !ignoreId && messageHandler.id.ID() == msg.Id.ID() {
+            if msg.Direction == dir {
+                // TODO: look into this, we will need ID filters.
+                //if !ignoreId && handler.id.ID() == msg.Id.ID() {
                     successHandler(msg)
-                }
+                //}
             }
             if msg.Direction == Error {
                 errorHandler(msg.Error)

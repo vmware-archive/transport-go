@@ -58,12 +58,15 @@ func (channel *Channel) Send(message *Message) {
         // copy slice to ensure that removed handler is still fired.
         handlerDuplicate := make([]*channelEventHandler, 0, len(eventHandlers))
         handlerDuplicate = append(handlerDuplicate, eventHandlers...)
-        for n, eventHandler := range handlerDuplicate {
+        for n, eventHandler := range handlerDuplicate{
             if eventHandler.runOnce && eventHandler.hasRun {
                 channel.removeEventHandler(n) // remove from slice.
             }
-            channel.wg.Add(1)
-            go channel.sendMessageToHandler(eventHandler, message)
+           // if message.Id.ID() == eventHandler.uuid.ID() {
+                channel.wg.Add(1)
+                go channel.sendMessageToHandler(eventHandler, message)
+            //}
+
         }
     }
 }
@@ -75,9 +78,8 @@ func (channel *Channel) ContainsHandlers() bool {
 
 // Send message to handler function
 func (channel *Channel) sendMessageToHandler(handler *channelEventHandler, message *Message) {
-    defer channel.wg.Done()
     handler.callBackFunction(message)
-    handler.hasRun = true
+    channel.wg.Done()
 }
 
 // Subscribe a new handler function.

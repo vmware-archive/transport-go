@@ -124,6 +124,25 @@ func TestEventBus_ListenRequestStream(t *testing.T) {
     destroyTestChannel()
 }
 
+func TestEventBus_ListenRequestOnce(t *testing.T) {
+    createTestChannel()
+    handler, _ := evtBusTest.ListenRequestOnce(evtbusTestChannelName)
+    count := 0
+    handler.Handle(
+        func(msg *Message) {
+            assert.Equal(t, "hello melody", msg.Payload.(string))
+            count++
+        },
+        func(err error) {})
+
+    for i := 0; i < 5; i++ {
+        evtBusTest.SendRequestMessage(evtbusTestChannelName, "hello melody", handler.GetId())
+    }
+    evtbusTestManager.WaitForChannel(evtbusTestChannelName)
+    assert.Equal(t, 1, count)
+    destroyTestChannel()
+}
+
 func TestEventBus_ListenRequestStreamNoChannel(t *testing.T) {
     _, err := evtBusTest.ListenRequestStream("missing-channel")
     assert.NotNil(t, err)
@@ -182,21 +201,15 @@ func TestEventBus_ListenFirehoseNoChannel(t *testing.T) {
 }
 
 func TestEventBus_RequestOnce(t *testing.T) {
-    channel := createTestChannel()
-    handler := func(message *Message) {
-        if message.Direction == Request {
-            assert.Equal(t, "who is a pretty baby?", message.Payload.(string))
-            config := buildConfig(channel.Name, "why melody is of course", message.Id)
+    createTestChannel()
 
-            // fire a few times, ensure that the handler only ever picks up a single response.
-            for i := 0; i < 5; i++ {
-                channel.Send(generateResponse(config))
-            }
-        }
-    }
-    id := uuid.New()
-    channel.subscribeHandler(handler,
-        &channelEventHandler{callBackFunction: handler, runOnce: true, uuid: id})
+    handler, _ := evtBusTest.ListenRequestStream(evtbusTestChannelName)
+    handler.Handle(
+        func(msg *Message) {
+            assert.Equal(t, "who is a pretty baby?", msg.Payload.(string))
+            evtBusTest.SendResponseMessage(evtbusTestChannelName, "why melody is of course", msg.Id)
+        },
+        func(err error) {})
 
     count := 0
     responseHandler, _ := evtBusTest.RequestOnce(evtbusTestChannelName, "who is a pretty baby?")
