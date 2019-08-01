@@ -1,4 +1,4 @@
-image: autogen-docker-local.artifactory.eng.vmware.com/autogen-builder:1.4
+image: autogen-docker-local.artifactory.eng.vmware.com/autogen-builder:1.5
 
 services:
   - name: docker:18-dind
