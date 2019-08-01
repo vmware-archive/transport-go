@@ -1,11 +1,11 @@
-#Bifröst for Go
+# Bifröst for Go
 
-## Using
+## Using the Bifröst
 
 To create an instance of the bus
 
 ```go
-bus := GetBus()
+bf := bus.GetBus()
 ```
 
 The API is pretty simple.
@@ -28,12 +28,12 @@ type EventBus interface {
 
 - All methods throw an `error` if the channel does not yet exist.
 
-##Managing Channels
+## Managing Channels
 
 The `ChannelManager` interface on the `EventBus` interface facilitates all Channel operations.
 
 ```go
-channelManager := bus.GetChannelManager()
+channelManager := bf.GetChannelManager()
 ```
 
 The `ChannelManager` interface is pretty simple.
@@ -52,11 +52,57 @@ type ChannelManager interface {
 }
 ```
 
-###Creating Channels
+### Creating Channels
 
 The `CreateChannel` method will create a new channel with the name "some-channel". It will return a pointer to a
 `Channel` object. However you don't need to hold on to that pointer if you dont want.
 
 ```go
 channel := channelManager.CreateChanel("some-channel")
+```
+
+## Simple Example
+
+A simple ping pong looks a little like this.
+
+```go
+// listen for a single request on 'some-channel'
+bf := bus.GetBus()
+channel := "some-channel"
+bf.GetChannelManager().CreateChannel(channel)
+
+// listen for a single request on 'some-channel'
+requestHandler, _ := bf.ListenRequestStream(channel)
+requestHandler.Handle(
+    func(msg *bus.Message) {
+        pingContent := msg.Payload.(string)
+        fmt.Printf("\nPing: %s\n", pingContent)
+        
+        // send a response back.
+        bf.SendResponseMessage(channel, pingContent , msg.Id)
+    },
+    func(err error) {
+        // something went wrong...
+    })
+
+// send a request to 'some-channel' and handle a single response
+responseHandler, _ := bf.RequestOnce(channel, "Woo!")
+responseHandler.Handle(
+    func(msg *bus.Message) {
+        fmt.Printf("Pong: %s", msg.Payload.(string))
+    },
+    func(err error) {
+        // something went wrong...
+    })
+
+// fire the request.
+responseHandler.Fire()
+```
+
+This will output: 
+
+```text
+🌈 Bifröst booted with id [e495e5d5-2b72-46dd-8013-d49049bd4800]
+Ping: Woo!
+Pong: Woo!
 ```
