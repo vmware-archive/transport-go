@@ -17,7 +17,7 @@ build:
     - go get ./...
     - ./build-bifrost.sh -a amd64 -o linux
     - mkdir -p $CI_PROJECT_DIR/bin
-    - cp -rvf /tmp/bifrost-dist/* $CI_PROJECT_DIR/bin
+    - cp -rvf /tmp/autogen-dist/* $CI_PROJECT_DIR/bin
     - ls -la $CI_PROJECT_DIR/bin
     - go test ./...
   artifacts:
