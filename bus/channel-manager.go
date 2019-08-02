@@ -67,10 +67,9 @@ func (manager *busChannelManager) SubscribeChannelHandler(channelName string, fn
     if err != nil {
         return nil, err
     }
-
     id := uuid.New()
     channel.subscribeHandler(fn,
-        &channelEventHandler{callBackFunction: fn, runOnce: runOnce, uuid: id})
+        &channelEventHandler{callBackFunction: fn, runOnce: runOnce, uuid: &id})
 
     return &id, nil
 }

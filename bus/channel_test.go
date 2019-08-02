@@ -18,16 +18,16 @@ func TestChannel_CheckChannelCreation(t *testing.T) {
 }
 
 func TestChannel_SubscribeHandler(t *testing.T) {
-
+    id := uuid.New()
     channel := NewChannel(testChannelName)
     handler := func(*Message) {}
     channel.subscribeHandler(handler,
-        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
     assert.Equal(t, 1, len(channel.eventHandlers))
 
     channel.subscribeHandler(handler,
-        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
 
 
@@ -36,19 +36,19 @@ func TestChannel_SubscribeHandler(t *testing.T) {
 
 func TestChannel_HandlerCheck(t *testing.T) {
     channel := NewChannel(testChannelName)
-
+    id := uuid.New()
     assert.False(t, channel.ContainsHandlers())
 
     handler := func(*Message) {}
     channel.subscribeHandler(handler,
-        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
 
     assert.True(t, channel.ContainsHandlers())
 }
 
 func TestChannel_SendMessage(t *testing.T) {
-
+    id := uuid.New()
     channel := NewChannel(testChannelName)
     handler := func(message *Message) {
         assert.Equal(t, message.Payload.(string), "pickled eggs")
@@ -56,9 +56,8 @@ func TestChannel_SendMessage(t *testing.T) {
     }
 
     channel.subscribeHandler(handler,
-        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
-    id := uuid.New()
     var message = &Message{
         Id:        &id,
         Payload:   "pickled eggs",
@@ -70,7 +69,7 @@ func TestChannel_SendMessage(t *testing.T) {
 }
 
 func TestChannel_SendMultipleMessages(t *testing.T) {
-
+    id := uuid.New()
     channel := NewChannel(testChannelName)
     counter := 0
     handler := func(message *Message) {
@@ -80,8 +79,7 @@ func TestChannel_SendMultipleMessages(t *testing.T) {
     }
 
     channel.subscribeHandler(handler,
-        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
-    id := uuid.New()
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
     var message = &Message{
         Id:        &id,
         Payload:   "chewy louie",
@@ -96,7 +94,7 @@ func TestChannel_SendMultipleMessages(t *testing.T) {
 }
 
 func TestChannel_MultiHandlerSingleMessage(t *testing.T) {
-
+    id := uuid.New()
     channel := NewChannel(testChannelName)
     counterA, counterB, counterC := 0, 0, 0
     handlerA := func(message *Message) {
@@ -110,15 +108,14 @@ func TestChannel_MultiHandlerSingleMessage(t *testing.T) {
     }
 
     channel.subscribeHandler(handlerA,
-        &channelEventHandler{callBackFunction: handlerA, runOnce: false, uuid: uuid.New()})
+        &channelEventHandler{callBackFunction: handlerA, runOnce: false, uuid: &id})
 
     channel.subscribeHandler(handlerB,
-        &channelEventHandler{callBackFunction: handlerB, runOnce: false, uuid: uuid.New()})
+        &channelEventHandler{callBackFunction: handlerB, runOnce: false, uuid: &id})
 
     channel.subscribeHandler(handlerC,
-        &channelEventHandler{callBackFunction: handlerC, runOnce: false, uuid: uuid.New()})
+        &channelEventHandler{callBackFunction: handlerC, runOnce: false, uuid: &id})
 
-    id := uuid.New()
     var message = &Message{
         Id:        &id,
         Payload:   "late night munchies",
@@ -157,10 +154,10 @@ func TestChannel_RemoveEventHandler(t *testing.T) {
     idB := uuid.New()
 
     channel.subscribeHandler(handlerA,
-        &channelEventHandler{callBackFunction: handlerA, runOnce: false, uuid: idA})
+        &channelEventHandler{callBackFunction: handlerA, runOnce: false, uuid: &idA})
 
     channel.subscribeHandler(handlerB,
-        &channelEventHandler{callBackFunction: handlerB, runOnce: false, uuid: idB})
+        &channelEventHandler{callBackFunction: handlerB, runOnce: false, uuid: &idB})
 
     assert.Len(t, channel.eventHandlers, 2)
 
@@ -184,10 +181,10 @@ func TestChannel_RemoveEventHandlerNoHandlers(t *testing.T) {
 
 func TestChannel_RemoveEventHandlerOOBIndex(t *testing.T) {
     channel := NewChannel(testChannelName)
-
+    id := uuid.New()
     handler := func(*Message) {}
     channel.subscribeHandler(handler,
-        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: uuid.New()})
+        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
     channel.removeEventHandler(999)
     assert.Len(t, channel.eventHandlers, 1)

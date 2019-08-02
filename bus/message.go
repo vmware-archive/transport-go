@@ -7,24 +7,25 @@ import "github.com/google/uuid"
 type Direction int
 
 const (
-    Request Direction = 0
+    Request  Direction = 0
     Response Direction = 1
-    Error Direction = 2
+    Error    Direction = 2
 )
 
 // A Message is the encapsulation of the event sent on the bus.
 // It holds a direction, errors, a payload and more.
 type Message struct {
-    Id          *uuid.UUID      `json:"id"`
-    Channel     string          `json:"channel"`
-    Payload     interface{}     `json:"payload"`
-    Error       error           `json:"error"`
-    Direction   Direction       `json:"direction"`
-    Headers     []MessageHeader `json:"headers"`
+    Id            *uuid.UUID      `json:"id"`
+    DestinationId *uuid.UUID      `json:"destinationId"`
+    Channel       string          `json:"channel"`
+    Payload       interface{}     `json:"payload"`
+    Error         error           `json:"error"`
+    Direction     Direction       `json:"direction"`
+    Headers       []MessageHeader `json:"headers"`
 }
 
 // A Message header can contain any meta data.
 type MessageHeader struct {
-    Label       string
-    Value       string
+    Label string
+    Value string
 }

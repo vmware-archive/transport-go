@@ -13,15 +13,15 @@ import (
 type EventBus interface {
     GetId() *uuid.UUID
     GetChannelManager() ChannelManager
-    SendRequestMessage(channelName string, payload interface{}, id *uuid.UUID) error
-    SendResponseMessage(channelName string, payload interface{}, id *uuid.UUID) error
-    SendErrorMessage(channelName string, err error, id *uuid.UUID) error
+    SendRequestMessage(channelName string, payload interface{}, destinationId *uuid.UUID) error
+    SendResponseMessage(channelName string, payload interface{}, destinationId *uuid.UUID) error
+    SendErrorMessage(channelName string, err error, destinationId *uuid.UUID) error
     ListenStream(channelName string) (MessageHandler, error)
     ListenFirehose(channelName string) (MessageHandler, error)
-    ListenRequestStream(channelName string) (MessageHandler, error)
+    ListenRequestStream(channelName string, destinationId *uuid.UUID) (MessageHandler, error)
     ListenRequestOnce(channelName string) (MessageHandler, error)
     ListenOnce(channelName string) (MessageHandler, error)
-    RequestOnce(channelName string, payload interface{}) (MessageHandler, error)
+    RequestOnce(channelName string, payload interface{}, destinationId *uuid.UUID) (MessageHandler, error)
     RequestStream(channelName string, payload interface{}) (MessageHandler, error)
 }
 
@@ -62,12 +62,12 @@ func (bus *bifrostEventBus) GetChannelManager() ChannelManager {
 
 // Send a Response type (inbound) message on channel, with supplied payload.
 // Throws error if the channel does not exist.
-func (bus *bifrostEventBus) SendResponseMessage(channelName string, payload interface{}, id *uuid.UUID) error {
+func (bus *bifrostEventBus) SendResponseMessage(channelName string, payload interface{}, destId *uuid.UUID) error {
     channelObject, err := bus.ChannelManager.GetChannel(channelName)
     if err != nil {
         return err
     }
-    config := buildConfig(channelName, payload, id)
+    config := buildConfig(channelName, payload, destId)
     message := generateResponse(config)
     sendMessageToChannel(channelObject, message)
     return nil
@@ -75,12 +75,12 @@ func (bus *bifrostEventBus) SendResponseMessage(channelName string, payload inte
 
 // Send a Request type message (outbound) message on channel, with supplied payload.
 // Throws error if the channel does not exist.
-func (bus *bifrostEventBus) SendRequestMessage(channelName string, payload interface{}, id *uuid.UUID) error {
+func (bus *bifrostEventBus) SendRequestMessage(channelName string, payload interface{}, destId *uuid.UUID) error {
     channelObject, err := bus.ChannelManager.GetChannel(channelName)
     if err != nil {
         return err
     }
-    config := buildConfig(channelName, payload, id)
+    config := buildConfig(channelName, payload, destId)
     message := generateRequest(config)
     sendMessageToChannel(channelObject, message)
     return nil
@@ -88,13 +88,13 @@ func (bus *bifrostEventBus) SendRequestMessage(channelName string, payload inter
 
 // Send a Error type message (outbound) message on channel, with supplied error
 // Throws error if the channel does not exist.
-func (bus *bifrostEventBus) SendErrorMessage(channelName string, err error, id *uuid.UUID) error {
+func (bus *bifrostEventBus) SendErrorMessage(channelName string, err error, destId *uuid.UUID) error {
     channelObject, chanErr := bus.ChannelManager.GetChannel(channelName)
     if chanErr != nil {
         return err
     }
 
-    config := buildError(channelName, err)
+    config := buildError(channelName, err, destId)
     message := generateError(config)
     sendMessageToChannel(channelObject, message)
     return nil
@@ -113,7 +113,7 @@ func (bus *bifrostEventBus) ListenStream(channelName string) (MessageHandler, er
         return nil, err
     }
 
-    messageHandler := bus.wrapMessageHandler(channel, Response, false, false)
+    messageHandler := bus.wrapMessageHandler(channel, Response, false, false, nil)
     return messageHandler, nil
 }
 
@@ -123,13 +123,14 @@ func (bus *bifrostEventBus) ListenStream(channelName string) (MessageHandler, er
 //  handler, err := bus.ListenRequestStream("my-channel")
 //  // ...
 //  handler.close() // this will close the stream.
-func (bus *bifrostEventBus) ListenRequestStream(channelName string) (MessageHandler, error) {
+func (bus *bifrostEventBus) ListenRequestStream(channelName string, destId *uuid.UUID) (MessageHandler, error) {
     channelManager := bus.ChannelManager
     channel, err := channelManager.GetChannel(channelName)
     if err != nil {
         return nil, err
     }
-    messageHandler := bus.wrapMessageHandler(channel, Request, false, false)
+    destId = checkForSuppliedId(destId)
+    messageHandler := bus.wrapMessageHandler(channel, Request, false, false, destId)
     return messageHandler, nil
 }
 
@@ -141,7 +142,8 @@ func (bus *bifrostEventBus) ListenRequestOnce(channelName string) (MessageHandle
     if err != nil {
         return nil, err
     }
-    messageHandler := bus.wrapMessageHandler(channel, Request, false, false)
+    id := checkForSuppliedId(nil)
+    messageHandler := bus.wrapMessageHandler(channel, Request, false, false, id)
     messageHandler.runOnce = true
     return messageHandler, nil
 }
@@ -152,7 +154,7 @@ func (bus *bifrostEventBus) ListenFirehose(channelName string) (MessageHandler, 
     if err != nil {
         return nil, err
     }
-    messageHandler := bus.wrapMessageHandler(channel, Request, true, true)
+    messageHandler := bus.wrapMessageHandler(channel, Request, true, true, nil)
     return messageHandler, nil
 }
 
@@ -163,22 +165,23 @@ func (bus *bifrostEventBus) ListenOnce(channelName string) (MessageHandler, erro
     if err != nil {
         return nil, err
     }
-    messageHandler := bus.wrapMessageHandler(channel, Response, false, false)
+    id := checkForSuppliedId(nil)
+    messageHandler := bus.wrapMessageHandler(channel, Response, false, false, id)
     messageHandler.runOnce = true
     return messageHandler, nil
 }
 
 // Send a request message with payload and wait for and Handle a single response message.
 // Returns MessageHandler or error if the channel is unknown
-func (bus *bifrostEventBus) RequestOnce(channelName string, payload interface{}) (MessageHandler, error) {
+func (bus *bifrostEventBus) RequestOnce(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error) {
     channelManager := bus.ChannelManager
     channel, err := channelManager.GetChannel(channelName)
     if err != nil {
         return nil, err
     }
-
-    messageHandler := bus.wrapMessageHandler(channel, Response, false, false)
-    config := buildConfig(channelName, payload, nil)
+    destId = checkForSuppliedId(destId)
+    messageHandler := bus.wrapMessageHandler(channel, Response, false, false, destId)
+    config := buildConfig(channelName, payload, destId)
     message := generateRequest(config)
     messageHandler.requestMessage = message
     messageHandler.runOnce = true
@@ -193,13 +196,21 @@ func (bus *bifrostEventBus) RequestStream(channelName string, payload interface{
     if err != nil {
         return nil, err
     }
-
-    messageHandler := bus.wrapMessageHandler(channel, Response, false, false)
-    config := buildConfig(channelName, payload, nil)
+    id := checkForSuppliedId(nil)
+    messageHandler := bus.wrapMessageHandler(channel, Response, false, false, id)
+    config := buildConfig(channelName, payload, id)
     message := generateRequest(config)
     messageHandler.requestMessage = message
     messageHandler.runOnce = false
     return messageHandler, nil
+}
+
+func checkForSuppliedId(id *uuid.UUID) *uuid.UUID {
+    if id == nil {
+        i := uuid.New()
+        id = &i
+    }
+    return id
 }
 
 func checkHandlerHasRun(handler *messageHandler) bool {
@@ -210,8 +221,8 @@ func checkHandlerSingleRun(handler *messageHandler) bool {
     return handler.runOnce
 }
 
-func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direction, ignoreId bool, allTraffic bool) *messageHandler {
-    messageHandler := createMessageHandler(channel)
+func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direction, ignoreId bool, allTraffic bool, destId *uuid.UUID) *messageHandler {
+    messageHandler := createMessageHandler(channel, destId)
     errorHandler := func(err error) {
         if messageHandler.errorHandler != nil {
             if checkHandlerSingleRun(messageHandler) {
@@ -241,6 +252,7 @@ func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direc
     }
     handlerWrapper := func(msg *Message) {
         dir := direction
+        id := messageHandler.destination
         if allTraffic {
             if msg.Direction == Error {
                 errorHandler(msg.Error)
@@ -249,10 +261,11 @@ func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direc
             }
         } else {
             if msg.Direction == dir {
-                // TODO: look into this, we will need ID filters.
-                //if !ignoreId && handler.id.ID() == msg.Id.ID() {
+
+                // if we're checking for specific traffic, check a destination match is required.
+                if !ignoreId && (msg.DestinationId != nil && id != nil) && (id.ID() == msg.DestinationId.ID()) {
                     successHandler(msg)
-                //}
+                }
             }
             if msg.Direction == Error {
                 errorHandler(msg.Error)
@@ -268,31 +281,31 @@ func sendMessageToChannel(channelObject *Channel, message *Message) {
     channelObject.Send(message)
 }
 
-func buildConfig(channelName string, payload interface{}, msgId *uuid.UUID) *messageConfig {
+func buildConfig(channelName string, payload interface{}, destinationId *uuid.UUID) *messageConfig {
     config := new(messageConfig)
-    var id *uuid.UUID
-    if msgId == nil {
-        i := uuid.New()
-        id = &i
-    }
-    id = msgId
-    config.id = id
+    id := uuid.New()
+    config.id = &id
+    config.destination = destinationId
     config.channel = channelName
     config.payload = payload
     return config
 }
 
-func buildError(channelName string, err error) *messageConfig {
+func buildError(channelName string, err error, destinationId *uuid.UUID) *messageConfig {
     config := new(messageConfig)
     id := uuid.New()
     config.id = &id
+    config.destination = destinationId
     config.channel = channelName
     config.err = err
     return config
 }
 
-func createMessageHandler(channel *Channel) *messageHandler {
+func createMessageHandler(channel *Channel, destinationId *uuid.UUID) *messageHandler {
     messageHandler := new(messageHandler)
     messageHandler.channel = channel
+    id := uuid.New()
+    messageHandler.id = &id
+    messageHandler.destination = destinationId
     return messageHandler
 }

@@ -11,5 +11,5 @@ type channelEventHandler struct {
     runOnce          bool
     hasRun           bool
     runCount         int64
-    uuid             uuid.UUID
+    uuid             *uuid.UUID
 }

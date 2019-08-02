@@ -17,6 +17,7 @@ type MessageErrorFunction func(error)
 // The Fire method will fire the message queued when using RequestOnce or RequestStream
 type MessageHandler interface {
     GetId() *uuid.UUID
+    GetDestinationId() *uuid.UUID
     Handle(successHandler MessageHandlerFunction, errorHandler MessageErrorFunction)
     Fire() error
     //close()
@@ -24,6 +25,7 @@ type MessageHandler interface {
 
 type messageHandler struct {
     id              *uuid.UUID
+    destination     *uuid.UUID
     eventCount      int64
     closed          bool
     channel         *Channel
@@ -41,18 +43,19 @@ func (msgHandler *messageHandler) Handle(successHandler MessageHandlerFunction, 
     msgHandler.successHandler = successHandler
     msgHandler.errorHandler = errorHandler
     bus := GetBus().(*bifrostEventBus)
-    channelManager := bus.GetChannelManager()
+    bus.GetChannelManager().SubscribeChannelHandler(msgHandler.channel.Name, msgHandler.wrapperFunction, msgHandler.runOnce)
 
-    id, _ := channelManager.SubscribeChannelHandler(msgHandler.channel.Name, msgHandler.wrapperFunction, msgHandler.runOnce)
-    msgHandler.id = id
-
-    if msgHandler.requestMessage != nil {
-        msgHandler.requestMessage.Id = id // align handler and message id.
-    }
+    //if msgHandler.requestMessage != nil {
+    //    msgHandler.requestMessage.Id = msgHandler.id // align handler and message id.
+    //}
 }
 
 func (msgHandler *messageHandler) GetId() *uuid.UUID {
     return msgHandler.id
+}
+
+func (msgHandler *messageHandler) GetDestinationId() *uuid.UUID {
+    return msgHandler.destination
 }
 
 func (msgHandler *messageHandler) Fire() error {
