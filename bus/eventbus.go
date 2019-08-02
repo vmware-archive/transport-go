@@ -17,8 +17,10 @@ type EventBus interface {
     SendResponseMessage(channelName string, payload interface{}, destinationId *uuid.UUID) error
     SendErrorMessage(channelName string, err error, destinationId *uuid.UUID) error
     ListenStream(channelName string) (MessageHandler, error)
+    ListenStreamForDestination(channelName string, destinationId *uuid.UUID) (MessageHandler, error)
     ListenFirehose(channelName string) (MessageHandler, error)
-    ListenRequestStream(channelName string, destinationId *uuid.UUID) (MessageHandler, error)
+    ListenRequestStream(channelName string) (MessageHandler, error)
+    ListenRequestStreamForDestination(channelName string, destinationId *uuid.UUID) (MessageHandler, error)
     ListenRequestOnce(channelName string) (MessageHandler, error)
     ListenOnce(channelName string) (MessageHandler, error)
     RequestOnce(channelName string, payload interface{}, destinationId *uuid.UUID) (MessageHandler, error)
@@ -107,13 +109,29 @@ func (bus *bifrostEventBus) SendErrorMessage(channelName string, err error, dest
 //  // ...
 //  handler.close() // this will close the stream.
 func (bus *bifrostEventBus) ListenStream(channelName string) (MessageHandler, error) {
-    channelManager := bus.ChannelManager
-    channel, err := channelManager.GetChannel(channelName)
+    channel, err := getChannelFromManager(bus, channelName)
     if err != nil {
         return nil, err
     }
+    messageHandler := bus.wrapMessageHandler(channel, Response, true, false, nil)
+    return messageHandler, nil
+}
 
-    messageHandler := bus.wrapMessageHandler(channel, Response, false, false, nil)
+// Listen to stream of Response (inbound) messages on channel for a specific destination. Will keep on ticking until closed.
+// Returns MessageHandler
+//  // To close an open stream.
+//  handler, err := bus.ListenStream("my-channel")
+//  // ...
+//  handler.close() // this will close the stream.
+func (bus *bifrostEventBus) ListenStreamForDestination(channelName string, destId *uuid.UUID) (MessageHandler, error) {
+    channel, err := getChannelFromManager(bus, channelName)
+    if err != nil {
+        return nil, err
+    }
+    if destId == nil {
+        return nil, fmt.Errorf("destination cannot be nil")
+    }
+    messageHandler := bus.wrapMessageHandler(channel, Response, false, false, destId)
     return messageHandler, nil
 }
 
@@ -123,22 +141,38 @@ func (bus *bifrostEventBus) ListenStream(channelName string) (MessageHandler, er
 //  handler, err := bus.ListenRequestStream("my-channel")
 //  // ...
 //  handler.close() // this will close the stream.
-func (bus *bifrostEventBus) ListenRequestStream(channelName string, destId *uuid.UUID) (MessageHandler, error) {
-    channelManager := bus.ChannelManager
-    channel, err := channelManager.GetChannel(channelName)
+func (bus *bifrostEventBus) ListenRequestStream(channelName string) (MessageHandler, error) {
+    channel, err := getChannelFromManager(bus, channelName)
     if err != nil {
         return nil, err
     }
-    destId = checkForSuppliedId(destId)
+    messageHandler := bus.wrapMessageHandler(channel, Request, true, false, nil)
+    return messageHandler, nil
+}
+
+// Listen to a stream of Request (outbound) messages on channel for a specific destination. Will keep on ticking until closed.
+// Returns MessageHandler
+//  // To close an open stream.
+//  handler, err := bus.ListenRequestStream("my-channel")
+//  // ...
+//  handler.close() // this will close the stream.
+func (bus *bifrostEventBus) ListenRequestStreamForDestination(channelName string, destId *uuid.UUID) (MessageHandler, error) {
+    channel, err := getChannelFromManager(bus, channelName)
+    if err != nil {
+        return nil, err
+    }
+    if destId == nil {
+        return nil, fmt.Errorf("destination cannot be nil")
+    }
     messageHandler := bus.wrapMessageHandler(channel, Request, false, false, destId)
     return messageHandler, nil
 }
 
+
 // Listen for a single Request (outbound) messages on channel. Handler is closed after a single event.
 // Returns MessageHandler
 func (bus *bifrostEventBus) ListenRequestOnce(channelName string) (MessageHandler, error) {
-    channelManager := bus.ChannelManager
-    channel, err := channelManager.GetChannel(channelName)
+    channel, err := getChannelFromManager(bus, channelName)
     if err != nil {
         return nil, err
     }
@@ -149,8 +183,7 @@ func (bus *bifrostEventBus) ListenRequestOnce(channelName string) (MessageHandle
 }
 
 func (bus *bifrostEventBus) ListenFirehose(channelName string) (MessageHandler, error) {
-    channelManager := bus.ChannelManager
-    channel, err := channelManager.GetChannel(channelName)
+    channel, err := getChannelFromManager(bus, channelName)
     if err != nil {
         return nil, err
     }
@@ -160,8 +193,7 @@ func (bus *bifrostEventBus) ListenFirehose(channelName string) (MessageHandler, 
 
 // Will listen for a single Response message on the channel before un-subscribing automatically.
 func (bus *bifrostEventBus) ListenOnce(channelName string) (MessageHandler, error) {
-    channelManager := bus.ChannelManager
-    channel, err := channelManager.GetChannel(channelName)
+    channel, err := getChannelFromManager(bus, channelName)
     if err != nil {
         return nil, err
     }
@@ -174,8 +206,7 @@ func (bus *bifrostEventBus) ListenOnce(channelName string) (MessageHandler, erro
 // Send a request message with payload and wait for and Handle a single response message.
 // Returns MessageHandler or error if the channel is unknown
 func (bus *bifrostEventBus) RequestOnce(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error) {
-    channelManager := bus.ChannelManager
-    channel, err := channelManager.GetChannel(channelName)
+    channel, err := getChannelFromManager(bus, channelName)
     if err != nil {
         return nil, err
     }
@@ -188,11 +219,16 @@ func (bus *bifrostEventBus) RequestOnce(channelName string, payload interface{},
     return messageHandler, nil
 }
 
+func getChannelFromManager(bus *bifrostEventBus, channelName string) (*Channel, error) {
+    channelManager := bus.ChannelManager
+    channel, err := channelManager.GetChannel(channelName)
+    return channel, err
+}
+
 // Send a request message with payload and wait for and Handle all response messages with that ID.
 // Returns MessageHandler or error if channel is unknown
 func (bus *bifrostEventBus) RequestStream(channelName string, payload interface{}) (MessageHandler, error) {
-    channelManager := bus.ChannelManager
-    channel, err := channelManager.GetChannel(channelName)
+    channel, err := getChannelFromManager(bus, channelName)
     if err != nil {
         return nil, err
     }
@@ -223,6 +259,7 @@ func checkHandlerSingleRun(handler *messageHandler) bool {
 
 func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direction, ignoreId bool, allTraffic bool, destId *uuid.UUID) *messageHandler {
     messageHandler := createMessageHandler(channel, destId)
+    messageHandler.ignoreId = ignoreId
     errorHandler := func(err error) {
         if messageHandler.errorHandler != nil {
             if checkHandlerSingleRun(messageHandler) {
@@ -250,6 +287,7 @@ func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direc
             }
         }
     }
+
     handlerWrapper := func(msg *Message) {
         dir := direction
         id := messageHandler.destination
@@ -261,9 +299,11 @@ func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direc
             }
         } else {
             if msg.Direction == dir {
-
                 // if we're checking for specific traffic, check a destination match is required.
-                if !ignoreId && (msg.DestinationId != nil && id != nil) && (id.ID() == msg.DestinationId.ID()) {
+                if !messageHandler.ignoreId && (msg.DestinationId != nil && id != nil) && (id.ID() == msg.DestinationId.ID()) {
+                    successHandler(msg)
+                }
+                if messageHandler.ignoreId {
                     successHandler(msg)
                 }
             }

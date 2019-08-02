@@ -20,7 +20,7 @@ func main() {
             fmt.Printf("\nPing: %s\n", pingContent)
 
             // send a response back.
-            bf.SendResponseMessage(channel, pingContent , msg.Id)
+            bf.SendResponseMessage(channel, pingContent , msg.DestinationId)
         },
         func(err error) {
             // something went wrong...
