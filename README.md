@@ -1,5 +1,8 @@
 # Bifröst for Go
 
+[![pipeline status](https://gitlab.eng.vmware.com/bifrost/golang/badges/master/pipeline.svg)](https://gitlab.eng.vmware.com/bifrost/golang/commits/master)
+[![coverage report](https://gitlab.eng.vmware.com/bifrost/golang/badges/master/coverage.svg)](https://gitlab.eng.vmware.com/bifrost/golang/commits/master)
+
 ## Using the Bifröst
 
 To create an instance of the bus
