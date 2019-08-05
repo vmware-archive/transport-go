@@ -4,7 +4,8 @@ services:
   - name: docker:18-dind
 
 stages:
-  - build-test
+  - build
+  - test
 
 build:
   stage: build-test
@@ -20,7 +21,15 @@ build:
     - mkdir -p $CI_PROJECT_DIR/bin
     - cp -rvf /tmp/bifrost/* $CI_PROJECT_DIR/bin
     - ls -la $CI_PROJECT_DIR/bin
+  artifacts:
+    paths:
+      - ./bin
+
+test:
+  stage: test
+  script:
     - go test ./...
+    - go test -cover -v ./...
   artifacts:
     paths:
       - ./bin
