@@ -14,15 +14,22 @@ The API is pretty simple.
 type EventBus interface {
     GetId() *uuid.UUID
     GetChannelManager() ChannelManager
-    SendRequestMessage(channelName string, payload interface{}, id *uuid.UUID) error
-    SendResponseMessage(channelName string, payload interface{}, id *uuid.UUID) error
-    SendErrorMessage(channelName string, err error, id *uuid.UUID) error
+    SendRequestMessage(channelName string, payload interface{}, destinationId *uuid.UUID) error
+    SendResponseMessage(channelName string, payload interface{}, destinationId *uuid.UUID) error
+    SendErrorMessage(channelName string, err error, destinationId *uuid.UUID) error
     ListenStream(channelName string) (MessageHandler, error)
+    ListenStreamForDestination(channelName string, destinationId *uuid.UUID) (MessageHandler, error)
     ListenFirehose(channelName string) (MessageHandler, error)
     ListenRequestStream(channelName string) (MessageHandler, error)
+    ListenRequestStreamForDestination(channelName string, destinationId *uuid.UUID) (MessageHandler, error)
+    ListenRequestOnce(channelName string) (MessageHandler, error)
+    ListenRequestOnceForDestination (channelName string, destinationId *uuid.UUID) (MessageHandler, error)
     ListenOnce(channelName string) (MessageHandler, error)
+    ListenOnceForDestination(channelName string, destId *uuid.UUID) (MessageHandler, error)
     RequestOnce(channelName string, payload interface{}) (MessageHandler, error)
+    RequestOnceForDestination(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error)
     RequestStream(channelName string, payload interface{}) (MessageHandler, error)
+    RequestStreamForDestination(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error)
 }
 ```
 

@@ -58,14 +58,12 @@ func (channel *Channel) Send(message *Message) {
         // copy slice to ensure that removed handler is still fired.
         handlerDuplicate := make([]*channelEventHandler, 0, len(eventHandlers))
         handlerDuplicate = append(handlerDuplicate, eventHandlers...)
-        for n, eventHandler := range handlerDuplicate{
+        for n, eventHandler := range handlerDuplicate {
             if eventHandler.runOnce && eventHandler.hasRun {
                 channel.removeEventHandler(n) // remove from slice.
             }
-           // if message.Id.ID() == eventHandler.uuid.ID() {
-                channel.wg.Add(1)
-                go channel.sendMessageToHandler(eventHandler, message)
-            //}
+            channel.wg.Add(1)
+            go channel.sendMessageToHandler(eventHandler, message)
 
         }
     }
