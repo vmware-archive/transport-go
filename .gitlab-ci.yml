@@ -8,7 +8,7 @@ stages:
   - test
 
 build:
-  stage: build-test
+  stage: build-app
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_DRIVER: overlay2
@@ -26,10 +26,7 @@ build:
       - ./bin
 
 test:
-  stage: test
+  stage: test-app
   script:
     - go test ./...
     - go test -cover -v ./...
-  artifacts:
-    paths:
-      - ./bin
