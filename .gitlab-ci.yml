@@ -7,23 +7,20 @@ stages:
   - build
   - test
 
+before_script:
+  - mkdir -p $GOPATH/src/bifrost
+  - cp -rf . $GOPATH/src/bifrost/ && cd $GOPATH/src/bifrost
+  - go get ./...
+  - go get github.com/stretchr/testify/assert
+
 build-app:
   stage: build
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_DRIVER: overlay2
   script:
-    - mkdir -p $GOPATH/src/bifrost
-    - cp -rf . $GOPATH/src/bifrost/ && cd $GOPATH/src/bifrost
-    - go get ./...
-    - go get github.com/stretchr/testify/assert
     - ./build-bifrost.sh -a amd64 -o linux
-    - mkdir -p $CI_PROJECT_DIR/bin
-    - cp -rvf /tmp/bifrost/* $CI_PROJECT_DIR/bin
-    - ls -la $CI_PROJECT_DIR/bin
-  artifacts:
-    paths:
-      - ./bin
+
 
 test-app:
   stage: test
