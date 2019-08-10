@@ -46,7 +46,7 @@ func (msgHandler *messageHandler) Handle(successHandler MessageHandlerFunction, 
     bus.GetChannelManager().SubscribeChannelHandler(msgHandler.channel.Name, msgHandler.wrapperFunction, msgHandler.runOnce)
 
     //if msgHandler.requestMessage != nil {
-    //    msgHandler.requestMessage.Id = msgHandler.id // align handler and message id.
+    //    msgHandler.requestMessage.Id = msgHandler.Id // align handler and message Id.
     //}
 }
 

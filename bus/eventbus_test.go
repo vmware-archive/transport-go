@@ -10,7 +10,7 @@ import (
 )
 
 var evtBusTest EventBus
-var evtbusTestChannelName string = "test-channel"
+var evtbusTestChannelName string = "test-Channel"
 var evtbusTestManager ChannelManager
 
 func init() {
@@ -38,12 +38,12 @@ func TestEventBus_Boot(t *testing.T) {
 }
 
 func TestEventBus_SendResponseMessageNoChannel(t *testing.T) {
-    err := evtBusTest.SendResponseMessage("channel-not-here", "hello melody", nil)
+    err := evtBusTest.SendResponseMessage("Channel-not-here", "hello melody", nil)
     assert.NotNil(t, err)
 }
 
 func TestEventBus_SendRequestMessageNoChannel(t *testing.T) {
-    err := evtBusTest.SendRequestMessage("channel-not-here", "hello melody", nil)
+    err := evtBusTest.SendRequestMessage("Channel-not-here", "hello melody", nil)
     assert.NotNil(t, err)
 }
 
@@ -101,7 +101,7 @@ func TestBifrostEventBus_ListenStreamForDestination(t *testing.T) {
 }
 
 func TestEventBus_ListenStreamNoChannel(t *testing.T) {
-    _, err := evtBusTest.ListenStream("missing-channel")
+    _, err := evtBusTest.ListenStream("missing-Channel")
     assert.NotNil(t, err)
 }
 
@@ -156,12 +156,12 @@ func TestEventBus_ListenOnceForDestination(t *testing.T) {
 
 
 func TestEventBus_ListenOnceNoChannel(t *testing.T) {
-    _, err := evtBusTest.ListenOnce("missing-channel")
+    _, err := evtBusTest.ListenOnce("missing-Channel")
     assert.NotNil(t, err)
 }
 
 func TestEventBus_ListenOnceForDestinationNoChannel(t *testing.T) {
-    _, err := evtBusTest.ListenOnceForDestination("missing-channel", nil)
+    _, err := evtBusTest.ListenOnceForDestination("missing-Channel", nil)
     assert.NotNil(t, err)
 }
 
@@ -220,7 +220,7 @@ func TestEventBus_ListenRequestStreamForDestination(t *testing.T) {
 }
 
 func TestEventBus_ListenStreamForDestinationNoChannel(t *testing.T) {
-    _, err := evtBusTest.ListenStreamForDestination("missing-channel", nil)
+    _, err := evtBusTest.ListenStreamForDestination("missing-Channel", nil)
     assert.NotNil(t, err)
 }
 
@@ -281,17 +281,17 @@ func TestEventBus_ListenRequestOnceForDestination(t *testing.T) {
 }
 
 func TestEventBus_ListenRequestOnceNoChannel(t *testing.T) {
-    _, err := evtBusTest.ListenRequestOnce("missing-channel")
+    _, err := evtBusTest.ListenRequestOnce("missing-Channel")
     assert.NotNil(t, err)
 }
 
 func TestEventBus_ListenRequestStreamNoChannel(t *testing.T) {
-    _, err := evtBusTest.ListenRequestStream("missing-channel")
+    _, err := evtBusTest.ListenRequestStream("missing-Channel")
     assert.NotNil(t, err)
 }
 
 func TestEventBus_ListenRequestOnceForDestinationNoChannel(t *testing.T) {
-    _, err := evtBusTest.ListenRequestOnceForDestination("missing-channel", nil)
+    _, err := evtBusTest.ListenRequestOnceForDestination("missing-Channel", nil)
     assert.NotNil(t, err)
 }
 
@@ -305,7 +305,7 @@ func TestEventBus_ListenRequestOnceForDestinationNoDestination(t *testing.T) {
 func TestEventBus_TestErrorMessageHandling(t *testing.T) {
     createTestChannel()
 
-    err := evtBusTest.SendErrorMessage("invalid-channel", errors.New("something went wrong"), nil)
+    err := evtBusTest.SendErrorMessage("invalid-Channel", errors.New("something went wrong"), nil)
     assert.NotNil(t, err)
 
     handler, _ := evtBusTest.ListenStream(evtbusTestChannelName)
@@ -355,7 +355,7 @@ func TestEventBxus_ListenFirehose(t *testing.T) {
 }
 
 func TestEventBus_ListenFirehoseNoChannel(t *testing.T) {
-    _, err := evtBusTest.ListenFirehose("missing-channel")
+    _, err := evtBusTest.ListenFirehose("missing-Channel")
     assert.NotNil(t, err)
 }
 
@@ -429,7 +429,7 @@ func TestEventBus_RequestStream(t *testing.T) {
 
             // fire a few times, ensure that the handler only ever picks up a single response.
             for i := 0; i < 5; i++ {
-                channel.Send(generateResponse(config))
+                channel.Send(GenerateResponse(config))
             }
         }
     }
@@ -461,7 +461,7 @@ func TestEventBus_RequestStreamForDesintation(t *testing.T) {
 
             // fire a few times, ensure that the handler only ever picks up a single response.
             for i := 0; i < 5; i++ {
-                channel.Send(generateResponse(config))
+                channel.Send(GenerateResponse(config))
             }
         }
     }
@@ -484,7 +484,7 @@ func TestEventBus_RequestStreamForDesintation(t *testing.T) {
 }
 
 func TestEventBus_RequestStreamForDestinationNoChannel(t *testing.T) {
-    _, err := evtBusTest.RequestStreamForDestination("missing-channel", nil, nil)
+    _, err := evtBusTest.RequestStreamForDestination("missing-Channel", nil, nil)
     assert.NotNil(t, err)
 }
 
@@ -496,7 +496,7 @@ func TestEventBus_RequestStreamForDestinationNoDestination(t *testing.T) {
 }
 
 func TestEventBus_RequestStreamNoChannel(t *testing.T) {
-    _, err := evtBusTest.RequestStream("missing-channel", nil)
+    _, err := evtBusTest.RequestStream("missing-Channel", nil)
     assert.NotNil(t, err)
 }
 
@@ -508,7 +508,7 @@ func TestEventBus_HandleSingleRunError(t *testing.T) {
 
             // fire a few times, ensure that the handler only ever picks up a single response.
             for i := 0; i < 5; i++ {
-                channel.Send(generateError(config))
+                channel.Send(GenerateError(config))
             }
         }
     }
@@ -531,7 +531,7 @@ func TestEventBus_HandleSingleRunError(t *testing.T) {
 }
 
 func TestEventBus_RequestOnceNoChannel(t *testing.T) {
-    _, err := evtBusTest.RequestOnce("missing-channel", 0)
+    _, err := evtBusTest.RequestOnce("missing-Channel", 0)
     assert.NotNil(t, err)
 }
 
