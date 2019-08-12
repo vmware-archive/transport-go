@@ -6,10 +6,12 @@ import (
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/google/uuid"
+    "net"
 )
 
 type BrokerConnector interface {
     Connect(config *BrokerConnectorConfig) (*Connection, error)
+    ConnectWs(config *BrokerConnectorConfig, wsConnection net.Conn) (*Connection, error)
     Subscribe(destination string) (*Subscription, error)
     Unsubscribe(destination string) error
     Disconnect() error
@@ -65,6 +67,37 @@ func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (*Connection, 
     bc.connected = true
     return bcConn, nil
 }
+
+func (bc *brokerConnector) ConnectWs(config *BrokerConnectorConfig, c net.Conn) (*Connection, error) {
+
+    err := checkConfig(config)
+    if err != nil {
+        return nil, err
+    }
+
+    if config.HostHeader == "" {
+        config.HostHeader = "/"
+    }
+
+    var options = []func(*stomp.Conn) error{
+        //stomp.ConnOpt.Login(config.Username, config.Password),
+       stomp.ConnOpt.Host("127.0.0.1"),
+
+    }
+
+
+    conn, err := stomp.Connect(c, options...)
+    if err != nil {
+        return nil, err
+    }
+    bcConn := &Connection{conn: conn}
+    bc.c = bcConn
+    bc.connected = true
+    return bcConn, nil
+}
+
+
+
 
 func (bc *brokerConnector) Subscribe(destination string) (*Subscription, error) {
 
