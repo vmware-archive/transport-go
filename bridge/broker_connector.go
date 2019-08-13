@@ -5,29 +5,27 @@ import (
     "encoding/json"
     "fmt"
     "github.com/go-stomp/stomp"
-    "github.com/google/uuid"
     "log"
     "net/url"
 )
 
 type BrokerConnector interface {
     Connect(config *BrokerConnectorConfig) (*Connection, error)
-    ConnectWs(config *BrokerConnectorConfig) (*Connection, error)
-    Subscribe(destination string) (*Subscription, error)
-    Unsubscribe(destination string) error
-    Disconnect() error
-    SendMessage(destination string, message *bus.Message) error
+    //Subscribe(destination string) (*Subscription, error)
+    //Unsubscribe(destination string) error
+    //Disconnect() error
+    //SendMessage(destination string, message *bus.Message) error
 }
 
 type brokerConnector struct {
     c             *Connection
+    config        *BrokerConnectorConfig
     connected     bool
-    subscriptions map[string]*Subscription
     bus           bus.EventBus
 }
 
 func NewBrokerConnector() BrokerConnector {
-    return &brokerConnector{connected: false, subscriptions: make(map[string]*Subscription), bus: bus.GetBus()}
+    return &brokerConnector{connected: false, bus: bus.GetBus()}
 }
 
 func checkConfig(config *BrokerConnectorConfig) error {
@@ -50,6 +48,11 @@ func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (*Connection, 
         return nil, err
     }
 
+    // use different mechanism for WS connections.
+    if config.UseWS {
+        return bc.connectWs(config)
+    }
+
     if config.HostHeader == "" {
         config.HostHeader = "/"
     }
@@ -63,68 +66,41 @@ func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (*Connection, 
     if err != nil {
         return nil, err
     }
-    bcConn := &Connection{Conn: conn}
+    bcConn := &Connection{
+        conn: conn,
+        subscriptions: make(map[string]*Subscription),
+        useWs: false,
+        disconnectChan: make(chan bool)}
     bc.c = bcConn
     bc.connected = true
+    bc.config = config
     return bcConn, nil
 }
 
-func (bc *brokerConnector) ConnectWs(config *BrokerConnectorConfig) (*Connection, error) {
-
-    err := checkConfig(config)
-    if err != nil {
-        return nil, err
-    }
-
+func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (*Connection, error) {
 
     // TODO: Make sure 'ws' is moved to config.
     u := url.URL{Scheme: "ws", Host: config.ServerAddr, Path: config.WSPath}
     c := NewBridgeWsClient()
-    err = c.Connect(&u, nil)
+    err := c.Connect(&u, nil)
     if err != nil {
         log.Panicf("cannot connect to host %s via path %s, stopping", config.ServerAddr, config.WSPath)
     }
 
-    bcConn := &Connection{WsConn: c}
+    bcConn := &Connection{
+        wsConn: c,
+        subscriptions: make(map[string]*Subscription),
+        useWs: true,
+        disconnectChan: make(chan bool)}
     bc.c = bcConn
     bc.connected = true
     return bcConn, nil
 }
 
-
-func (bc *brokerConnector) Subscribe(destination string) (*Subscription, error) {
-
-    // check if the subscription exists, if so, return it.
-    if sub, ok := bc.subscriptions[destination]; ok {
-        return sub, nil
-    }
-
-    sub, err := bc.c.Conn.Subscribe(destination, stomp.AckAuto)
-    if err != nil {
-        return nil, err
-    }
-    id := uuid.New()
-    bcSub := &Subscription{StompSub: sub, Id: &id}
-    return bcSub, nil
-}
-
-func (bc *brokerConnector) Unsubscribe(destination string) error {
-    // check if the subscription exists, if not, fail.
-    if bc.subscriptions[destination] != nil {
-        return fmt.Errorf("unable to unsubscribe, no subscription for destination %s", destination)
-    }
-    sub := bc.subscriptions[destination]
-
-    if sub.StompSub.Active() {
-        return sub.StompSub.Unsubscribe()
-    }
-    return nil
-}
-
-func (bc *brokerConnector) Disconnect() error {
-    bc.connected = false
-    return bc.c.Conn.Disconnect()
-}
+//func (bc *brokerConnector) Disconnect() error {
+//    bc.connected = false
+//    return bc.c.conn.Disconnect()
+//}
 
 func (bc *brokerConnector) SendMessage(destination string, msg *bus.Message) error {
     if bc.connected {
@@ -132,7 +108,7 @@ func (bc *brokerConnector) SendMessage(destination string, msg *bus.Message) err
         if pl, err := json.Marshal(msg.Payload); err != nil {
             return err
         } else {
-            if err := bc.c.Conn.Send(destination, "text/plain", pl, nil); err != nil {
+            if err := bc.c.conn.Send(destination, "text/plain", pl, nil); err != nil {
                 return err
             }
         }

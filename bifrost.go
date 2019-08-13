@@ -3,6 +3,7 @@ package main
 
 import (
     "bifrost/bridge"
+    "encoding/json"
     "github.com/go-stomp/stomp"
     "log"
     "os"
@@ -37,33 +38,40 @@ func main() {
     config := &bridge.BrokerConnectorConfig{
         Username:   "guest",
         Password:   "guest",
-        ServerAddr: "appfabric.vmware.com:8090",
-        WSPath:     "/fabric"}
+        ServerAddr: "localhost:8090",
+        WSPath:     "/fabric",
+        UseWS:      true }
 
-    c, _ := bc.ConnectWs(config)
+    c, _ := bc.Connect(config)
 
-    sub := c.WsConn.Subscribe("/topic/simple-stream")
+    sub, _ := c.Subscribe("/topic/simple-stream")
 
     handler := func() {
         for {
             f := <-sub.C
-            log.Println("Message: %s", string(f.Body))
+            r := &bridge.Response{}
+            d := f.Payload.([]byte)
+            json.Unmarshal(d, &r)
+
+            log.Printf("Message: %s", r.Payload.(string))
         }
     }
 
+
+
     go handler()
 
-    // connect to local rabbit STOMP over TCP
-    //rBc := bridge.NewBrokerConnector()
-    //configR := &bridge.BrokerConnectorConfig{
-    //    Username:   "guest",
-    //    Password:   "guest",
-    //    ServerAddr: "localhost:61613"}
-    //
-    //rConn, _ := rBc.Connect(configR)
-    //
-    //rConn.Conn.Subscribe("/topic/somewhere", stomp.AckAuto)
-    // do something with sSub.C
+    //connect to local rabbit STOMP over TCP
+    rBc := bridge.NewBrokerConnector()
+    configR := &bridge.BrokerConnectorConfig{
+      Username:   "guest",
+      Password:   "guest",
+      ServerAddr: "localhost:61613"}
+
+    rConn, _ := rBc.Connect(configR)
+
+    rConn.Subscribe("/topic/somewhere")
+    // do something with sSub.wsC
 
 
     //bf := bus.GetBus()

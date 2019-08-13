@@ -8,7 +8,7 @@ type BrokerConnectorConfig struct {
     Password        string
     ServerAddr      string
     WSPath          string
-    UseWS           string
+    UseWS           bool
     BrokerType      int
     HostHeader      string
 }

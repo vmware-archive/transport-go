@@ -2,8 +2,10 @@ package bridge
 
 import "C"
 import (
+    "bifrost/bus"
     "bufio"
     "bytes"
+    "errors"
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/go-stomp/stomp/frame"
@@ -17,41 +19,39 @@ import (
     "strconv"
 )
 
-type BridgeWsClient struct {
-    C              *websocket.Conn
-    ConnectedChan  chan bool
-    interrupt      chan os.Signal
-    inboundChan    chan *frame.Frame
-    stompConnected bool
-    Subscriptions  map[string]*WsClientSub
-    logger         *log.Logger
+type BridgeClient struct {
+    WSc              *websocket.Conn // WebSocket connection
+    TCPc             *stomp.Conn     // STOMP TCP Connection
+    ConnectedChan    chan bool
+    disconnectedChan chan bool
+    connected        bool
+    interrupt        chan os.Signal
+    inboundChan      chan *frame.Frame
+    stompConnected   bool
+    Subscriptions    map[string]*BridgeClientSub
+    logger           *log.Logger
 }
 
-type WsClientSub struct {
-    C           chan *frame.Frame   // MESSAGE payloads
-    E           chan *frame.Frame   // ERROR payloads.
-    Id          *uuid.UUID
-    Destination string
-    wsClient    *BridgeWsClient
-}
-
-func NewBridgeWsClient() *BridgeWsClient {
+func NewBridgeWsClient() *BridgeClient {
     return newBridgeWsClient()
 }
 
-func newBridgeWsClient() *BridgeWsClient {
+func newBridgeWsClient() *BridgeClient {
     l := log.New(os.Stderr, "WebSocket Client: ", 2)
-    return &BridgeWsClient{
-        C:              nil,
-        stompConnected: false,
-        logger:         l,
-        Subscriptions:  make(map[string]*WsClientSub),
-        ConnectedChan:  make(chan bool),
-        inboundChan:    make(chan *frame.Frame),
-        interrupt:      make(chan os.Signal, 1)}
+    return &BridgeClient{
+        WSc:              nil,
+        TCPc:             nil,
+        stompConnected:   false,
+        connected:        false,
+        logger:           l,
+        Subscriptions:    make(map[string]*BridgeClientSub),
+        ConnectedChan:    make(chan bool),
+        disconnectedChan: make(chan bool),
+        inboundChan:      make(chan *frame.Frame),
+        interrupt:        make(chan os.Signal, 1)}
 }
 
-func (ws *BridgeWsClient) Connect(url *url.URL, headers http.Header) error {
+func (ws *BridgeClient) Connect(url *url.URL, headers http.Header) error {
 
     signal.Notify(ws.interrupt, os.Interrupt)
 
@@ -62,7 +62,7 @@ func (ws *BridgeWsClient) Connect(url *url.URL, headers http.Header) error {
         ws.logger.Fatal("cannot connect to endpoint:", err)
         return err
     }
-    ws.C = c
+    ws.WSc = c
     go ws.handleCommands()
     go ws.listenSocket()
 
@@ -73,21 +73,22 @@ func (ws *BridgeWsClient) Connect(url *url.URL, headers http.Header) error {
     return nil
 }
 
-func (ws *BridgeWsClient) Disconnect() error {
-    if ws.C != nil {
-        defer ws.C.Close()
+func (ws *BridgeClient) Disconnect() error {
+    if ws.WSc != nil {
+        defer ws.WSc.Close()
+        ws.disconnectedChan <- true
     } else {
         return fmt.Errorf("cannot disconnect, no connection defined")
     }
     return nil
 }
 
-func (ws *BridgeWsClient) Subscribe(destination string) *WsClientSub {
+func (ws *BridgeClient) Subscribe(destination string) *BridgeClientSub {
     id := uuid.New()
-    s := &WsClientSub{
-        C:           make(chan *frame.Frame),
+    s := &BridgeClientSub{
+        C:           make(chan *bus.Message),
         Id:          &id,
-        wsClient:    ws,
+        Client:      ws,
         Destination: destination}
 
     ws.Subscriptions[destination] = s
@@ -97,22 +98,11 @@ func (ws *BridgeWsClient) Subscribe(destination string) *WsClientSub {
         frame.Destination, destination,
         frame.Ack, stomp.AckAuto.String())
 
-    ws.SendFrame(subscribeFrame)
+    go ws.SendFrame(subscribeFrame)
     return s
 }
 
-func (cs *WsClientSub) Unsubscribe() {
-
-    unsubscribeFrame := frame.New(frame.UNSUBSCRIBE,
-        frame.Id, cs.Id.String(),
-        frame.Destination, cs.Destination,
-        frame.Ack, stomp.AckAuto.String())
-
-    cs.wsClient.SendFrame(unsubscribeFrame)
-
-}
-
-func (ws *BridgeWsClient) Send(destination string, payload []byte) {
+func (ws *BridgeClient) Send(destination string, payload []byte) {
 
     sendFrame := frame.New(frame.SEND,
         frame.Destination, destination,
@@ -120,23 +110,23 @@ func (ws *BridgeWsClient) Send(destination string, payload []byte) {
         frame.ContentType, "application/json")
 
     sendFrame.Body = payload
-    ws.SendFrame(sendFrame)
+    go ws.SendFrame(sendFrame)
 
 }
 
-func (ws *BridgeWsClient) SendFrame(f *frame.Frame) {
+func (ws *BridgeClient) SendFrame(f *frame.Frame) {
     var b bytes.Buffer
     br := bufio.NewWriter(&b)
     sw := frame.NewWriter(br)
     sw.Write(f)
-    w, _ := ws.C.NextWriter(websocket.TextMessage)
+    w, _ := ws.WSc.NextWriter(websocket.TextMessage)
     w.Write(b.Bytes())
     defer w.Close()
 }
 
-func (ws *BridgeWsClient) listenSocket() {
+func (ws *BridgeClient) listenSocket() {
     for {
-        _, p, err := ws.C.ReadMessage()
+        _, p, err := ws.WSc.ReadMessage()
 
         b := bytes.NewReader(p)
         sr := frame.NewReader(b)
@@ -148,16 +138,19 @@ func (ws *BridgeWsClient) listenSocket() {
         }
         ws.logger.Printf("Received STOMP Frame: %s\n", f.Command)
         ws.inboundChan <- f
+       // <-ws.disconnectedChan
+       // return
     }
 }
 
-func (ws *BridgeWsClient) handleCommands() {
+func (ws *BridgeClient) handleCommands() {
     for {
         f := <-ws.inboundChan
         switch f.Command {
         case frame.CONNECTED:
             ws.logger.Printf("STOMP Client connected")
             ws.stompConnected = true
+            ws.connected = true
             ws.ConnectedChan <- true
 
         case frame.MESSAGE:
@@ -165,7 +158,8 @@ func (ws *BridgeWsClient) handleCommands() {
 
             for _, sub := range ws.Subscriptions {
                 if sub.Destination == f.Header.Get(frame.Destination) {
-                    sub.C <- f
+                    c := &bus.MessageConfig{Payload: f.Body}
+                    sub.C <- bus.GenerateResponse(c)
                 }
             }
 
@@ -174,7 +168,8 @@ func (ws *BridgeWsClient) handleCommands() {
 
             for _, sub := range ws.Subscriptions {
                 if sub.Destination == f.Header.Get(frame.Destination) {
-                    sub.E <- f
+                    c := &bus.MessageConfig{Payload: f.Body, Err: errors.New("STOMP Error " + string(f.Body))}
+                    sub.E <- bus.GenerateError(c)
                 }
             }
         }

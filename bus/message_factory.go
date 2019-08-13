@@ -4,12 +4,14 @@ package bus
 import "github.com/google/uuid"
 
 type MessageConfig struct {
-    Id          *uuid.UUID
-    Destination *uuid.UUID
-    Channel     string
-    Payload     interface{}
-    Direction   Direction
-    Err         error
+    Id            *uuid.UUID
+    DestinationId *uuid.UUID
+    Destination   string
+    Channel       string
+    Payload       interface{}
+    Headers       []MessageHeader
+    Direction     Direction
+    Err           error
 }
 
 func checkId(msgConfig *MessageConfig) {
@@ -24,7 +26,8 @@ func GenerateRequest(msgConfig *MessageConfig) *Message {
     return &Message{
         Id:            msgConfig.Id,
         Channel:       msgConfig.Channel,
-        DestinationId: msgConfig.Destination,
+        DestinationId: msgConfig.DestinationId,
+        Destination:   msgConfig.Destination,
         Payload:       msgConfig.Payload,
         Direction:     Request}
 }
@@ -34,7 +37,8 @@ func GenerateResponse(msgConfig *MessageConfig) *Message {
     return &Message{
         Id:            msgConfig.Id,
         Channel:       msgConfig.Channel,
-        DestinationId: msgConfig.Destination,
+        DestinationId: msgConfig.DestinationId,
+        Destination:   msgConfig.Destination,
         Payload:       msgConfig.Payload,
         Direction:     Response}
 }
@@ -44,7 +48,8 @@ func GenerateError(msgConfig *MessageConfig) *Message {
     return &Message{
         Id:            msgConfig.Id,
         Channel:       msgConfig.Channel,
-        DestinationId: msgConfig.Destination,
+        DestinationId: msgConfig.DestinationId,
+        Destination:   msgConfig.Destination,
         Error:         msgConfig.Err,
         Direction:     Error}
 }

@@ -15,12 +15,13 @@ const (
 // A Message is the encapsulation of the event sent on the bus.
 // It holds a Direction, errors, a Payload and more.
 type Message struct {
-    Id            *uuid.UUID      `json:"Id"`
-    DestinationId *uuid.UUID      `json:"destinationId"`
-    Channel       string          `json:"Channel"`
-    Payload       interface{}     `json:"Payload"`
+    Id            *uuid.UUID      `json:"id"`            // message identifier
+    DestinationId *uuid.UUID      `json:"destinationId"` // destinationId (targeted recipient)
+    Channel       string          `json:"channel"`       // reference to channel message was sent on.
+    Destination   string          `json:"channel"`       // destination message was sent to (if galactic)
+    Payload       interface{}     `json:"payload"`
     Error         error           `json:"error"`
-    Direction     Direction       `json:"Direction"`
+    Direction     Direction       `json:"direction"`
     Headers       []MessageHeader `json:"headers"`
 }
 

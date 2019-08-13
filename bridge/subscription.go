@@ -8,7 +8,8 @@ import (
 
 // This is an abstraction to encapsulate subscriptions.
 type Subscription struct {
-    Channel     *bus.Channel
+    C           chan *bus.Message
     Id          *uuid.UUID
-    StompSub    *stomp.Subscription
+    stompTCPSub *stomp.Subscription
+    wsStompSub  *BridgeClientSub
 }

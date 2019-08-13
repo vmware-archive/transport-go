@@ -121,7 +121,7 @@ func (bus *bifrostEventBus) ListenStream(channelName string) (MessageHandler, er
     return messageHandler, nil
 }
 
-// Listen to stream of Response (inbound) messages on Channel for a specific Destination. Will keep on ticking until closed.
+// Listen to stream of Response (inbound) messages on Channel for a specific DestinationId. Will keep on ticking until closed.
 // Returns MessageHandler
 //  // To close an open stream.
 //  handler, Err := bus.ListenStream("my-Channel")
@@ -133,7 +133,7 @@ func (bus *bifrostEventBus) ListenStreamForDestination(channelName string, destI
         return nil, err
     }
     if destId == nil {
-        return nil, fmt.Errorf("Destination cannot be nil")
+        return nil, fmt.Errorf("DestinationId cannot be nil")
     }
     messageHandler := bus.wrapMessageHandler(channel, Response, false, false, destId)
     return messageHandler, nil
@@ -154,7 +154,7 @@ func (bus *bifrostEventBus) ListenRequestStream(channelName string) (MessageHand
     return messageHandler, nil
 }
 
-// Listen to a stream of Request (outbound) messages on Channel for a specific Destination. Will keep on ticking until closed.
+// Listen to a stream of Request (outbound) messages on Channel for a specific DestinationId. Will keep on ticking until closed.
 // Returns MessageHandler
 //  // To close an open stream.
 //  handler, Err := bus.ListenRequestStream("my-Channel")
@@ -166,7 +166,7 @@ func (bus *bifrostEventBus) ListenRequestStreamForDestination(channelName string
         return nil, err
     }
     if destId == nil {
-        return nil, fmt.Errorf("Destination cannot be nil")
+        return nil, fmt.Errorf("DestinationId cannot be nil")
     }
     messageHandler := bus.wrapMessageHandler(channel, Request, false, false, destId)
     return messageHandler, nil
@@ -186,7 +186,7 @@ func (bus *bifrostEventBus) ListenRequestOnce(channelName string) (MessageHandle
     return messageHandler, nil
 }
 
-// Listen for a single Request (outbound) messages on Channel with a specific Destination. Handler is closed after a single event.
+// Listen for a single Request (outbound) messages on Channel with a specific DestinationId. Handler is closed after a single event.
 // Returns MessageHandler
 func (bus *bifrostEventBus) ListenRequestOnceForDestination(channelName string, destId *uuid.UUID) (MessageHandler, error) {
     channel, err := getChannelFromManager(bus, channelName)
@@ -194,7 +194,7 @@ func (bus *bifrostEventBus) ListenRequestOnceForDestination(channelName string, 
         return nil, err
     }
     if destId == nil {
-        return nil, fmt.Errorf("Destination cannot be nil")
+        return nil, fmt.Errorf("DestinationId cannot be nil")
     }
     messageHandler := bus.wrapMessageHandler(channel, Request, false, false, destId)
     messageHandler.runOnce = true
@@ -229,7 +229,7 @@ func (bus *bifrostEventBus) ListenOnceForDestination(channelName string, destId 
         return nil, err
     }
     if destId == nil {
-        return nil, fmt.Errorf("Destination cannot be nil")
+        return nil, fmt.Errorf("DestinationId cannot be nil")
     }
     messageHandler := bus.wrapMessageHandler(channel, Response, false, false, destId)
     messageHandler.runOnce = true
@@ -252,7 +252,7 @@ func (bus *bifrostEventBus) RequestOnce(channelName string, payload interface{})
     return messageHandler, nil
 }
 
-// Send a request message with Payload and wait for and Handle a single response message for a targeted Destination
+// Send a request message with Payload and wait for and Handle a single response message for a targeted DestinationId
 // Returns MessageHandler or error if the Channel is unknown
 func (bus *bifrostEventBus) RequestOnceForDestination(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error) {
     channel, err := getChannelFromManager(bus, channelName)
@@ -260,7 +260,7 @@ func (bus *bifrostEventBus) RequestOnceForDestination(channelName string, payloa
         return nil, err
     }
     if destId == nil {
-        return nil, fmt.Errorf("Destination cannot be nil")
+        return nil, fmt.Errorf("DestinationId cannot be nil")
     }
     messageHandler := bus.wrapMessageHandler(channel, Response, false, false, destId)
     config := buildConfig(channelName, payload, destId)
@@ -292,7 +292,7 @@ func (bus *bifrostEventBus) RequestStream(channelName string, payload interface{
     return messageHandler, nil
 }
 
-// Send a request message with Payload and wait for and Handle all response messages with a supplied Destination
+// Send a request message with Payload and wait for and Handle all response messages with a supplied DestinationId
 // Returns MessageHandler or error if Channel is unknown
 func (bus *bifrostEventBus) RequestStreamForDestination(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error) {
     channel, err := getChannelFromManager(bus, channelName)
@@ -300,7 +300,7 @@ func (bus *bifrostEventBus) RequestStreamForDestination(channelName string, payl
         return nil, err
     }
     if destId == nil {
-        return nil, fmt.Errorf("Destination cannot be nil")
+        return nil, fmt.Errorf("DestinationId cannot be nil")
     }
     messageHandler := bus.wrapMessageHandler(channel, Response, false, false, destId)
     config := buildConfig(channelName, payload, destId)
@@ -371,7 +371,7 @@ func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction Direc
             }
         } else {
             if msg.Direction == dir {
-                // if we're checking for specific traffic, check a Destination match is required.
+                // if we're checking for specific traffic, check a DestinationId match is required.
                 if !messageHandler.ignoreId && (msg.DestinationId != nil && id != nil) && (id.ID() == msg.DestinationId.ID()) {
                     successHandler(msg)
                 }
@@ -397,7 +397,7 @@ func buildConfig(channelName string, payload interface{}, destinationId *uuid.UU
     config := new(MessageConfig)
     id := uuid.New()
     config.Id = &id
-    config.Destination = destinationId
+    config.DestinationId = destinationId
     config.Channel = channelName
     config.Payload = payload
     return config
@@ -407,7 +407,7 @@ func buildError(channelName string, err error, destinationId *uuid.UUID) *Messag
     config := new(MessageConfig)
     id := uuid.New()
     config.Id = &id
-    config.Destination = destinationId
+    config.DestinationId = destinationId
     config.Channel = channelName
     config.Err = err
     return config
