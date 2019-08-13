@@ -5,6 +5,9 @@ import (
     "bifrost/bridge"
     "github.com/go-stomp/stomp"
     "log"
+    "os"
+    "os/signal"
+    "syscall"
 )
 
 var stop = make(chan bool)
@@ -19,6 +22,15 @@ var options []func(*stomp.Conn) error = []func(*stomp.Conn) error{
 }
 
 func main() {
+
+    sigs := make(chan os.Signal, 1)
+    signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+    go func() {
+        <-sigs
+        stop <- true
+    }()
+
 
     // connect to appfabric STOMP over WebSocket
     bc := bridge.NewBrokerConnector()
@@ -42,15 +54,15 @@ func main() {
     go handler()
 
     // connect to local rabbit STOMP over TCP
-    rBc := bridge.NewBrokerConnector()
-    configR := &bridge.BrokerConnectorConfig{
-        Username:   "guest",
-        Password:   "guest",
-        ServerAddr: "localhost:61613"}
-
-    rConn, _ := rBc.Connect(configR)
-
-    rConn.Conn.Subscribe("/topic/somewhere", stomp.AckAuto)
+    //rBc := bridge.NewBrokerConnector()
+    //configR := &bridge.BrokerConnectorConfig{
+    //    Username:   "guest",
+    //    Password:   "guest",
+    //    ServerAddr: "localhost:61613"}
+    //
+    //rConn, _ := rBc.Connect(configR)
+    //
+    //rConn.Conn.Subscribe("/topic/somewhere", stomp.AckAuto)
     // do something with sSub.C
 
 
