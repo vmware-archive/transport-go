@@ -58,7 +58,6 @@ func (ws *BridgeClient) Connect(url *url.URL, headers http.Header) error {
 
     c, _, err := websocket.DefaultDialer.Dial(url.String(), headers)
     if err != nil {
-        ws.logger.Fatal("cannot connect to endpoint:", err)
         return err
     }
     ws.WSc = c

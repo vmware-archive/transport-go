@@ -4,17 +4,12 @@ import (
     "bifrost/bus"
     "fmt"
     "github.com/go-stomp/stomp"
-    "log"
     "net/url"
     "sync"
 )
 
 type BrokerConnector interface {
     Connect(config *BrokerConnectorConfig) (*Connection, error)
-    //Subscribe(destination string) (*Subscription, error)
-    //Unsubscribe(destination string) error
-    //Disconnect() error
-    //SendMessage(destination string, message *bus.Message) error
 }
 
 type brokerConnector struct {
@@ -85,7 +80,7 @@ func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (*Connection
     c := NewBridgeWsClient()
     err := c.Connect(&u, nil)
     if err != nil {
-        log.Panicf("cannot connect to host %s via path %s, stopping", config.ServerAddr, config.WSPath)
+        return nil, fmt.Errorf("cannot connect to host '%s' via path '%s', stopping", config.ServerAddr, config.WSPath)
     }
 
     bcConn := &Connection{
@@ -98,25 +93,3 @@ func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (*Connection
     bc.connected = true
     return bcConn, nil
 }
-
-//func (bc *brokerConnector) Disconnect() error {
-//    bc.connected = false
-//    return bc.c.conn.Disconnect()
-//}
-
-//func (bc *brokerConnector) SendMessage(destination string, msg *bus.Message) error {
-//    if bc.connected {
-//
-//        if pl, err := json.Marshal(msg.Payload); err != nil {
-//            return err
-//        } else {
-//            if err := bc.c.conn.Send(destination, "text/plain", pl, nil); err != nil {
-//                return err
-//            }
-//        }
-//        return nil
-//
-//    } else {
-//        return fmt.Errorf("unable to send message, not connected to broker")
-//    }
-//}

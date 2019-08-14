@@ -10,7 +10,7 @@ import (
 )
 
 var evtBusTest EventBus
-var evtbusTestChannelName string = "test-Channel"
+var evtbusTestChannelName string = "test-channel"
 var evtbusTestManager ChannelManager
 
 func init() {
