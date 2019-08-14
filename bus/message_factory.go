@@ -3,48 +3,53 @@ package bus
 
 import "github.com/google/uuid"
 
-type messageConfig struct {
-    id          *uuid.UUID
-    destination *uuid.UUID
-    channel     string
-    payload     interface{}
-    direction   Direction
-    err         error
+type MessageConfig struct {
+    Id            *uuid.UUID
+    DestinationId *uuid.UUID
+    Destination   string
+    Channel       string
+    Payload       interface{}
+    Headers       []MessageHeader
+    Direction     Direction
+    Err           error
 }
 
-func checkId(msgConfig *messageConfig) {
-    if msgConfig.id == nil {
+func checkId(msgConfig *MessageConfig) {
+    if msgConfig.Id == nil {
         id := uuid.New()
-        msgConfig.id = &id
+        msgConfig.Id = &id
     }
 }
 
-func generateRequest(msgConfig *messageConfig) *Message {
+func GenerateRequest(msgConfig *MessageConfig) *Message {
     checkId(msgConfig)
     return &Message{
-        Id:            msgConfig.id,
-        Channel:       msgConfig.channel,
-        DestinationId: msgConfig.destination,
-        Payload:       msgConfig.payload,
+        Id:            msgConfig.Id,
+        Channel:       msgConfig.Channel,
+        DestinationId: msgConfig.DestinationId,
+        Destination:   msgConfig.Destination,
+        Payload:       msgConfig.Payload,
         Direction:     Request}
 }
 
-func generateResponse(msgConfig *messageConfig) *Message {
+func GenerateResponse(msgConfig *MessageConfig) *Message {
     checkId(msgConfig)
     return &Message{
-        Id:            msgConfig.id,
-        Channel:       msgConfig.channel,
-        DestinationId: msgConfig.destination,
-        Payload:       msgConfig.payload,
+        Id:            msgConfig.Id,
+        Channel:       msgConfig.Channel,
+        DestinationId: msgConfig.DestinationId,
+        Destination:   msgConfig.Destination,
+        Payload:       msgConfig.Payload,
         Direction:     Response}
 }
 
-func generateError(msgConfig *messageConfig) *Message {
+func GenerateError(msgConfig *MessageConfig) *Message {
     checkId(msgConfig)
     return &Message{
-        Id:            msgConfig.id,
-        Channel:       msgConfig.channel,
-        DestinationId: msgConfig.destination,
-        Error:         msgConfig.err,
+        Id:            msgConfig.Id,
+        Channel:       msgConfig.Channel,
+        DestinationId: msgConfig.DestinationId,
+        Destination:   msgConfig.Destination,
+        Error:         msgConfig.Err,
         Direction:     Error}
 }

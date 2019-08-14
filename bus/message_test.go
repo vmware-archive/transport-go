@@ -20,8 +20,8 @@ func TestMessageModel(t *testing.T) {
 }
 
 func TestMessageModel_ConfigId(t *testing.T) {
-    config := new(messageConfig)
-    assert.Nil(t, config.id)
+    config := new(MessageConfig)
+    assert.Nil(t, config.Id)
     checkId(config)
-    assert.NotNil(t, config.id)
+    assert.NotNil(t, config.Id)
 }

@@ -16,7 +16,7 @@ type Channel struct {
     wg            sync.WaitGroup
 }
 
-// Create a new channel with the supplied channel name. Returns a pointer to that channel.
+// Create a new Channel with the supplied Channel name. Returns a pointer to that Channel.
 func NewChannel(channelName string) *Channel {
     c := &Channel{
         Name:          channelName,
@@ -28,27 +28,27 @@ func NewChannel(channelName string) *Channel {
     return c
 }
 
-// Mark the channel as private
+// Mark the Channel as private
 func (channel *Channel) SetPrivate(private bool) {
     channel.private = private
 }
 
-// Mark the channel as galactic
+// Mark the Channel as galactic
 func (channel *Channel) SetGalactic(galactic bool) {
     channel.galactic = galactic
 }
 
-// Returns true is the channel is marked as galactic
+// Returns true is the Channel is marked as galactic
 func (channel *Channel) IsGalactic() bool {
     return channel.galactic
 }
 
-// Returns true if the channel is marked as private
+// Returns true if the Channel is marked as private
 func (channel *Channel) IsPrivate() bool {
     return channel.private
 }
 
-// Send a new message on this channel, to all event handlers.
+// Send a new message on this Channel, to all event handlers.
 func (channel *Channel) Send(message *Message) {
     channel.channelLock.Lock()
     defer channel.channelLock.Unlock()
@@ -69,7 +69,7 @@ func (channel *Channel) Send(message *Message) {
     }
 }
 
-// Check if the channel has any registered subscribers
+// Check if the Channel has any registered subscribers
 func (channel *Channel) ContainsHandlers() bool {
     return len(channel.eventHandlers) > 0
 }
@@ -87,7 +87,7 @@ func (channel *Channel) subscribeHandler(fn MessageHandlerFunction, handler *cha
     channel.eventHandlers = append(channel.eventHandlers, handler)
 }
 
-// Remove handler function from being subscribed to the channel.
+// Remove handler function from being subscribed to the Channel.
 func (channel *Channel) removeEventHandler(index int) {
     numHandlers := len(channel.eventHandlers)
     if numHandlers <= 0 {
