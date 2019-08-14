@@ -13,6 +13,7 @@ type BridgeClientSub struct {
     Id          *uuid.UUID
     Destination string
     Client      *BridgeClient
+    subscribed  bool
 }
 
 func (cs *BridgeClientSub) Unsubscribe() {
@@ -23,5 +24,5 @@ func (cs *BridgeClientSub) Unsubscribe() {
         frame.Ack, stomp.AckAuto.String())
 
     cs.Client.SendFrame(unsubscribeFrame)
-
+    cs.subscribed = false
 }

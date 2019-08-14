@@ -2,9 +2,11 @@ package bridge
 
 import (
     "bifrost/bus"
+    "encoding/json"
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/google/uuid"
+    "sync"
 )
 
 // abstraction for connection types.
@@ -14,6 +16,7 @@ type Connection struct {
     wsConn         *BridgeClient
     disconnectChan chan bool
     subscriptions  map[string]*Subscription
+    connLock       sync.Mutex
 }
 
 func (c *Connection) Subscribe(destination string) (*Subscription, error) {
@@ -34,24 +37,27 @@ func (c *Connection) Disconnect() error {
 
     if c.useWs {
         if c.wsConn != nil && c.wsConn.connected {
-            c.disconnectChan <- true
+            //c.disconnectChan <- true
             return c.wsConn.Disconnect()
         }
     }
     return nil
 }
 
-
 func (c *Connection) subscribeWs(destination string) (*Subscription, error) {
+    c.connLock.Lock()
+    defer c.connLock.Unlock()
     if c.wsConn != nil {
         wsSub := c.wsConn.Subscribe(destination)
-        sub := &Subscription{wsStompSub: wsSub, Id: wsSub.Id, C: wsSub.C}
+        sub := &Subscription{wsStompSub: wsSub, Id: wsSub.Id, C: wsSub.C, Destination: destination}
         return sub, nil
     }
     return nil, fmt.Errorf("cannot subscribe, websocket not connected / established")
 }
 
 func (c *Connection) subscribeTCP(destination string) (*Subscription, error) {
+    c.connLock.Lock()
+    defer c.connLock.Unlock()
     if c.conn != nil {
         sub, err := c.conn.Subscribe(destination, stomp.AckAuto)
         if err != nil {
@@ -66,35 +72,29 @@ func (c *Connection) subscribeTCP(destination string) (*Subscription, error) {
     return nil, fmt.Errorf("no STOMP TCP conncetion established")
 }
 
-//
-//func (c *Connection) Unsubscribe(destination string) error {
-//    // check if the subscription exists, if not, fail.
-//    if c.subscriptions[destination] != nil {
-//        return fmt.Errorf("unable to unsubscribe, no subscription for destination %s", destination)
-//    }
-//    sub := c.subscriptions[destination]
-//
-//    if c.useWs && sub.wsStompSub != nil {
-//        sub.wsStompSub.Unsubscribe()
-//        return nil
-//    }
-//
-//    if !c.useWs && sub.stompTCPSub != nil {
-//        return sub.stompTCPSub.Unsubscribe()
-//    }
-//
-//    return fmt.Errorf("cannot unsubscribe from destination %s, no connection", destination)
-//}
-
-
 func (c *Connection) listenTCPFrames(src chan *stomp.Message, dst chan *bus.Message) {
     for {
         f := <-src
         cf := &bus.MessageConfig{Payload: f.Body, Destination: f.Destination}
         m := bus.GenerateResponse(cf)
         dst <- m
-        <-c.disconnectChan
-        return
     }
+}
+
+func (c *Connection) SendMessage(destination string, msg *bus.Message) error {
+    c.connLock.Lock()
+    defer c.connLock.Unlock()
+    if pl, err := json.Marshal(msg.Payload); err != nil {
+        return err
+    } else {
+        if !c.useWs {
+            if err := c.conn.Send(destination, "application/json", pl, nil); err != nil {
+                return err
+            }
+        } else {
+            c.wsConn.Send(destination, pl)
+        }
+    }
+    return nil
 
 }

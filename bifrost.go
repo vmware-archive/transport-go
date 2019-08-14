@@ -3,6 +3,7 @@ package main
 
 import (
     "bifrost/bridge"
+    "bifrost/bus"
     "encoding/json"
     "github.com/go-stomp/stomp"
     "log"
@@ -32,7 +33,6 @@ func main() {
         stop <- true
     }()
 
-
     // connect to appfabric STOMP over WebSocket
     bc := bridge.NewBrokerConnector()
     config := &bridge.BrokerConnectorConfig{
@@ -40,11 +40,24 @@ func main() {
         Password:   "guest",
         ServerAddr: "localhost:8090",
         WSPath:     "/fabric",
-        UseWS:      true }
+        UseWS:      true}
 
     c, _ := bc.Connect(config)
 
     sub, _ := c.Subscribe("/topic/simple-stream")
+    count := 0
+    count2 := 0
+
+    //connect to local rabbit STOMP over TCP
+    rBc := bridge.NewBrokerConnector()
+    configR := &bridge.BrokerConnectorConfig{
+        Username:   "guest",
+        Password:   "guest",
+        ServerAddr: "localhost:61613"}
+
+    rConn, _ := rBc.Connect(configR)
+
+    sub2, _ := rConn.Subscribe("/queue/fishsticks")
 
     handler := func() {
         for {
@@ -52,27 +65,38 @@ func main() {
             r := &bridge.Response{}
             d := f.Payload.([]byte)
             json.Unmarshal(d, &r)
+            count++
+            log.Printf("WebSocket Message: %s", r.Payload.(string))
 
-            log.Printf("Message: %s", r.Payload.(string))
+            cf := &bus.MessageConfig{Destination: "/queue/fishsticks", Payload: "Chicken Nugget"}
+            rq := bus.GenerateRequest(cf)
+            rConn.SendMessage("/queue/fishsticks", rq)
+
+            if count >= 3 {
+                sub.Unsubscribe()
+                c.Disconnect()
+                break
+            }
         }
     }
 
-
+    handler2 := func() {
+        for {
+            f := <-sub2.C
+            count2++
+            log.Printf("TCP Message: %s %v", string(f.Payload.([]byte)), count2)
+            if count2 >= 3 {
+                log.Println("cancelling sub ")
+                sub2.Unsubscribe()
+                rConn.Disconnect()
+                break
+            }
+        }
+        stop <- true
+    }
 
     go handler()
-
-    //connect to local rabbit STOMP over TCP
-    rBc := bridge.NewBrokerConnector()
-    configR := &bridge.BrokerConnectorConfig{
-      Username:   "guest",
-      Password:   "guest",
-      ServerAddr: "localhost:61613"}
-
-    rConn, _ := rBc.Connect(configR)
-
-    rConn.Subscribe("/topic/somewhere")
-    // do something with sSub.wsC
-
+    go handler2()
 
     //bf := bus.GetBus()
     //channel := "some-channel"
@@ -116,5 +140,6 @@ func main() {
     //
 
     <-stop
+    log.Printf("exiting")
 
 }

@@ -15,8 +15,8 @@ import (
     "net/http"
     "net/url"
     "os"
-    "os/signal"
     "strconv"
+    "sync"
 )
 
 type BridgeClient struct {
@@ -25,11 +25,11 @@ type BridgeClient struct {
     ConnectedChan    chan bool
     disconnectedChan chan bool
     connected        bool
-    interrupt        chan os.Signal
     inboundChan      chan *frame.Frame
     stompConnected   bool
     Subscriptions    map[string]*BridgeClientSub
     logger           *log.Logger
+    lock             sync.Mutex
 }
 
 func NewBridgeWsClient() *BridgeClient {
@@ -44,17 +44,16 @@ func newBridgeWsClient() *BridgeClient {
         stompConnected:   false,
         connected:        false,
         logger:           l,
+        lock:             sync.Mutex{},
         Subscriptions:    make(map[string]*BridgeClientSub),
         ConnectedChan:    make(chan bool),
         disconnectedChan: make(chan bool),
-        inboundChan:      make(chan *frame.Frame),
-        interrupt:        make(chan os.Signal, 1)}
+        inboundChan:      make(chan *frame.Frame)}
 }
 
 func (ws *BridgeClient) Connect(url *url.URL, headers http.Header) error {
-
-    signal.Notify(ws.interrupt, os.Interrupt)
-
+    ws.lock.Lock()
+    defer ws.lock.Unlock()
     ws.logger.Printf("connecting to fabric endpoint over %s", url.String())
 
     c, _, err := websocket.DefaultDialer.Dial(url.String(), headers)
@@ -84,12 +83,15 @@ func (ws *BridgeClient) Disconnect() error {
 }
 
 func (ws *BridgeClient) Subscribe(destination string) *BridgeClientSub {
+    ws.lock.Lock()
+    defer ws.lock.Unlock()
     id := uuid.New()
     s := &BridgeClientSub{
         C:           make(chan *bus.Message),
         Id:          &id,
         Client:      ws,
-        Destination: destination}
+        Destination: destination,
+        subscribed:  true}
 
     ws.Subscriptions[destination] = s
 
@@ -103,7 +105,8 @@ func (ws *BridgeClient) Subscribe(destination string) *BridgeClientSub {
 }
 
 func (ws *BridgeClient) Send(destination string, payload []byte) {
-
+    ws.lock.Lock()
+    defer ws.lock.Unlock()
     sendFrame := frame.New(frame.SEND,
         frame.Destination, destination,
         frame.ContentLength, strconv.Itoa(len(payload)),
@@ -127,51 +130,53 @@ func (ws *BridgeClient) SendFrame(f *frame.Frame) {
 func (ws *BridgeClient) listenSocket() {
     for {
         _, p, err := ws.WSc.ReadMessage()
-
         b := bytes.NewReader(p)
         sr := frame.NewReader(b)
         f, _ := sr.Read()
 
         if err != nil {
-            log.Println(err)
-            return
+            break // socket can't be read anymore, exit.
         }
         ws.logger.Printf("Received STOMP Frame: %s\n", f.Command)
         ws.inboundChan <- f
-       // <-ws.disconnectedChan
-       // return
     }
 }
 
 func (ws *BridgeClient) handleCommands() {
     for {
-        f := <-ws.inboundChan
-        switch f.Command {
-        case frame.CONNECTED:
-            ws.logger.Printf("STOMP Client connected")
-            ws.stompConnected = true
-            ws.connected = true
-            ws.ConnectedChan <- true
+        select {
+        case f := <-ws.inboundChan:
+            switch f.Command {
+            case frame.CONNECTED:
+                ws.logger.Printf("STOMP Client connected")
+                ws.stompConnected = true
+                ws.connected = true
+                ws.ConnectedChan <- true
 
-        case frame.MESSAGE:
-            ws.logger.Printf("STOMP Message received")
+            case frame.MESSAGE:
+                ws.logger.Printf("STOMP Message received")
 
-            for _, sub := range ws.Subscriptions {
-                if sub.Destination == f.Header.Get(frame.Destination) {
-                    c := &bus.MessageConfig{Payload: f.Body}
-                    sub.C <- bus.GenerateResponse(c)
+                for _, sub := range ws.Subscriptions {
+                    if sub.Destination == f.Header.Get(frame.Destination) {
+                        c := &bus.MessageConfig{Payload: f.Body, Destination: sub.Destination}
+                        if sub.subscribed {
+                            sub.C <- bus.GenerateResponse(c)
+                        }
+                    }
+                }
+
+            case frame.ERROR:
+                ws.logger.Printf("STOMP Error received")
+
+                for _, sub := range ws.Subscriptions {
+                    if sub.Destination == f.Header.Get(frame.Destination) {
+                        c := &bus.MessageConfig{Payload: f.Body, Err: errors.New("STOMP Error " + string(f.Body))}
+                        sub.E <- bus.GenerateError(c)
+                    }
                 }
             }
-
-        case frame.ERROR:
-            ws.logger.Printf("STOMP Error received")
-
-            for _, sub := range ws.Subscriptions {
-                if sub.Destination == f.Header.Get(frame.Destination) {
-                    c := &bus.MessageConfig{Payload: f.Body, Err: errors.New("STOMP Error " + string(f.Body))}
-                    sub.E <- bus.GenerateError(c)
-                }
-            }
+        case <-ws.disconnectedChan:
+            break
         }
 
     }

@@ -2,11 +2,11 @@ package bridge
 
 import (
     "bifrost/bus"
-    "encoding/json"
     "fmt"
     "github.com/go-stomp/stomp"
     "log"
     "net/url"
+    "sync"
 )
 
 type BrokerConnector interface {
@@ -70,6 +70,7 @@ func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (*Connection, 
         conn: conn,
         subscriptions: make(map[string]*Subscription),
         useWs: false,
+        connLock: sync.Mutex{},
         disconnectChan: make(chan bool)}
     bc.c = bcConn
     bc.connected = true
@@ -91,6 +92,7 @@ func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (*Connection
         wsConn: c,
         subscriptions: make(map[string]*Subscription),
         useWs: true,
+        connLock: sync.Mutex{},
         disconnectChan: make(chan bool)}
     bc.c = bcConn
     bc.connected = true
@@ -102,19 +104,19 @@ func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (*Connection
 //    return bc.c.conn.Disconnect()
 //}
 
-func (bc *brokerConnector) SendMessage(destination string, msg *bus.Message) error {
-    if bc.connected {
-
-        if pl, err := json.Marshal(msg.Payload); err != nil {
-            return err
-        } else {
-            if err := bc.c.conn.Send(destination, "text/plain", pl, nil); err != nil {
-                return err
-            }
-        }
-        return nil
-
-    } else {
-        return fmt.Errorf("unable to send message, not connected to broker")
-    }
-}
+//func (bc *brokerConnector) SendMessage(destination string, msg *bus.Message) error {
+//    if bc.connected {
+//
+//        if pl, err := json.Marshal(msg.Payload); err != nil {
+//            return err
+//        } else {
+//            if err := bc.c.conn.Send(destination, "text/plain", pl, nil); err != nil {
+//                return err
+//            }
+//        }
+//        return nil
+//
+//    } else {
+//        return fmt.Errorf("unable to send message, not connected to broker")
+//    }
+//}
