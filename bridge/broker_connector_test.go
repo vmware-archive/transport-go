@@ -1,3 +1,5 @@
+// Copyright 2019 VMware Inc.
+
 package bridge
 
 import (
@@ -18,6 +20,7 @@ import (
 
 var upgrader = websocket.Upgrader{}
 
+// upgrade http connection to WS and read/write responses.
 func websocketHandler(w http.ResponseWriter, r *http.Request) {
     c, err := upgrader.Upgrade(w, r, nil)
     if err != nil {

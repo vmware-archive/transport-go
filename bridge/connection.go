@@ -1,7 +1,9 @@
+// Copyright 2019 VMware Inc.
+
 package bridge
 
 import (
-    "bifrost/bus"
+    "bifrost/model"
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/google/uuid"
@@ -9,7 +11,7 @@ import (
     "sync"
 )
 
-// abstraction for connection types.
+// Connection represents a Connection to a message broker.
 type Connection struct {
     useWs          bool
     conn           *stomp.Conn
@@ -19,6 +21,7 @@ type Connection struct {
     connLock       sync.Mutex
 }
 
+// Subscribe to a destination, only one subscription can exist for a destination
 func (c *Connection) Subscribe(destination string) (*Subscription, error) {
     // check if the subscription exists, if so, return it.
     if c == nil {
@@ -37,6 +40,7 @@ func (c *Connection) Subscribe(destination string) (*Subscription, error) {
     return c.subscribeTCP(destination)
 }
 
+// Disconnect from broker, will close all channels
 func (c *Connection) Disconnect() (err error) {
     if c == nil {
         return fmt.Errorf("cannot disconnect, not connected")
@@ -82,7 +86,7 @@ func (c *Connection) subscribeTCP(destination string) (*Subscription, error) {
     if c.conn != nil {
         sub, _ := c.conn.Subscribe(destination, stomp.AckAuto)
         id := uuid.New()
-        destChan := make(chan *bus.Message)
+        destChan := make(chan *model.Message)
         go c.listenTCPFrames(sub.C, destChan)
         bcSub := &Subscription{stompTCPSub: sub, Id: &id, C: destChan}
         c.subscriptions[destination] = bcSub
@@ -91,7 +95,7 @@ func (c *Connection) subscribeTCP(destination string) (*Subscription, error) {
     return nil, fmt.Errorf("no STOMP TCP connection established")
 }
 
-func (c *Connection) listenTCPFrames(src chan *stomp.Message, dst chan *bus.Message) {
+func (c *Connection) listenTCPFrames(src chan *stomp.Message, dst chan *model.Message) {
     defer func() {
         if r := recover(); r != nil {
             log.Println("subscription is closed, message undeliverable to closed channel.")
@@ -108,13 +112,14 @@ func (c *Connection) listenTCPFrames(src chan *stomp.Message, dst chan *bus.Mess
             dest = f.Destination
         }
         if f != nil {
-            cf := &bus.MessageConfig{Payload: body, Destination: dest}
-            m := bus.GenerateResponse(cf)
+            cf := &model.MessageConfig{Payload: body, Destination: dest}
+            m := model.GenerateResponse(cf)
             dst <- m
         }
     }
 }
 
+// Send a []byte payload to a destination.
 func (c *Connection) SendMessage(destination string, payload []byte) error {
     c.connLock.Lock()
     defer c.connLock.Unlock()

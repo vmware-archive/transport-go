@@ -2,6 +2,7 @@
 package bus
 
 import (
+    "bifrost/model"
     "errors"
     "fmt"
     "github.com/google/uuid"
@@ -54,7 +55,7 @@ func TestEventBus_ListenStream(t *testing.T) {
     assert.NotNil(t, handler)
     count := 0
     handler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "hello melody", msg.Payload.(string))
             count++
             c.wg.Done()
@@ -80,7 +81,7 @@ func TestBifrostEventBus_ListenStreamForDestination(t *testing.T) {
     handler, _ := evtBusTest.ListenStreamForDestination(evtbusTestChannelName, &id)
     count := 0
     handler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "hello melody", msg.Payload.(string))
             count++
             c.wg.Done()
@@ -110,7 +111,7 @@ func TestEventBus_ListenOnce(t *testing.T) {
     handler, _ := evtBusTest.ListenOnce(evtbusTestChannelName)
     count := 0
     handler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             count++
         },
         func(err error) {})
@@ -132,7 +133,7 @@ func TestEventBus_ListenOnceForDestination(t *testing.T) {
     handler, _ := evtBusTest.ListenOnceForDestination(evtbusTestChannelName, &dest)
     count := 0
     handler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             count++
         },
         func(err error) {})
@@ -177,7 +178,7 @@ func TestEventBus_ListenRequestStream(t *testing.T) {
     handler, _ := evtBusTest.ListenRequestStream(evtbusTestChannelName)
     count := 0
     handler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "hello melody", msg.Payload.(string))
             count++
         },
@@ -201,7 +202,7 @@ func TestEventBus_ListenRequestStreamForDestination(t *testing.T) {
     handler, _ := evtBusTest.ListenRequestStreamForDestination(evtbusTestChannelName, &id)
     count := 0
     handler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "hello melody", msg.Payload.(string))
             count++
         },
@@ -246,7 +247,7 @@ func TestEventBus_ListenRequestOnce(t *testing.T) {
     handler, _ := evtBusTest.ListenRequestOnce(evtbusTestChannelName)
     count := 0
     handler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "hello melody", msg.Payload.(string))
             count++
         },
@@ -266,7 +267,7 @@ func TestEventBus_ListenRequestOnceForDestination(t *testing.T) {
     handler, _ := evtBusTest.ListenRequestOnceForDestination(evtbusTestChannelName, &dest)
     count := 0
     handler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "hello melody", msg.Payload.(string))
             count++
         },
@@ -311,7 +312,7 @@ func TestEventBus_TestErrorMessageHandling(t *testing.T) {
     handler, _ := evtBusTest.ListenStream(evtbusTestChannelName)
     countError := 0
     handler.Handle(
-        func(msg *Message) {},
+        func(msg *model.Message) {},
         func(err error) {
             assert.Errorf(t, err, "something went wrong")
             countError++
@@ -332,7 +333,7 @@ func TestEventBxus_ListenFirehose(t *testing.T) {
 
     responseHandler, _ := evtBusTest.ListenFirehose(evtbusTestChannelName)
     responseHandler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             counter++
             c.wg.Done()
         },
@@ -363,7 +364,7 @@ func TestEventBus_RequestOnce(t *testing.T) {
     createTestChannel()
     handler, _ := evtBusTest.ListenRequestStream(evtbusTestChannelName)
     handler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "who is a pretty baby?", msg.Payload.(string))
             evtBusTest.SendResponseMessage(evtbusTestChannelName, "why melody is of course", msg.DestinationId)
         },
@@ -372,7 +373,7 @@ func TestEventBus_RequestOnce(t *testing.T) {
     count := 0
     responseHandler, _ := evtBusTest.RequestOnce(evtbusTestChannelName, "who is a pretty baby?")
     responseHandler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "why melody is of course", msg.Payload.(string))
             count++
         },
@@ -388,7 +389,7 @@ func TestEventBus_RequestOnceForDestination(t *testing.T) {
     dest := uuid.New()
     handler, _ := evtBusTest.ListenRequestStream(evtbusTestChannelName)
     handler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "who is a pretty baby?", msg.Payload.(string))
             evtBusTest.SendResponseMessage(evtbusTestChannelName, "why melody is of course", msg.DestinationId)
         },
@@ -397,7 +398,7 @@ func TestEventBus_RequestOnceForDestination(t *testing.T) {
     count := 0
     responseHandler, _ := evtBusTest.RequestOnceForDestination(evtbusTestChannelName, "who is a pretty baby?", &dest)
     responseHandler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "why melody is of course", msg.Payload.(string))
             count++
         },
@@ -422,14 +423,14 @@ func TestEventBus_RequestOnceForDesintationNoDestination(t *testing.T) {
 
 func TestEventBus_RequestStream(t *testing.T) {
     channel := createTestChannel()
-    handler := func(message *Message) {
-        if message.Direction == Request {
+    handler := func(message *model.Message) {
+        if message.Direction == model.RequestDir {
             assert.Equal(t, "who has the cutest laugh?", message.Payload.(string))
             config := buildConfig(channel.Name, "why melody does of course", message.DestinationId)
 
             // fire a few times, ensure that the handler only ever picks up a single response.
             for i := 0; i < 5; i++ {
-                channel.Send(GenerateResponse(config))
+                channel.Send(model.GenerateResponse(config))
             }
         }
     }
@@ -440,7 +441,7 @@ func TestEventBus_RequestStream(t *testing.T) {
     count := 0
     responseHandler, _ := evtBusTest.RequestStream(evtbusTestChannelName, "who has the cutest laugh?")
     responseHandler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "why melody does of course", msg.Payload.(string))
             count++
         },
@@ -454,14 +455,14 @@ func TestEventBus_RequestStream(t *testing.T) {
 func TestEventBus_RequestStreamForDesintation(t *testing.T) {
     channel := createTestChannel()
     dest := uuid.New()
-    handler := func(message *Message) {
-        if message.Direction == Request {
+    handler := func(message *model.Message) {
+        if message.Direction == model.RequestDir {
             assert.Equal(t, "who has the cutest laugh?", message.Payload.(string))
             config := buildConfig(channel.Name, "why melody does of course", message.DestinationId)
 
             // fire a few times, ensure that the handler only ever picks up a single response.
             for i := 0; i < 5; i++ {
-                channel.Send(GenerateResponse(config))
+                channel.Send(model.GenerateResponse(config))
             }
         }
     }
@@ -472,7 +473,7 @@ func TestEventBus_RequestStreamForDesintation(t *testing.T) {
     count := 0
     responseHandler, _ := evtBusTest.RequestStreamForDestination(evtbusTestChannelName, "who has the cutest laugh?", &dest)
     responseHandler.Handle(
-        func(msg *Message) {
+        func(msg *model.Message) {
             assert.Equal(t, "why melody does of course", msg.Payload.(string))
             count++
         },
@@ -502,13 +503,13 @@ func TestEventBus_RequestStreamNoChannel(t *testing.T) {
 
 func TestEventBus_HandleSingleRunError(t *testing.T) {
     channel := createTestChannel()
-    handler := func(message *Message) {
-        if message.Direction == Request {
+    handler := func(message *model.Message) {
+        if message.Direction == model.RequestDir {
             config := buildError(channel.Name, fmt.Errorf("whoops!"), message.DestinationId)
 
             // fire a few times, ensure that the handler only ever picks up a single response.
             for i := 0; i < 5; i++ {
-                channel.Send(GenerateError(config))
+                channel.Send(model.GenerateError(config))
             }
         }
     }
@@ -519,7 +520,7 @@ func TestEventBus_HandleSingleRunError(t *testing.T) {
     count := 0
     responseHandler, _ := evtBusTest.RequestOnce(evtbusTestChannelName, 0)
     responseHandler.Handle(
-        func(msg *Message) {},
+        func(msg *model.Message) {},
         func(err error) {
             assert.Error(t, err, "whoops!")
             count++
@@ -539,7 +540,7 @@ func TestEventBus_HandlerWithoutRequestToFire(t *testing.T) {
     createTestChannel()
     responseHandler, _ := evtBusTest.ListenFirehose(evtbusTestChannelName)
     responseHandler.Handle(
-        func(msg *Message) {},
+        func(msg *model.Message) {},
         func(err error) {})
     err := responseHandler.Fire()
     assert.Errorf(t, err, "nothing to fire, request is empty")

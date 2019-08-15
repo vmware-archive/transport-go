@@ -1,7 +1,8 @@
+// Copyright 2019 VMware Inc.
 package bridge
 
 import (
-    "bifrost/bus"
+    "bifrost/model"
     "github.com/go-stomp/stomp/frame"
     "github.com/stretchr/testify/assert"
     "log"
@@ -21,7 +22,7 @@ func TestBridgeClient_handleCommands(t *testing.T) {
     d := "rainbow-land"
     bc := new(BridgeClient)
     i := make(chan *frame.Frame, 1)
-    e := make(chan *bus.Message, 1)
+    e := make(chan *model.Message, 1)
 
     l := log.New(os.Stderr, "WebSocket Client: ", 2)
     bc.logger = l
@@ -30,7 +31,7 @@ func TestBridgeClient_handleCommands(t *testing.T) {
     s := &BridgeClientSub{E: e, Destination: d}
     bc.Subscriptions[d] = s
 
-    go bc.handleCommands()
+    go bc.handleIncomingSTOMPFrames()
     wg := sync.WaitGroup{}
 
     var sendError = func() {

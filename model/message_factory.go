@@ -1,5 +1,5 @@
 // Copyright 2019 VMware Inc.
-package bus
+package model
 
 import "github.com/google/uuid"
 
@@ -29,7 +29,7 @@ func GenerateRequest(msgConfig *MessageConfig) *Message {
         DestinationId: msgConfig.DestinationId,
         Destination:   msgConfig.Destination,
         Payload:       msgConfig.Payload,
-        Direction:     Request}
+        Direction:     RequestDir}
 }
 
 func GenerateResponse(msgConfig *MessageConfig) *Message {
@@ -40,7 +40,7 @@ func GenerateResponse(msgConfig *MessageConfig) *Message {
         DestinationId: msgConfig.DestinationId,
         Destination:   msgConfig.Destination,
         Payload:       msgConfig.Payload,
-        Direction:     Response}
+        Direction:     ResponseDir}
 }
 
 func GenerateError(msgConfig *MessageConfig) *Message {
@@ -51,5 +51,5 @@ func GenerateError(msgConfig *MessageConfig) *Message {
         DestinationId: msgConfig.DestinationId,
         Destination:   msgConfig.Destination,
         Error:         msgConfig.Err,
-        Direction:     Error}
+        Direction:     ErrorDir}
 }

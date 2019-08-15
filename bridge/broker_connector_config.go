@@ -1,14 +1,13 @@
+// Copyright 2019 VMware Inc.
+
 package bridge
 
-type Stomp int
-type Rabbit int
-
+// BrokerConnectorConfig is a configuration used when connecting to a message broker
 type BrokerConnectorConfig struct {
     Username        string
     Password        string
     ServerAddr      string
-    WSPath          string
-    UseWS           bool
-    BrokerType      int
+    WSPath          string  // if UseWS is true, set this to your websocket path (e.g. '/fabric')
+    UseWS           bool    // use WebSocket instead of TCP
     HostHeader      string
 }

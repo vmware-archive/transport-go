@@ -1,5 +1,5 @@
 // Copyright 2019 VMware Inc.
-package bus
+package model
 
 import "github.com/google/uuid"
 
@@ -7,9 +7,9 @@ import "github.com/google/uuid"
 type Direction int
 
 const (
-    Request  Direction = 0
-    Response Direction = 1
-    Error    Direction = 2
+    RequestDir  Direction = 0
+    ResponseDir Direction = 1
+    ErrorDir    Direction = 2
 )
 
 // A Message is the encapsulation of the event sent on the bus.

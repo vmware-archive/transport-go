@@ -3,6 +3,7 @@
 package bus
 
 import (
+    "bifrost/model"
     "sync"
 )
 
@@ -49,7 +50,7 @@ func (channel *Channel) IsPrivate() bool {
 }
 
 // Send a new message on this Channel, to all event handlers.
-func (channel *Channel) Send(message *Message) {
+func (channel *Channel) Send(message *model.Message) {
     channel.channelLock.Lock()
     defer channel.channelLock.Unlock()
     if eventHandlers := channel.eventHandlers; len(eventHandlers) > 0 {
@@ -75,7 +76,7 @@ func (channel *Channel) ContainsHandlers() bool {
 }
 
 // Send message to handler function
-func (channel *Channel) sendMessageToHandler(handler *channelEventHandler, message *Message) {
+func (channel *Channel) sendMessageToHandler(handler *channelEventHandler, message *model.Message) {
     handler.callBackFunction(message)
     channel.wg.Done()
 }

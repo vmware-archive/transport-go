@@ -3,6 +3,7 @@
 package bus
 
 import (
+    "bifrost/model"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
     "testing"
@@ -56,7 +57,7 @@ func TestChannelManager_SubscribeChannelHandler(t *testing.T) {
     testChannelManager = createManager()
     testChannelManager.CreateChannel(testChannelManagerChannelName)
 
-    handler := func(*Message) {}
+    handler := func(*model.Message) {}
     uuid, err := testChannelManager.SubscribeChannelHandler(testChannelManagerChannelName, handler, false)
     assert.Nil(t, err)
     assert.NotNil(t, uuid)
@@ -66,7 +67,7 @@ func TestChannelManager_SubscribeChannelHandler(t *testing.T) {
 
 func TestChannelManager_SubscribeChannelHandlerMissingChannel(t *testing.T) {
     testChannelManager = createManager()
-    handler := func(*Message) {}
+    handler := func(*model.Message) {}
     _, err := testChannelManager.SubscribeChannelHandler(testChannelManagerChannelName, handler, false)
     assert.NotNil(t, err)
 }
@@ -75,7 +76,7 @@ func TestChannelManager_UnsubscribeChannelHandler(t *testing.T) {
     testChannelManager = createManager()
     testChannelManager.CreateChannel(testChannelManagerChannelName)
 
-    handler := func(*Message) {}
+    handler := func(*model.Message) {}
     uuid, _ := testChannelManager.SubscribeChannelHandler(testChannelManagerChannelName, handler, false)
     channel, _ := testChannelManager.GetChannel(testChannelManagerChannelName)
     assert.Len(t, channel.eventHandlers, 1)
@@ -96,7 +97,7 @@ func TestChannelManager_UnsubscribeChannelHandlerNoId(t *testing.T) {
     testChannelManager = createManager()
     testChannelManager.CreateChannel(testChannelManagerChannelName)
 
-    handler := func(*Message) {}
+    handler := func(*model.Message) {}
     testChannelManager.SubscribeChannelHandler(testChannelManagerChannelName, handler, false)
     channel, _ := testChannelManager.GetChannel(testChannelManagerChannelName)
     assert.Len(t, channel.eventHandlers, 1)
