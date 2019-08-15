@@ -5,6 +5,7 @@ import (
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/google/uuid"
+    "log"
     "sync"
 )
 
@@ -87,10 +88,15 @@ func (c *Connection) subscribeTCP(destination string) (*Subscription, error) {
         c.subscriptions[destination] = bcSub
         return bcSub, nil
     }
-    return nil, fmt.Errorf("no STOMP TCP conncetion established")
+    return nil, fmt.Errorf("no STOMP TCP connection established")
 }
 
 func (c *Connection) listenTCPFrames(src chan *stomp.Message, dst chan *bus.Message) {
+    defer func() {
+        if r := recover(); r != nil {
+            log.Println("subscription is closed, message undeliverable to closed channel.")
+        }
+    }()
     for {
         f := <-src
         var body []byte

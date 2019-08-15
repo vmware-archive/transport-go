@@ -20,9 +20,9 @@ func (s *Subscription) Unsubscribe() error {
 
     if s.stompTCPSub != nil {
 
-        err := s.stompTCPSub.Unsubscribe()
+        go s.stompTCPSub.Unsubscribe() // local broker hangs, so lets make sure it is non blocking.
         close(s.C)
-        return err
+        return nil
     }
 
     if s.wsStompSub != nil {

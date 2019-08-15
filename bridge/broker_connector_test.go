@@ -46,6 +46,12 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
                 frame.Destination, f.Header.Get(frame.Destination),
                 frame.ContentType, "application/json")
             sendFrame.Body = []byte("happy baby melody!")
+
+        case frame.UNSUBSCRIBE:
+            sendFrame = frame.New(frame.MESSAGE,
+                frame.Destination, f.Header.Get(frame.Destination),
+                frame.ContentType, "application/json")
+            sendFrame.Body = []byte("bye bye!")
         }
         var bb bytes.Buffer
         bw := bufio.NewWriter(&bb)
@@ -60,7 +66,7 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 //var srv Server
-var testBrokerAddress = ":8992"
+var testBrokerAddress = ":51581"
 var httpServer *httptest.Server
 var tcpServer net.Listener
 var webSocketURLChan = make(chan string)
@@ -285,9 +291,8 @@ func TestBrokerConnector_SendMessageOnWs(t *testing.T) {
     c, _ := bc.Connect(cf)
     assert.NotNil(t, c)
 
-    e := c.SendMessage("nowhere", []byte("outhere"))
+    e := c.SendMessage("nowhere", []byte("out-there"))
     assert.Nil(t, e)
-
 
     // try and send a message on a closed connection
     cf = &BrokerConnectorConfig{
@@ -299,8 +304,59 @@ func TestBrokerConnector_SendMessageOnWs(t *testing.T) {
 
     c.Disconnect()
 
-    e = c.SendMessage("nowhere", []byte("outhere"))
+    e = c.SendMessage("nowhere", []byte("out-there"))
     assert.NotNil(t, e)
+}
 
+func TestBrokerConnector_Unsubscribe(t *testing.T) {
+    //u := <-webSocketURLChan
+    u := websocketURL
+    url, _ := url.Parse(u)
+    host, port, _ := net.SplitHostPort(url.Host)
+    testHost := host + ":" + port
 
+    tt := []struct {
+        test   string
+        config *BrokerConnectorConfig
+    }{
+        {
+           "Unsubscribe via websocket",
+           &BrokerConnectorConfig{
+               Username: "guest", Password: "guest", UseWS: true, WSPath: "/", ServerAddr: testHost}},
+        {
+           "Unsubscribe via TCP",
+           &BrokerConnectorConfig{
+               Username: "guest", Password: "guest", ServerAddr: testBrokerAddress}},
+    }
+
+    for _, tc := range tt {
+        t.Run(tc.test, func(t *testing.T) {
+
+            // connect
+            bc := NewBrokerConnector()
+            c, _ := bc.Connect(tc.config)
+            s, _ := c.Subscribe("/topic/test")
+            if !tc.config.UseWS {
+                var ping = func() {
+                    c.SendMessage("/topic/test", []byte(`my little song`))
+                }
+                go ping()
+            }
+
+            <-s.C
+
+            // unsubscribe
+            err := s.Unsubscribe()
+
+            <-s.C // will catch channel close event.
+            assert.Nil(t, err)
+
+            // unsubscribe on sub with no connection
+            x := new(Subscription)
+            err = x.Unsubscribe()
+            assert.NotNil(t, err)
+
+            c.Disconnect()
+        })
+    }
 }

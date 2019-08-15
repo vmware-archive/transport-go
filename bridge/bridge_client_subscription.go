@@ -25,4 +25,5 @@ func (cs *BridgeClientSub) Unsubscribe() {
 
     cs.Client.SendFrame(unsubscribeFrame)
     cs.subscribed = false
+
 }
