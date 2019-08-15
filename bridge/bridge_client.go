@@ -33,6 +33,7 @@ type BridgeClient struct {
     Subscriptions    map[string]*BridgeClientSub
     logger           *log.Logger
     lock             sync.Mutex
+    sendLock         sync.Mutex
 }
 
 // Create a new WebSocket client.
@@ -49,6 +50,7 @@ func newBridgeWsClient() *BridgeClient {
         connected:        false,
         logger:           l,
         lock:             sync.Mutex{},
+        sendLock:         sync.Mutex{},
         Subscriptions:    make(map[string]*BridgeClientSub),
         ConnectedChan:    make(chan bool),
         disconnectedChan: make(chan bool),
@@ -139,6 +141,8 @@ func (ws *BridgeClient) Send(destination string, payload []byte) {
 
 // send a STOMP frame down the WebSocket
 func (ws *BridgeClient) SendFrame(f *frame.Frame) {
+    ws.sendLock.Lock()
+    defer ws.sendLock.Unlock()
     var b bytes.Buffer
     br := bufio.NewWriter(&b)
     sw := frame.NewWriter(br)
@@ -148,8 +152,8 @@ func (ws *BridgeClient) SendFrame(f *frame.Frame) {
     w, _ := ws.WSc.NextWriter(websocket.TextMessage)
     defer w.Close()
 
-    // write buffer bytes to websocket
     w.Write(b.Bytes())
+
 }
 
 func (ws *BridgeClient) listenSocket() {
