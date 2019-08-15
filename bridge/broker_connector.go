@@ -24,6 +24,9 @@ func NewBrokerConnector() BrokerConnector {
 }
 
 func checkConfig(config *BrokerConnectorConfig) error {
+    if config == nil {
+        return fmt.Errorf("config is nil")
+    }
     if config.ServerAddr == "" {
         return fmt.Errorf("config invalid, config missing server address")
     }

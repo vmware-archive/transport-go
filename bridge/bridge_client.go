@@ -136,8 +136,10 @@ func (ws *BridgeClient) listenSocket() {
         if err != nil {
             break // socket can't be read anymore, exit.
         }
-        ws.logger.Printf("Received STOMP Frame: %s\n", f.Command)
-        ws.inboundChan <- f
+        if f != nil {
+            ws.logger.Printf("Received STOMP Frame: %s\n", f.Command)
+            ws.inboundChan <- f
+        }
     }
 }
 
