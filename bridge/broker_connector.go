@@ -1,34 +1,36 @@
+// Copyright 2019 VMware Inc.
 package bridge
 
 import (
-    "bifrost/bus"
+    //"bifrost/bus"
+    // "bifrost/bus"
     "fmt"
     "github.com/go-stomp/stomp"
-    "log"
     "net/url"
     "sync"
 )
 
+// BrokerConnector is used to connect to a message broker over TCP or WebSocket.
 type BrokerConnector interface {
     Connect(config *BrokerConnectorConfig) (*Connection, error)
-    //Subscribe(destination string) (*Subscription, error)
-    //Unsubscribe(destination string) error
-    //Disconnect() error
-    //SendMessage(destination string, message *bus.Message) error
 }
 
 type brokerConnector struct {
     c             *Connection
     config        *BrokerConnectorConfig
     connected     bool
-    bus           bus.EventBus
+    //bus           bus.EventBus
 }
 
+// Create a new broker connector
 func NewBrokerConnector() BrokerConnector {
-    return &brokerConnector{connected: false, bus: bus.GetBus()}
+    return &brokerConnector{connected: false }
 }
 
 func checkConfig(config *BrokerConnectorConfig) error {
+    if config == nil {
+        return fmt.Errorf("config is nil")
+    }
     if config.ServerAddr == "" {
         return fmt.Errorf("config invalid, config missing server address")
     }
@@ -41,6 +43,7 @@ func checkConfig(config *BrokerConnectorConfig) error {
     return nil
 }
 
+// Connect to broker using supplied connector config.
 func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (*Connection, error) {
 
     err := checkConfig(config)
@@ -53,24 +56,26 @@ func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (*Connection, 
         return bc.connectWs(config)
     }
 
+    return bc.connectTCP(config, err)
+}
+
+func (bc *brokerConnector) connectTCP(config *BrokerConnectorConfig, err error) (*Connection, error) {
     if config.HostHeader == "" {
         config.HostHeader = "/"
     }
-
     var options = []func(*stomp.Conn) error{
         stomp.ConnOpt.Login(config.Username, config.Password),
         stomp.ConnOpt.Host(config.HostHeader),
     }
-
     conn, err := stomp.Dial("tcp", config.ServerAddr, options...)
     if err != nil {
         return nil, err
     }
     bcConn := &Connection{
-        conn: conn,
-        subscriptions: make(map[string]*Subscription),
-        useWs: false,
-        connLock: sync.Mutex{},
+        conn:           conn,
+        subscriptions:  make(map[string]*Subscription),
+        useWs:          false,
+        connLock:       sync.Mutex{},
         disconnectChan: make(chan bool)}
     bc.c = bcConn
     bc.connected = true
@@ -80,12 +85,11 @@ func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (*Connection, 
 
 func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (*Connection, error) {
 
-    // TODO: Make sure 'ws' is moved to config.
     u := url.URL{Scheme: "ws", Host: config.ServerAddr, Path: config.WSPath}
     c := NewBridgeWsClient()
     err := c.Connect(&u, nil)
     if err != nil {
-        log.Panicf("cannot connect to host %s via path %s, stopping", config.ServerAddr, config.WSPath)
+        return nil, fmt.Errorf("cannot connect to host '%s' via path '%s', stopping", config.ServerAddr, config.WSPath)
     }
 
     bcConn := &Connection{
@@ -98,25 +102,3 @@ func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (*Connection
     bc.connected = true
     return bcConn, nil
 }
-
-//func (bc *brokerConnector) Disconnect() error {
-//    bc.connected = false
-//    return bc.c.conn.Disconnect()
-//}
-
-//func (bc *brokerConnector) SendMessage(destination string, msg *bus.Message) error {
-//    if bc.connected {
-//
-//        if pl, err := json.Marshal(msg.Payload); err != nil {
-//            return err
-//        } else {
-//            if err := bc.c.conn.Send(destination, "text/plain", pl, nil); err != nil {
-//                return err
-//            }
-//        }
-//        return nil
-//
-//    } else {
-//        return fmt.Errorf("unable to send message, not connected to broker")
-//    }
-//}

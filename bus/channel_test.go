@@ -3,6 +3,7 @@
 package bus
 
 import (
+    "bifrost/model"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
     "testing"
@@ -20,7 +21,7 @@ func TestChannel_CheckChannelCreation(t *testing.T) {
 func TestChannel_SubscribeHandler(t *testing.T) {
     id := uuid.New()
     channel := NewChannel(testChannelName)
-    handler := func(*Message) {}
+    handler := func(*model.Message) {}
     channel.subscribeHandler(handler,
         &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
@@ -39,7 +40,7 @@ func TestChannel_HandlerCheck(t *testing.T) {
     id := uuid.New()
     assert.False(t, channel.ContainsHandlers())
 
-    handler := func(*Message) {}
+    handler := func(*model.Message) {}
     channel.subscribeHandler(handler,
         &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
@@ -50,7 +51,7 @@ func TestChannel_HandlerCheck(t *testing.T) {
 func TestChannel_SendMessage(t *testing.T) {
     id := uuid.New()
     channel := NewChannel(testChannelName)
-    handler := func(message *Message) {
+    handler := func(message *model.Message) {
         assert.Equal(t, message.Payload.(string), "pickled eggs")
         assert.Equal(t, message.Channel, testChannelName)
     }
@@ -58,11 +59,11 @@ func TestChannel_SendMessage(t *testing.T) {
     channel.subscribeHandler(handler,
         &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
-    var message = &Message{
+    var message = &model.Message{
         Id:        &id,
         Payload:   "pickled eggs",
         Channel:   testChannelName,
-        Direction: Request}
+        Direction: model.RequestDir}
 
     channel.Send(message)
     channel.wg.Wait()
@@ -72,7 +73,7 @@ func TestChannel_SendMultipleMessages(t *testing.T) {
     id := uuid.New()
     channel := NewChannel(testChannelName)
     counter := 0
-    handler := func(message *Message) {
+    handler := func(message *model.Message) {
         assert.Equal(t, message.Payload.(string), "chewy louie")
         assert.Equal(t, message.Channel, testChannelName)
         counter++
@@ -80,11 +81,11 @@ func TestChannel_SendMultipleMessages(t *testing.T) {
 
     channel.subscribeHandler(handler,
         &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
-    var message = &Message{
+    var message = &model.Message{
         Id:        &id,
         Payload:   "chewy louie",
         Channel:   testChannelName,
-        Direction: Request}
+        Direction: model.RequestDir}
 
     channel.Send(message)
     channel.Send(message)
@@ -97,13 +98,13 @@ func TestChannel_MultiHandlerSingleMessage(t *testing.T) {
     id := uuid.New()
     channel := NewChannel(testChannelName)
     counterA, counterB, counterC := 0, 0, 0
-    handlerA := func(message *Message) {
+    handlerA := func(message *model.Message) {
         counterA++
     }
-    handlerB := func(message *Message) {
+    handlerB := func(message *model.Message) {
         counterB++
     }
-    handlerC := func(message *Message) {
+    handlerC := func(message *model.Message) {
         counterC++
     }
 
@@ -116,11 +117,11 @@ func TestChannel_MultiHandlerSingleMessage(t *testing.T) {
     channel.subscribeHandler(handlerC,
         &channelEventHandler{callBackFunction: handlerC, runOnce: false, uuid: &id})
 
-    var message = &Message{
+    var message = &model.Message{
         Id:        &id,
         Payload:   "late night munchies",
         Channel:   testChannelName,
-        Direction: Request}
+        Direction: model.RequestDir}
 
     channel.Send(message)
     channel.Send(message)
@@ -147,8 +148,8 @@ func TestChannel_ChannelGalactic (t *testing.T) {
 
 func TestChannel_RemoveEventHandler(t *testing.T) {
     channel := NewChannel(testChannelName)
-    handlerA:= func(message *Message) {}
-    handlerB:= func(message *Message) {}
+    handlerA:= func(message *model.Message) {}
+    handlerB:= func(message *model.Message) {}
 
     idA := uuid.New()
     idB := uuid.New()
@@ -182,7 +183,7 @@ func TestChannel_RemoveEventHandlerNoHandlers(t *testing.T) {
 func TestChannel_RemoveEventHandlerOOBIndex(t *testing.T) {
     channel := NewChannel(testChannelName)
     id := uuid.New()
-    handler := func(*Message) {}
+    handler := func(*model.Message) {}
     channel.subscribeHandler(handler,
         &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 

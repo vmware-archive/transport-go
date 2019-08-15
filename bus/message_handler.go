@@ -2,12 +2,13 @@
 package bus
 
 import (
+    "bifrost/model"
     "fmt"
     "github.com/google/uuid"
 )
 
 // Signature used for all functions used on bus stream APIs to Handle messages.
-type MessageHandlerFunction func(*Message)
+type MessageHandlerFunction func(*model.Message)
 
 // Signature used for all functions used on bus stream APIs to Handle errors.
 type MessageErrorFunction func(error)
@@ -29,7 +30,7 @@ type messageHandler struct {
     eventCount      int64
     closed          bool
     channel         *Channel
-    requestMessage  *Message
+    requestMessage  *model.Message
     runOnce         bool
     hasRun          bool
     runCount        int
