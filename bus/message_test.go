@@ -20,9 +20,3 @@ func TestMessageModel(t *testing.T) {
     assert.Equal(t, message.Channel, "123")
 }
 
-func TestMessageModel_ConfigId(t *testing.T) {
-    config := new(model.MessageConfig)
-    assert.Nil(t, config.Id)
-    model.checkId(config)
-    assert.NotNil(t, config.Id)
-}
