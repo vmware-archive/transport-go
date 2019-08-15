@@ -107,7 +107,7 @@ func TestEventBus_ListenStreamNoChannel(t *testing.T) {
 }
 
 func TestEventBus_ListenOnce(t *testing.T) {
-    createTestChannel()
+    c := createTestChannel()
     handler, _ := evtBusTest.ListenOnce(evtbusTestChannelName)
     count := 0
     handler.Handle(
@@ -123,6 +123,7 @@ func TestEventBus_ListenOnce(t *testing.T) {
         evtBusTest.SendRequestMessage(evtbusTestChannelName, 0, handler.GetDestinationId())
         evtBusTest.SendRequestMessage(evtbusTestChannelName, 1, handler.GetDestinationId())
     }
+    c.wg.Wait()
     assert.Equal(t, 1, count)
     destroyTestChannel()
 }
