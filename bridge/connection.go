@@ -93,9 +93,19 @@ func (c *Connection) subscribeTCP(destination string) (*Subscription, error) {
 func (c *Connection) listenTCPFrames(src chan *stomp.Message, dst chan *bus.Message) {
     for {
         f := <-src
-        cf := &bus.MessageConfig{Payload: f.Body, Destination: f.Destination}
-        m := bus.GenerateResponse(cf)
-        dst <- m
+        var body []byte
+        var dest string
+        if f != nil && f.Body != nil {
+            body = f.Body
+        }
+        if f!= nil && len(f.Destination) > 0  {
+            dest = f.Destination
+        }
+        if f != nil {
+            cf := &bus.MessageConfig{Payload: body, Destination: dest}
+            m := bus.GenerateResponse(cf)
+            dst <- m
+        }
     }
 }
 

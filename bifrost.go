@@ -3,7 +3,6 @@ package main
 
 import (
     "bifrost/bridge"
-    "bifrost/bus"
     "encoding/json"
     "github.com/go-stomp/stomp"
     "log"
@@ -38,7 +37,7 @@ func main() {
     config := &bridge.BrokerConnectorConfig{
         Username:   "guest",
         Password:   "guest",
-        ServerAddr: "localhost:8090",
+        ServerAddr: "appfabric.vmware.com:8090",
         WSPath:     "/fabric",
         UseWS:      true}
 
@@ -68,9 +67,7 @@ func main() {
             count++
             log.Printf("WebSocket Message: %s", r.Payload.(string))
 
-            cf := &bus.MessageConfig{Destination: "/queue/fishsticks", Payload: "Chicken Nugget"}
-            rq := bus.GenerateRequest(cf)
-            rConn.SendMessage("/queue/fishsticks", rq)
+            rConn.SendMessage("/queue/fishsticks", []byte("chickers"))
 
             if count >= 3 {
                 sub.Unsubscribe()
