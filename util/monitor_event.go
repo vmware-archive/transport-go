@@ -1,5 +1,7 @@
 // Copyright 2019 VMware Inc.
-package model
+package util
+
+import "bifrost/model"
 
 const (
     ChannelCreatedEvt          int = 0
@@ -10,17 +12,19 @@ const (
     ChannelErrorEvt            int = 5
     ChannelIsGalacticEvt       int = 6
     ChannelIsLocalEvt          int = 7
-    BrokerConnectedEvt         int = 8
-    BrokerDisconnected         int = 9
+    BrokerConnectedEvtWs       int = 8
+    BrokerConnectedEvtTcp      int = 9
+    BrokerDisconnectedWs       int = 10
+    BrokerDisconnectedTcp      int = 11
 )
 
 type MonitorEvent struct {
-    EventType    int
-    Message      *Message
-    Channel     string
+    EventType int
+    Message   *model.Message
+    Channel   string
 }
 
 // Create a new monitor event
-func NewMonitorEvent(evtType int, channel string, message *Message,) *MonitorEvent {
+func NewMonitorEvent(evtType int, channel string, message *model.Message, ) *MonitorEvent {
     return &MonitorEvent{EventType: evtType, Message: message, Channel: channel}
 }

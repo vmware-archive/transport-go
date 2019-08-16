@@ -5,6 +5,7 @@ package bus
 import (
     "bifrost/bridge"
     "bifrost/model"
+    "bifrost/util"
     "fmt"
     "github.com/google/uuid"
     "sync"
@@ -24,7 +25,7 @@ type EventBus interface {
     ListenRequestStream(channelName string) (MessageHandler, error)
     ListenRequestStreamForDestination(channelName string, destinationId *uuid.UUID) (MessageHandler, error)
     ListenRequestOnce(channelName string) (MessageHandler, error)
-    ListenRequestOnceForDestination (channelName string, destinationId *uuid.UUID) (MessageHandler, error)
+    ListenRequestOnceForDestination(channelName string, destinationId *uuid.UUID) (MessageHandler, error)
     ListenOnce(channelName string) (MessageHandler, error)
     ListenOnceForDestination(channelName string, destId *uuid.UUID) (MessageHandler, error)
     RequestOnce(channelName string, payload interface{}) (MessageHandler, error)
@@ -48,8 +49,10 @@ func GetBus() EventBus {
 }
 
 type bifrostEventBus struct {
-    ChannelManager ChannelManager
-    Id             uuid.UUID
+    ChannelManager    ChannelManager
+    Id                uuid.UUID
+    monitor           *util.MonitorStream
+    brokerConnections map[*uuid.UUID]*bridge.Connection
 }
 
 func (bus *bifrostEventBus) GetId() *uuid.UUID {
@@ -59,8 +62,9 @@ func (bus *bifrostEventBus) GetId() *uuid.UUID {
 func (bus *bifrostEventBus) init() {
 
     bus.Id = uuid.New()
-    bus.ChannelManager = new(busChannelManager)
-    bus.ChannelManager.Boot()
+    bus.ChannelManager = NewBusChannelManager(bus)
+    bus.monitor = util.GetMonitor()
+    bus.brokerConnections = make(map[*uuid.UUID]*bridge.Connection)
     fmt.Printf("🌈 Bifröst booted with Id [%s]\n", bus.Id.String())
 }
 
@@ -102,7 +106,6 @@ func (bus *bifrostEventBus) SendErrorMessage(channelName string, err error, dest
     if chanErr != nil {
         return err
     }
-
     config := buildError(channelName, err, destId)
     message := model.GenerateError(config)
     sendMessageToChannel(channelObject, message)
@@ -174,7 +177,6 @@ func (bus *bifrostEventBus) ListenRequestStreamForDestination(channelName string
     messageHandler := bus.wrapMessageHandler(channel, model.RequestDir, false, false, destId)
     return messageHandler, nil
 }
-
 
 // Listen for a single RequestDir (outbound) messages on Channel. Handler is closed after a single event.
 // Returns MessageHandler
@@ -317,6 +319,7 @@ func (bus *bifrostEventBus) RequestStreamForDestination(channelName string, payl
 func (bus *bifrostEventBus) ConnectBroker(config *bridge.BrokerConnectorConfig) (conn *bridge.Connection, err error) {
     bc := bridge.NewBrokerConnector()
     conn, err = bc.Connect(config)
+    bus.brokerConnections[conn.Id] = conn
     return
 }
 
@@ -399,6 +402,11 @@ func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction model
 }
 
 func sendMessageToChannel(channelObject *Channel, message *model.Message) {
+    if message.Error != nil {
+        defer util.GetMonitor().SendMonitorEventData(util.ChannelErrorEvt, channelObject.Name, message)
+    } else {
+        defer util.GetMonitor().SendMonitorEventData(util.ChannelMessageEvt, channelObject.Name, message)
+    }
     channelObject.Send(message)
 }
 

@@ -3,6 +3,7 @@
 package bus
 
 import (
+    "bifrost/util"
     "errors"
     "fmt"
     "github.com/google/uuid"
@@ -21,23 +22,37 @@ type ChannelManager interface {
     WaitForChannel(channelName string) error
 }
 
+func NewBusChannelManager(bus EventBus) ChannelManager {
+    manager := new(busChannelManager)
+    manager.Channels = make(map[string]*Channel)
+    manager.bus = bus.(*bifrostEventBus)
+    manager.monitor = util.GetMonitor()
+    return manager
+}
+
+
 type busChannelManager struct {
     Channels map[string]*Channel
+    bus      *bifrostEventBus
+    monitor  *util.MonitorStream
 }
 
 // Boot up the Channel manager
 func (manager *busChannelManager) Boot() {
     manager.Channels = make(map[string]*Channel)
+    manager.monitor = util.GetMonitor()
 }
 
 // Create a new Channel with the supplied Channel name. Returns pointer to new Channel object
 func (manager *busChannelManager) CreateChannel(channelName string) *Channel {
+    manager.monitor.SendMonitorEvent(util.ChannelDestroyedEvt, channelName)
     manager.Channels[channelName] = NewChannel(channelName)
     return manager.Channels[channelName]
 }
 
 // Destroy a Channel and all the handlers listening on it.
 func (manager *busChannelManager) DestroyChannel(channelName string) {
+    util.GetMonitor().SendMonitorEvent(util.ChannelDestroyedEvt, channelName)
     delete(manager.Channels, channelName)
 }
 
@@ -70,7 +85,7 @@ func (manager *busChannelManager) SubscribeChannelHandler(channelName string, fn
     id := uuid.New()
     channel.subscribeHandler(fn,
         &channelEventHandler{callBackFunction: fn, runOnce: runOnce, uuid: &id})
-
+    util.GetMonitor().SendMonitorEvent(util.ChannelSubscriberJoinedEvt, channelName)
     return &id, nil
 }
 
@@ -90,6 +105,7 @@ func (manager *busChannelManager) UnsubscribeChannelHandler(channelName string, 
     if !found {
         return fmt.Errorf("no handler in Channel '%s' for uuid [%s]", channelName, uuid)
     }
+    util.GetMonitor().SendMonitorEvent(util.ChannelSubscriberLeftEvt, channelName)
     return nil
 }
 
