@@ -3,7 +3,9 @@
 package bus
 
 import (
+    "bifrost/bridge"
     "bifrost/model"
+    "github.com/google/uuid"
     "sync"
 )
 
@@ -15,6 +17,7 @@ type Channel struct {
     private       bool
     channelLock   sync.Mutex
     wg            sync.WaitGroup
+    brokerSubs    map[*uuid.UUID]*bridge.Subscription
 }
 
 // Create a new Channel with the supplied Channel name. Returns a pointer to that Channel.
@@ -25,7 +28,8 @@ func NewChannel(channelName string) *Channel {
         channelLock:   sync.Mutex{},
         galactic:      false,
         private:       false,
-        wg:            sync.WaitGroup{}}
+        wg:            sync.WaitGroup{},
+        brokerSubs:    make(map[*uuid.UUID]*bridge.Subscription)}
     return c
 }
 
@@ -103,3 +107,13 @@ func (channel *Channel) removeEventHandler(index int) {
     channel.eventHandlers[numHandlers-1] = nil
     channel.eventHandlers = channel.eventHandlers[:numHandlers-1]
 }
+
+func (channel *Channel) addBrokerSubscription(sub *bridge.Subscription) {
+    channel.brokerSubs[sub.Id] = sub
+}
+
+func (channel *Channel) removeBrokerSubscription(sub *bridge.Subscription) {
+    delete(channel.brokerSubs, sub.Id)
+}
+
+

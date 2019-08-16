@@ -43,6 +43,7 @@ func GetBus() EventBus {
     once.Do(func() {
         bf := new(bifrostEventBus)
         bf.init()
+        go bf.listenToMonitor() // start listening to the monitor for galactic events
         busInstance = bf
     })
     return busInstance
@@ -323,22 +324,6 @@ func (bus *bifrostEventBus) ConnectBroker(config *bridge.BrokerConnectorConfig) 
     return
 }
 
-func checkForSuppliedId(id *uuid.UUID) *uuid.UUID {
-    if id == nil {
-        i := uuid.New()
-        id = &i
-    }
-    return id
-}
-
-func checkHandlerHasRun(handler *messageHandler) bool {
-    return handler.hasRun
-}
-
-func checkHandlerSingleRun(handler *messageHandler) bool {
-    return handler.runOnce
-}
-
 func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction model.Direction, ignoreId bool, allTraffic bool, destId *uuid.UUID) *messageHandler {
     messageHandler := createMessageHandler(channel, destId)
     messageHandler.ignoreId = ignoreId
@@ -400,6 +385,36 @@ func (bus *bifrostEventBus) wrapMessageHandler(channel *Channel, direction model
     messageHandler.wrapperFunction = handlerWrapper
     return messageHandler
 }
+
+func (bus *bifrostEventBus) listenToMonitor() {
+    for {
+        me := <- bus.monitor.Stream
+        switch me.EventType {
+        case util.ChannelIsGalacticEvt:
+            // TODO: handle galactic events. create subscription to channel.
+        case util.ChannelIsLocalEvt:
+            // TODO: remove subscription
+        }
+    }
+}
+
+
+func checkForSuppliedId(id *uuid.UUID) *uuid.UUID {
+    if id == nil {
+        i := uuid.New()
+        id = &i
+    }
+    return id
+}
+
+func checkHandlerHasRun(handler *messageHandler) bool {
+    return handler.hasRun
+}
+
+func checkHandlerSingleRun(handler *messageHandler) bool {
+    return handler.runOnce
+}
+
 
 func sendMessageToChannel(channelObject *Channel, message *model.Message) {
     if message.Error != nil {
