@@ -2,20 +2,98 @@
 package bus
 
 import (
+    "bifrost/bridge"
     "bifrost/model"
+    "bifrost/util"
+    "bufio"
+    "bytes"
     "errors"
     "fmt"
+    "github.com/go-stomp/stomp/frame"
     "github.com/google/uuid"
+    "github.com/gorilla/websocket"
     "github.com/stretchr/testify/assert"
+    "log"
+    "net"
+    "net/http"
+    "net/http/httptest"
+    "net/url"
     "testing"
 )
 
-var evtBusTest EventBus
+var evtBusTest *bifrostEventBus
 var evtbusTestChannelName string = "test-channel"
 var evtbusTestManager ChannelManager
 
+var httpServer *httptest.Server
+var webSocketURLChan = make(chan string, 1)
+var websocketURL string
+var upgrader = websocket.Upgrader{}
+
+func runWebSocketEndPoint() string {
+    s := httptest.NewServer(http.HandlerFunc(websocketHandler))
+    log.Println("WebSocket listening on", s.Listener.Addr().Network(), s.Listener.Addr().String())
+    httpServer = s
+    websocketURL = s.URL
+    return s.URL
+}
+
+func killWebSocketEndpoint() {
+    httpServer.Close()
+}
+
+// upgrade http connection to WS and read/write responses.
+func websocketHandler(w http.ResponseWriter, r *http.Request) {
+    c, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        return
+    }
+    defer c.Close()
+    for {
+        mt, message, err := c.ReadMessage()
+        if err != nil {
+            break
+        }
+
+        br := bytes.NewReader(message)
+        sr := frame.NewReader(br)
+        f, _ := sr.Read()
+
+        var sendFrame *frame.Frame
+
+        switch f.Command {
+        case frame.CONNECT:
+            sendFrame = frame.New(frame.CONNECTED,
+                frame.ContentType, "application/json")
+
+        case frame.SUBSCRIBE:
+            sendFrame = frame.New(frame.MESSAGE,
+                frame.Destination, f.Header.Get(frame.Destination),
+                frame.ContentType, "application/json")
+            sendFrame.Body = []byte("happy baby melody!")
+
+        case frame.UNSUBSCRIBE:
+            sendFrame = frame.New(frame.MESSAGE,
+                frame.Destination, f.Header.Get(frame.Destination),
+                frame.ContentType, "application/json")
+            sendFrame.Body = []byte("bye bye!")
+        }
+        var bb bytes.Buffer
+        bw := bufio.NewWriter(&bb)
+        sw := frame.NewWriter(bw)
+        sw.Write(sendFrame)
+
+        err = c.WriteMessage(mt, bb.Bytes())
+        if err != nil {
+            break
+        }
+    }
+}
+
+
 func init() {
-    evtBusTest = GetBus()
+    evtBusTest = GetBus().(*bifrostEventBus)
+
 }
 
 func createTestChannel() *Channel {
@@ -25,6 +103,7 @@ func createTestChannel() *Channel {
 
 func destroyTestChannel() {
     evtbusTestManager.DestroyChannel(evtbusTestChannelName)
+    util.ResetMonitor()
 }
 
 func TestEventBus_Boot(t *testing.T) {
@@ -156,7 +235,6 @@ func TestEventBus_ListenOnceForDestination(t *testing.T) {
     assert.Equal(t, 1, count)
     destroyTestChannel()
 }
-
 
 func TestEventBus_ListenOnceNoChannel(t *testing.T) {
     _, err := evtBusTest.ListenOnce("missing-Channel")
@@ -547,4 +625,27 @@ func TestEventBus_HandlerWithoutRequestToFire(t *testing.T) {
     err := responseHandler.Fire()
     assert.Errorf(t, err, "nothing to fire, request is empty")
     destroyTestChannel()
+}
+
+
+func TestChannelManager_TestConnectBroker(t *testing.T) {
+    u := runWebSocketEndPoint()
+    url, _ := url.Parse(u)
+    host, port, _ := net.SplitHostPort(url.Host)
+    testHost := host + ":" + port
+    createTestChannel()
+
+    // connect to broker
+    log.Printf("connecting")
+    cf := &bridge.BrokerConnectorConfig{
+        Username:   "test",
+        Password:   "test",
+        UseWS: true,
+        WSPath: "/",
+        ServerAddr: testHost }
+    c, _:= evtBusTest.ConnectBroker(cf)
+    assert.NotNil(t, c)
+    destroyTestChannel()
+    killWebSocketEndpoint()
+    util.ResetMonitor()
 }

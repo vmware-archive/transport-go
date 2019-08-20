@@ -9,38 +9,60 @@ import (
 var once sync.Once
 var monitorInstance *MonitorStream
 
+func createMonitor() {
+    m := new(MonitorStream)
+    m.Stream = make(chan *MonitorEvent)
+    monitorInstance = m
+    m.lock = sync.Mutex{}
+}
+
 // Get a reference to the monitor.
 func GetMonitor() *MonitorStream {
     once.Do(func() {
-        m := new(MonitorStream)
-        m.Stream = make(chan *MonitorEvent, 5) // give this a small buffer.
-        monitorInstance = m
+       createMonitor()
     })
+    return monitorInstance
+}
+
+// Only really useful for testing.
+func ResetMonitor() *MonitorStream {
+    createMonitor()
     return monitorInstance
 }
 
 // Monitor stream exposes a channel to listen for bus events.
 type MonitorStream struct {
     Stream chan *MonitorEvent
+    lock   sync.Mutex       // prevent concurrent writes to stream
 }
 
 // Send a new monitor event without any payload to the monitor stream
 func (m *MonitorStream) SendMonitorEvent(evtType int, channel string) {
+    m.lock.Lock()
+    defer m.lock.Unlock()
+    //log.Printf("sending monitor event (no data): %d", evtType)
     // make this non blocking, there may be no-one listening.
     select {
     case m.Stream <- NewMonitorEvent(evtType, channel, nil):
     default:
+        //log.Printf("no listeners! dropping monitor message")
         // channel full, no-one listening, drop.
     }
+    //log.Printf("done")
 }
 
 // Send a new monitor event with a message payload to the monitor stream. This is non-blocking
 // so it does not matter if there is no-one listening to the stream.
 func (m *MonitorStream) SendMonitorEventData(evtType int, channel string, msg *model.Message) {
+    m.lock.Lock()
+    defer m.lock.Unlock()
+    //log.Printf("sending monitor event (with data): %d", evtType)
     // make this non blocking, there may be no-one listening.
     select {
     case m.Stream <- NewMonitorEvent(evtType, channel, msg):
     default:
+        //log.Printf("no listeners, dropping monitor message")
         // channel full, no-one listening, drop.
     }
+    //log.Printf("done data")
 }

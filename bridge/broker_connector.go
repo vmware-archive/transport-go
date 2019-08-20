@@ -10,6 +10,12 @@ import (
     "sync"
 )
 
+const (
+    BrokerTopicPrefix string = "/topic/"
+    BrokerQueuePrefix string = "/queue/"
+    BrokerPubPrefix string = "/pub/"
+)
+
 // BrokerConnector is used to connect to a message broker over TCP or WebSocket.
 type BrokerConnector interface {
     Connect(config *BrokerConnectorConfig) (*Connection, error)

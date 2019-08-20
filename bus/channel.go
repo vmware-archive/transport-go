@@ -11,13 +11,14 @@ import (
 
 // Channel represents the stream and the subscribed event handlers waiting for ticks on the stream
 type Channel struct {
-    Name          string `json:"string"`
-    eventHandlers []*channelEventHandler
-    galactic      bool
-    private       bool
-    channelLock   sync.Mutex
-    wg            sync.WaitGroup
-    brokerSubs    map[*uuid.UUID]*bridge.Subscription
+    Name                      string `json:"string"`
+    eventHandlers             []*channelEventHandler
+    galactic                  bool
+    galacticMappedDestination string
+    private                   bool
+    channelLock               sync.Mutex
+    wg                        sync.WaitGroup
+    brokerSubs                map[*uuid.UUID]*bridge.Subscription
 }
 
 // Create a new Channel with the supplied Channel name. Returns a pointer to that Channel.
@@ -39,8 +40,15 @@ func (channel *Channel) SetPrivate(private bool) {
 }
 
 // Mark the Channel as galactic
-func (channel *Channel) SetGalactic(galactic bool) {
-    channel.galactic = galactic
+func (channel *Channel) SetGalactic(mappedDestination string) {
+    channel.galactic = true
+    channel.galacticMappedDestination = mappedDestination
+}
+
+// Mark the Channel as local
+func (channel *Channel) SetLocal() {
+    channel.galactic = false
+    channel.galacticMappedDestination = ""
 }
 
 // Returns true is the Channel is marked as galactic
@@ -82,6 +90,7 @@ func (channel *Channel) ContainsHandlers() bool {
 // Send message to handler function
 func (channel *Channel) sendMessageToHandler(handler *channelEventHandler, message *model.Message) {
     handler.callBackFunction(message)
+    handler.hasRun = true
     channel.wg.Done()
 }
 
@@ -115,5 +124,3 @@ func (channel *Channel) addBrokerSubscription(sub *bridge.Subscription) {
 func (channel *Channel) removeBrokerSubscription(sub *bridge.Subscription) {
     delete(channel.brokerSubs, sub.Id)
 }
-
-

@@ -7,18 +7,7 @@ import (
     "fmt"
 )
 
-//var stop = make(chan bool)
-//var b = bus.GetBus()
-
 func main() {
-
-    //s := make(chan os.Signal, 1)
-    //signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
-    //
-    //go func() {
-    //    <-s
-    //    stop <- true
-    //}()
 
     bf := bus.GetBus()
     channel := "some-channel"
