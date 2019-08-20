@@ -4,6 +4,7 @@ package bridge
 
 import (
     "bifrost/model"
+    "bifrost/util"
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/google/uuid"
@@ -13,6 +14,7 @@ import (
 
 // Connection represents a Connection to a message broker.
 type Connection struct {
+    Id             *uuid.UUID
     useWs          bool
     conn           *stomp.Conn
     wsConn         *BridgeClient
@@ -47,11 +49,13 @@ func (c *Connection) Disconnect() (err error) {
     }
     if c.useWs {
         if c.wsConn != nil && c.wsConn.connected {
+            defer util.GetMonitor().SendMonitorEvent(util.BrokerDisconnectedWs, "no-channel")
             defer c.cleanUpConnection()
             err = c.wsConn.Disconnect()
         }
     } else {
         if c.conn != nil {
+            defer util.GetMonitor().SendMonitorEvent(util.BrokerDisconnectedTcp, "no-channel")
             defer c.cleanUpConnection()
             err = c.conn.Disconnect()
         }

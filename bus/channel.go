@@ -3,18 +3,22 @@
 package bus
 
 import (
+    "bifrost/bridge"
     "bifrost/model"
+    "github.com/google/uuid"
     "sync"
 )
 
 // Channel represents the stream and the subscribed event handlers waiting for ticks on the stream
 type Channel struct {
-    Name          string `json:"string"`
-    eventHandlers []*channelEventHandler
-    galactic      bool
-    private       bool
-    channelLock   sync.Mutex
-    wg            sync.WaitGroup
+    Name                      string `json:"string"`
+    eventHandlers             []*channelEventHandler
+    galactic                  bool
+    galacticMappedDestination string
+    private                   bool
+    channelLock               sync.Mutex
+    wg                        sync.WaitGroup
+    brokerSubs                map[*uuid.UUID]*bridge.Subscription
 }
 
 // Create a new Channel with the supplied Channel name. Returns a pointer to that Channel.
@@ -25,7 +29,8 @@ func NewChannel(channelName string) *Channel {
         channelLock:   sync.Mutex{},
         galactic:      false,
         private:       false,
-        wg:            sync.WaitGroup{}}
+        wg:            sync.WaitGroup{},
+        brokerSubs:    make(map[*uuid.UUID]*bridge.Subscription)}
     return c
 }
 
@@ -35,8 +40,15 @@ func (channel *Channel) SetPrivate(private bool) {
 }
 
 // Mark the Channel as galactic
-func (channel *Channel) SetGalactic(galactic bool) {
-    channel.galactic = galactic
+func (channel *Channel) SetGalactic(mappedDestination string) {
+    channel.galactic = true
+    channel.galacticMappedDestination = mappedDestination
+}
+
+// Mark the Channel as local
+func (channel *Channel) SetLocal() {
+    channel.galactic = false
+    channel.galacticMappedDestination = ""
 }
 
 // Returns true is the Channel is marked as galactic
@@ -78,6 +90,7 @@ func (channel *Channel) ContainsHandlers() bool {
 // Send message to handler function
 func (channel *Channel) sendMessageToHandler(handler *channelEventHandler, message *model.Message) {
     handler.callBackFunction(message)
+    handler.hasRun = true
     channel.wg.Done()
 }
 
@@ -102,4 +115,12 @@ func (channel *Channel) removeEventHandler(index int) {
     copy(channel.eventHandlers[index:], channel.eventHandlers[index+1:])
     channel.eventHandlers[numHandlers-1] = nil
     channel.eventHandlers = channel.eventHandlers[:numHandlers-1]
+}
+
+func (channel *Channel) addBrokerSubscription(sub *bridge.Subscription) {
+    channel.brokerSubs[sub.Id] = sub
+}
+
+func (channel *Channel) removeBrokerSubscription(sub *bridge.Subscription) {
+    delete(channel.brokerSubs, sub.Id)
 }

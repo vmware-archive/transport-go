@@ -4,6 +4,7 @@ package bus
 
 import (
     "bifrost/model"
+    "bifrost/util"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
     "testing"
@@ -13,9 +14,14 @@ var testChannelManager ChannelManager
 var testChannelManagerChannelName string = "melody"
 
 func createManager() ChannelManager {
-    manager := new(busChannelManager)
-    manager.Boot()
+    manager := NewBusChannelManager(createBus())
     return manager
+}
+
+func createBus() *bifrostEventBus {
+    bf := new(bifrostEventBus)
+    bf.init()
+    return bf
 }
 
 func TestChannelManager_Boot(t *testing.T) {
@@ -111,4 +117,71 @@ func TestChannelManager_TestWaitForGroupOnBadChannel(t *testing.T) {
     testChannelManager = createManager()
     err := testChannelManager.WaitForChannel("unknown")
     assert.Error(t, err, "no such Channel as 'unknown'")
+}
+
+
+func TestChannelManager_TestGalacticChannelOpen(t *testing.T) {
+    testChannelManager = createManager()
+    testChannelManager.CreateChannel(testChannelManagerChannelName)
+    d := make(chan bool)
+    s := util.GetMonitor()
+    var listenMonitor = func() {
+
+        // mark channel as galactic.
+        e := testChannelManager.MarkChannelAsGalactic(testChannelManagerChannelName, "/topic/testy-test")
+        assert.Nil(t, e)
+
+        for {
+            e := <-s.Stream
+            if e.EventType == util.ChannelIsGalacticEvt {
+                assert.Equal(t, "/topic/testy-test", e.Message.Payload.(string))
+                d <- true
+                break
+            }
+        }
+    }
+    go listenMonitor()
+    // wait until we get what we need.
+    <-d
+    util.ResetMonitor()
+}
+
+func TestChannelManager_TestGalacticChannelOpenError(t *testing.T) {
+    // channel is not open / does not exist, so this should fail.
+    e :=  testChannelManager.MarkChannelAsGalactic(evtbusTestChannelName, "/topic/testy-test")
+    assert.Error(t, e)
+    util.ResetMonitor()
+}
+
+func TestChannelManager_TestGalacticChannelCloseError(t *testing.T) {
+    // channel is not open / does not exist, so this should fail.
+    e := testChannelManager.MarkChannelAsLocal(evtbusTestChannelName)
+    assert.Error(t, e)
+    util.ResetMonitor()
+}
+
+func TestChannelManager_TestLocalChannel(t *testing.T) {
+    testChannelManager = createManager()
+    testChannelManager.CreateChannel(testChannelManagerChannelName)
+    d := make(chan bool)
+    s := util.GetMonitor()
+    var listenMonitor = func() {
+
+        // map channel to galactic dest
+        e := testChannelManager.MarkChannelAsLocal(testChannelManagerChannelName)
+        assert.Nil(t, e)
+
+        for {
+            e := <-s.Stream
+            if e.EventType == util.ChannelIsLocalEvt {
+                d <- true
+                break
+            }
+        }
+    }
+
+    go listenMonitor()
+    // wait for us to get what we need.
+    <-d
+    util.ResetMonitor()
 }

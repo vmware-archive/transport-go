@@ -2,12 +2,18 @@
 package bridge
 
 import (
-    //"bifrost/bus"
-    // "bifrost/bus"
+    "bifrost/util"
     "fmt"
     "github.com/go-stomp/stomp"
+    "github.com/google/uuid"
     "net/url"
     "sync"
+)
+
+const (
+    BrokerTopicPrefix string = "/topic/"
+    BrokerQueuePrefix string = "/queue/"
+    BrokerPubPrefix string = "/pub/"
 )
 
 // BrokerConnector is used to connect to a message broker over TCP or WebSocket.
@@ -16,15 +22,15 @@ type BrokerConnector interface {
 }
 
 type brokerConnector struct {
-    c             *Connection
-    config        *BrokerConnectorConfig
-    connected     bool
+    c         *Connection
+    config    *BrokerConnectorConfig
+    connected bool
     //bus           bus.EventBus
 }
 
 // Create a new broker connector
 func NewBrokerConnector() BrokerConnector {
-    return &brokerConnector{connected: false }
+    return &brokerConnector{connected: false}
 }
 
 func checkConfig(config *BrokerConnectorConfig) error {
@@ -71,7 +77,10 @@ func (bc *brokerConnector) connectTCP(config *BrokerConnectorConfig, err error) 
     if err != nil {
         return nil, err
     }
+    defer util.GetMonitor().SendMonitorEvent(util.BrokerConnectedEvtTcp, "no-channel")
+    id := uuid.New()
     bcConn := &Connection{
+        Id:             &id,
         conn:           conn,
         subscriptions:  make(map[string]*Subscription),
         useWs:          false,
@@ -91,12 +100,14 @@ func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (*Connection
     if err != nil {
         return nil, fmt.Errorf("cannot connect to host '%s' via path '%s', stopping", config.ServerAddr, config.WSPath)
     }
-
+    defer util.GetMonitor().SendMonitorEvent(util.BrokerConnectedEvtWs, "no-channel")
+    id := uuid.New()
     bcConn := &Connection{
-        wsConn: c,
-        subscriptions: make(map[string]*Subscription),
-        useWs: true,
-        connLock: sync.Mutex{},
+        Id:             &id,
+        wsConn:         c,
+        subscriptions:  make(map[string]*Subscription),
+        useWs:          true,
+        connLock:       sync.Mutex{},
         disconnectChan: make(chan bool)}
     bc.c = bcConn
     bc.connected = true

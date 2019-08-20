@@ -3,6 +3,7 @@
 package bus
 
 import (
+    "bifrost/bridge"
     "bifrost/model"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
@@ -30,8 +31,6 @@ func TestChannel_SubscribeHandler(t *testing.T) {
     channel.subscribeHandler(handler,
         &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
-
-
     assert.Equal(t, 2, len(channel.eventHandlers))
 }
 
@@ -43,7 +42,6 @@ func TestChannel_HandlerCheck(t *testing.T) {
     handler := func(*model.Message) {}
     channel.subscribeHandler(handler,
         &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
-
 
     assert.True(t, channel.ContainsHandlers())
 }
@@ -68,6 +66,35 @@ func TestChannel_SendMessage(t *testing.T) {
     channel.Send(message)
     channel.wg.Wait()
 }
+
+func TestChannel_SendMessageRunOnceHasRun(t *testing.T) {
+    id := uuid.New()
+    channel := NewChannel(testChannelName)
+    count := 0
+    handler := func(message *model.Message) {
+        assert.Equal(t, message.Payload.(string), "pickled eggs")
+        assert.Equal(t, message.Channel, testChannelName)
+        count++
+    }
+
+    channel.subscribeHandler(handler,
+        &channelEventHandler{callBackFunction: handler, runOnce: true, uuid: &id})
+
+    var message = &model.Message{
+        Id:        &id,
+        Payload:   "pickled eggs",
+        Channel:   testChannelName,
+        Direction: model.RequestDir}
+
+    channel.Send(message)
+    channel.wg.Wait()
+    channel.Send(message)
+    assert.Len(t, channel.eventHandlers, 0)
+    assert.Equal(t, 1, count)
+}
+
+
+
 
 func TestChannel_SendMultipleMessages(t *testing.T) {
     id := uuid.New()
@@ -139,17 +166,17 @@ func TestChannel_Privacy(t *testing.T) {
     assert.True(t, channel.IsPrivate())
 }
 
-func TestChannel_ChannelGalactic (t *testing.T) {
+func TestChannel_ChannelGalactic(t *testing.T) {
     channel := NewChannel(testChannelName)
     assert.False(t, channel.galactic)
-    channel.SetGalactic(true)
+    channel.SetGalactic("somewhere")
     assert.True(t, channel.IsGalactic())
 }
 
 func TestChannel_RemoveEventHandler(t *testing.T) {
     channel := NewChannel(testChannelName)
-    handlerA:= func(message *model.Message) {}
-    handlerB:= func(message *model.Message) {}
+    handlerA := func(message *model.Message) {}
+    handlerB := func(message *model.Message) {}
 
     idA := uuid.New()
     idB := uuid.New()
@@ -189,4 +216,14 @@ func TestChannel_RemoveEventHandlerOOBIndex(t *testing.T) {
 
     channel.removeEventHandler(999)
     assert.Len(t, channel.eventHandlers, 1)
+}
+
+func TestChannel_AddRemoveBrokerSubscription(t *testing.T) {
+    channel := NewChannel(testChannelName)
+    id := uuid.New()
+    sub := &bridge.Subscription{Id: &id}
+    channel.addBrokerSubscription(sub)
+    assert.Len(t, channel.brokerSubs, 1)
+    channel.removeBrokerSubscription(sub)
+    assert.Len(t, channel.brokerSubs, 0)
 }
