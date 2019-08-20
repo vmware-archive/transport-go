@@ -11,36 +11,34 @@ var m = GetMonitor()
 
 func TestMonitorStream_SendMonitorEvent(t *testing.T) {
 
-    done := make(chan bool)
+   done := make(chan bool)
 
-    var listenChannelCreate = func() {
-        evt := <-m.Stream
-        assert.Equal(t, ChannelCreatedEvt, evt.EventType)
-        assert.Equal(t, "happy-baby-melody", evt.Channel)
-        done <- true
-    }
+   var listenChannelCreate = func() {
+       go m.SendMonitorEvent(ChannelCreatedEvt, "happy-baby-melody")
+       evt := <-m.Stream
+       assert.Equal(t, ChannelCreatedEvt, evt.EventType)
+       assert.Equal(t, "happy-baby-melody", evt.Channel)
+       done <- true
+   }
 
-    go listenChannelCreate()
-
-    m.SendMonitorEvent(ChannelCreatedEvt, "happy-baby-melody")
-    <-done
+   go listenChannelCreate()
+   <-done
 }
 
 func TestMonitorStream_SendMonitorEventData(t *testing.T) {
 
-    done := make(chan bool)
+   done := make(chan bool)
 
-    var listenChannelCreate = func() {
-        evt := <-m.Stream
-        assert.Equal(t, ChannelCreatedEvt, evt.EventType)
-        assert.Equal(t, "happy-baby-melody", evt.Channel)
-        assert.Equal(t, "cutie", evt.Message.Payload)
-        done <- true
-    }
+   var listenChannelCreate = func() {
+       msg := &model.Message{Payload: "cutie"}
+       go m.SendMonitorEventData(ChannelCreatedEvt, "happy-baby-melody", msg)
 
-    go listenChannelCreate()
-
-    msg := &model.Message{Payload: "cutie"}
-    m.SendMonitorEventData(ChannelCreatedEvt, "happy-baby-melody", msg)
-    <-done
+       evt := <-m.Stream
+       assert.Equal(t, ChannelCreatedEvt, evt.EventType)
+       assert.Equal(t, "happy-baby-melody", evt.Channel)
+       assert.Equal(t, "cutie", evt.Message.Payload)
+       done <- true
+   }
+   go listenChannelCreate()
+   <-done
 }
