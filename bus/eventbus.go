@@ -43,7 +43,6 @@ func GetBus() EventBus {
     once.Do(func() {
         bf := new(bifrostEventBus)
         bf.init()
-        //go bf.listenToMonitor() // start listening to the monitor for galactic events
         busInstance = bf
     })
     return busInstance
@@ -331,6 +330,7 @@ func (bus *bifrostEventBus) ConnectBroker(config *bridge.BrokerConnectorConfig) 
     if conn != nil {
         bus.brokerConnections[conn.Id] = conn
     }
+    bus.ChannelManager.ListenToMonitor()
     return
 }
 

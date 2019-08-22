@@ -21,6 +21,8 @@ type MessageHandler interface {
     GetDestinationId() *uuid.UUID
     Handle(successHandler MessageHandlerFunction, errorHandler MessageErrorFunction)
     Fire() error
+    //TODO: Add Close!!!!!
+    //Close()
 }
 
 type messageHandler struct {
