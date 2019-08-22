@@ -21,7 +21,6 @@ type MessageHandler interface {
     GetDestinationId() *uuid.UUID
     Handle(successHandler MessageHandlerFunction, errorHandler MessageErrorFunction)
     Fire() error
-    //close()
 }
 
 type messageHandler struct {
@@ -45,10 +44,6 @@ func (msgHandler *messageHandler) Handle(successHandler MessageHandlerFunction, 
     msgHandler.errorHandler = errorHandler
     bus := GetBus().(*bifrostEventBus)
     bus.GetChannelManager().SubscribeChannelHandler(msgHandler.channel.Name, msgHandler.wrapperFunction, msgHandler.runOnce)
-
-    //if msgHandler.requestMessage != nil {
-    //    msgHandler.requestMessage.Id = msgHandler.Id // align handler and message Id.
-    //}
 }
 
 func (msgHandler *messageHandler) GetId() *uuid.UUID {

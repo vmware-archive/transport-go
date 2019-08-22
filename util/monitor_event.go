@@ -14,8 +14,10 @@ const (
     ChannelIsLocalEvt          int = 7
     BrokerConnectedEvtWs       int = 8
     BrokerConnectedEvtTcp      int = 9
-    BrokerDisconnectedWs       int = 10
-    BrokerDisconnectedTcp      int = 11
+    BrokerSubscribedEvt        int = 10
+    BrokerUnsubscribedEvt      int = 11
+    BrokerDisconnectedWs       int = 12
+    BrokerDisconnectedTcp      int = 13
 )
 
 type MonitorEvent struct {

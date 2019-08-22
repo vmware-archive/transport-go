@@ -399,20 +399,6 @@ func (bus *bifrostEventBus) wrapMessageHandler(
     return messageHandler
 }
 
-func (bus *bifrostEventBus) listenToMonitor() {
-    for {
-        me := <-bus.monitor.Stream
-        switch me.EventType {
-        case util.ChannelIsGalacticEvt:
-            // TODO: handle galactic events. create subscription to channel.
-            fmt.Printf("galatic!")
-        case util.ChannelIsLocalEvt:
-            // TODO: remove subscription
-            fmt.Printf("local")
-        }
-    }
-}
-
 func checkForSuppliedId(id *uuid.UUID) *uuid.UUID {
     if id == nil {
         i := uuid.New()

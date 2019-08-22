@@ -10,6 +10,7 @@ import (
     "errors"
     "fmt"
     "github.com/go-stomp/stomp/frame"
+    "github.com/go-stomp/stomp/server"
     "github.com/google/uuid"
     "github.com/gorilla/websocket"
     "github.com/stretchr/testify/assert"
@@ -25,10 +26,12 @@ var evtBusTest *bifrostEventBus
 var evtbusTestChannelName string = "test-channel"
 var evtbusTestManager ChannelManager
 
+var testBrokerAddress = "localhost:56966"
 var httpServer *httptest.Server
 var webSocketURLChan = make(chan string, 1)
 var websocketURL string
 var upgrader = websocket.Upgrader{}
+var tcpReady = make(chan bool, 1)
 
 func runWebSocketEndPoint() string {
     s := httptest.NewServer(http.HandlerFunc(websocketHandler))
@@ -36,6 +39,20 @@ func runWebSocketEndPoint() string {
     httpServer = s
     websocketURL = s.URL
     return s.URL
+}
+
+var tcpServer net.Listener
+
+func runStompBroker() {
+    l, err := net.Listen("tcp", testBrokerAddress)
+    if err != nil {
+        log.Fatalf("failed to listen: %s", err.Error())
+    }
+    defer func() { l.Close() }()
+
+    log.Println("TCP listening on", l.Addr().Network(), l.Addr().String())
+    server.Serve(l)
+    tcpServer = l
 }
 
 func killWebSocketEndpoint() {
@@ -97,6 +114,13 @@ func init() {
 }
 
 func createTestChannel() *Channel {
+
+    //create new bus
+    //bf := new(bifrostEventBus)
+    //bf.init()
+    //evtBusTest = bf
+    //busInstance = bf // set GetBus() instance to return new instance also.
+
     evtbusTestManager = evtBusTest.GetChannelManager()
     return evtbusTestManager.CreateChannel(evtbusTestChannelName)
 }
@@ -195,7 +219,7 @@ func TestEventBus_ListenOnce(t *testing.T) {
         },
         func(err error) {})
 
-    for i := 0; i < 300; i++ {
+    for i := 0; i < 2; i++ {
         evtBusTest.SendResponseMessage(evtbusTestChannelName, 0, handler.GetDestinationId())
 
         // send requests to make sure we're only getting requests
@@ -460,6 +484,7 @@ func TestEventBus_RequestOnce(t *testing.T) {
         func(err error) {})
 
     responseHandler.Fire()
+    evtbusTestManager.WaitForChannel(evtbusTestChannelName)
     assert.Equal(t, 1, count)
     destroyTestChannel()
 }
@@ -515,8 +540,7 @@ func TestEventBus_RequestStream(t *testing.T) {
         }
     }
     id := uuid.New()
-    channel.subscribeHandler(handler,
-        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
+    channel.subscribeHandler(&channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
     count := 0
     responseHandler, _ := evtBusTest.RequestStream(evtbusTestChannelName, "who has the cutest laugh?")
@@ -547,8 +571,7 @@ func TestEventBus_RequestStreamForDesintation(t *testing.T) {
         }
     }
     id := uuid.New()
-    channel.subscribeHandler(handler,
-        &channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
+    channel.subscribeHandler(&channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
     count := 0
     responseHandler, _ := evtBusTest.RequestStreamForDestination(evtbusTestChannelName, "who has the cutest laugh?", &dest)
@@ -594,8 +617,7 @@ func TestEventBus_HandleSingleRunError(t *testing.T) {
         }
     }
     id := uuid.New()
-    channel.subscribeHandler(handler,
-        &channelEventHandler{callBackFunction: handler, runOnce: true, uuid: &id})
+    channel.subscribeHandler(&channelEventHandler{callBackFunction: handler, runOnce: true, uuid: &id})
 
     count := 0
     responseHandler, _ := evtBusTest.RequestOnce(evtbusTestChannelName, 0)
@@ -636,7 +658,6 @@ func TestChannelManager_TestConnectBroker(t *testing.T) {
     createTestChannel()
 
     // connect to broker
-    log.Printf("connecting")
     cf := &bridge.BrokerConnectorConfig{
         Username:   "test",
         Password:   "test",
