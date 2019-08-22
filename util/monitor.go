@@ -40,15 +40,12 @@ type MonitorStream struct {
 func (m *MonitorStream) SendMonitorEvent(evtType int, channel string) {
     m.lock.Lock()
     defer m.lock.Unlock()
-    //log.Printf("sending monitor event (no data): %d", evtType)
     // make this non blocking, there may be no-one listening.
     select {
     case m.Stream <- NewMonitorEvent(evtType, channel, nil):
     default:
-        //log.Printf("no listeners! dropping monitor message")
         // channel full, no-one listening, drop.
     }
-    //log.Printf("done")
 }
 
 // Send a new monitor event with a message payload to the monitor stream. This is non-blocking
@@ -56,13 +53,10 @@ func (m *MonitorStream) SendMonitorEvent(evtType int, channel string) {
 func (m *MonitorStream) SendMonitorEventData(evtType int, channel string, msg *model.Message) {
     m.lock.Lock()
     defer m.lock.Unlock()
-    //log.Printf("sending monitor event (with data): %d", evtType)
     // make this non blocking, there may be no-one listening.
     select {
     case m.Stream <- NewMonitorEvent(evtType, channel, msg):
     default:
-        //log.Printf("no listeners, dropping monitor message")
         // channel full, no-one listening, drop.
     }
-    //log.Printf("done data")
 }

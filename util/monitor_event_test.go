@@ -42,3 +42,18 @@ func TestMonitorStream_SendMonitorEventData(t *testing.T) {
    go listenChannelCreate()
    <-done
 }
+
+func TestMonitorStream_ResetMonitor(t *testing.T) {
+    m := GetMonitor()
+    n := GetMonitor()
+    assert.Equal(t, m, n)
+    q := ResetMonitor()
+    assert.NotEqual(t, m, q)
+}
+
+func TestMonitorStream_NoListener(t *testing.T) {
+    m := GetMonitor()
+    m.SendMonitorEvent(ChannelCreatedEvt, "none")
+    m.SendMonitorEventData(ChannelCreatedEvt, "none", nil)
+}
+
