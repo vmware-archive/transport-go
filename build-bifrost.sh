@@ -9,7 +9,7 @@ COLOR_LIGHTCYAN="\033[1;36m"
 COLOR_LIGHTGREEN="\033[1;32m"
 
 COMMANDS=(bifrost)
-OUT_DIR=${OUT_DIR:-/tmp/bifrost}
+OUT_DIR=${OUT_DIR:-./}
 BUILD_TIME=`date | sed -e 's/ /_/g'`
 TARGET_OS=${TARGET_OS:-darwin}
 TARGET_ARCH=${TARGET_ARCH:-amd64}
