@@ -2,8 +2,8 @@
 package main
 
 import (
-    "bifrost/bus"
-    "bifrost/model"
+    "go-bifrost/bus"
+    "go-bifrost/model"
     "fmt"
 )
 

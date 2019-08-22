@@ -2,9 +2,9 @@
 package bus
 
 import (
-    "bifrost/bridge"
-    "bifrost/model"
-    "bifrost/util"
+    "go-bifrost/bridge"
+    "go-bifrost/model"
+    "go-bifrost/util"
     "bufio"
     "bytes"
     "errors"

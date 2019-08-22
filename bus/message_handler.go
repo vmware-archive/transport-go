@@ -2,7 +2,7 @@
 package bus
 
 import (
-    "bifrost/model"
+    "go-bifrost/model"
     "fmt"
     "github.com/google/uuid"
 )

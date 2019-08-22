@@ -2,7 +2,7 @@
 package bridge
 
 import (
-    "bifrost/model"
+    "go-bifrost/model"
     "github.com/go-stomp/stomp/frame"
     "github.com/stretchr/testify/assert"
     "log"

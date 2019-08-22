@@ -1,9 +1,9 @@
 package bridge_test
 
 import (
-    "bifrost/bridge"
-    "bifrost/bus"
-    "bifrost/model"
+    "go-bifrost/bridge"
+    "go-bifrost/bus"
+    "go-bifrost/model"
     "encoding/json"
     "fmt"
 )

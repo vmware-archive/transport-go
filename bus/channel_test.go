@@ -3,8 +3,8 @@
 package bus
 
 import (
-    "bifrost/bridge"
-    "bifrost/model"
+    "go-bifrost/bridge"
+    "go-bifrost/model"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
     "testing"

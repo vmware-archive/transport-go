@@ -3,7 +3,7 @@
 package bridge
 
 import (
-    "bifrost/model"
+    "go-bifrost/model"
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/google/uuid"

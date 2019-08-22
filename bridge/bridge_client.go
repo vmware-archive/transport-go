@@ -4,7 +4,7 @@ package bridge
 
 import "C"
 import (
-    "bifrost/model"
+    "go-bifrost/model"
     "bufio"
     "bytes"
     "errors"

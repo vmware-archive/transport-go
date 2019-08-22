@@ -2,7 +2,7 @@
 package util
 
 import (
-    "bifrost/model"
+    "go-bifrost/model"
     "sync"
 )
 

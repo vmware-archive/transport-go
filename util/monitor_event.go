@@ -1,7 +1,7 @@
 // Copyright 2019 VMware Inc.
 package util
 
-import "bifrost/model"
+import "go-bifrost/model"
 
 const (
     ChannelCreatedEvt          int = 0
