@@ -43,7 +43,6 @@ func GetBus() EventBus {
     once.Do(func() {
         bf := new(bifrostEventBus)
         bf.init()
-        //go bf.listenToMonitor() // start listening to the monitor for galactic events
         busInstance = bf
     })
     return busInstance
@@ -331,6 +330,7 @@ func (bus *bifrostEventBus) ConnectBroker(config *bridge.BrokerConnectorConfig) 
     if conn != nil {
         bus.brokerConnections[conn.Id] = conn
     }
+    bus.ChannelManager.ListenToMonitor()
     return
 }
 
@@ -397,20 +397,6 @@ func (bus *bifrostEventBus) wrapMessageHandler(
 
     messageHandler.wrapperFunction = handlerWrapper
     return messageHandler
-}
-
-func (bus *bifrostEventBus) listenToMonitor() {
-    for {
-        me := <-bus.monitor.Stream
-        switch me.EventType {
-        case util.ChannelIsGalacticEvt:
-            // TODO: handle galactic events. create subscription to channel.
-            fmt.Printf("galatic!")
-        case util.ChannelIsLocalEvt:
-            // TODO: remove subscription
-            fmt.Printf("local")
-        }
-    }
 }
 
 func checkForSuppliedId(id *uuid.UUID) *uuid.UUID {

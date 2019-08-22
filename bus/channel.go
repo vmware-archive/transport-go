@@ -5,7 +5,6 @@ package bus
 import (
     "bifrost/bridge"
     "bifrost/model"
-    "github.com/google/uuid"
     "sync"
 )
 
@@ -18,19 +17,23 @@ type Channel struct {
     private                   bool
     channelLock               sync.Mutex
     wg                        sync.WaitGroup
-    brokerSubs                map[*uuid.UUID]*bridge.Subscription
+    brokerSubs                []*connectionSub
+    brokerConns               []*bridge.Connection
+    brokerMappedEvent         chan bool
 }
 
 // Create a new Channel with the supplied Channel name. Returns a pointer to that Channel.
 func NewChannel(channelName string) *Channel {
     c := &Channel{
-        Name:          channelName,
-        eventHandlers: []*channelEventHandler{},
-        channelLock:   sync.Mutex{},
-        galactic:      false,
-        private:       false,
-        wg:            sync.WaitGroup{},
-        brokerSubs:    make(map[*uuid.UUID]*bridge.Subscription)}
+        Name:              channelName,
+        eventHandlers:     []*channelEventHandler{},
+        channelLock:       sync.Mutex{},
+        galactic:          false,
+        private:           false,
+        wg:                sync.WaitGroup{},
+        brokerMappedEvent: make(chan bool, 10),
+        brokerConns:       []*bridge.Connection{},
+        brokerSubs:        []*connectionSub{}}
     return c
 }
 
@@ -77,7 +80,6 @@ func (channel *Channel) Send(message *model.Message) {
             }
             channel.wg.Add(1)
             go channel.sendMessageToHandler(eventHandler, message)
-
         }
     }
 }
@@ -89,13 +91,15 @@ func (channel *Channel) ContainsHandlers() bool {
 
 // Send message to handler function
 func (channel *Channel) sendMessageToHandler(handler *channelEventHandler, message *model.Message) {
+    //handler.hasRun = true
     handler.callBackFunction(message)
     handler.hasRun = true
+    handler.runCount++
     channel.wg.Done()
 }
 
 // Subscribe a new handler function.
-func (channel *Channel) subscribeHandler(fn MessageHandlerFunction, handler *channelEventHandler) {
+func (channel *Channel) subscribeHandler(handler *channelEventHandler) {
     channel.channelLock.Lock()
     defer channel.channelLock.Unlock()
     channel.eventHandlers = append(channel.eventHandlers, handler)
@@ -117,10 +121,64 @@ func (channel *Channel) removeEventHandler(index int) {
     channel.eventHandlers = channel.eventHandlers[:numHandlers-1]
 }
 
-func (channel *Channel) addBrokerSubscription(sub *bridge.Subscription) {
-    channel.brokerSubs[sub.Id] = sub
+func (channel *Channel) listenToBrokerSubscription(sub *bridge.Subscription) {
+    for {
+        msg, m := <-sub.C
+        if m {
+            channel.Send(msg)
+        } else {
+            break
+        }
+    }
+}
+
+func (channel *Channel) isBrokerSubscribed(sub *bridge.Subscription) bool {
+    for _, cs := range channel.brokerSubs {
+        if sub.Id.ID() == cs.s.Id.ID() {
+            return true
+        }
+    }
+    return false
+}
+
+func (channel *Channel) isBrokerSubscribedToDestination(c *bridge.Connection, dest string) bool {
+    for _, cs := range channel.brokerSubs {
+        if cs.s.Destination == dest && cs.c.Id == c.Id {
+            return true
+        }
+    }
+    return false
+}
+
+func (channel *Channel) addBrokerConnection(c *bridge.Connection) {
+    channel.brokerConns = append(channel.brokerConns, c)
+}
+
+func (channel *Channel) removeBrokerConnections() {
+    channel.brokerConns = []*bridge.Connection{}
+}
+
+func (channel *Channel) addBrokerSubscription(conn *bridge.Connection, sub *bridge.Subscription) {
+
+    cs := &connectionSub{c: conn, s: sub}
+    channel.brokerSubs = append(channel.brokerSubs, cs)
+    go channel.listenToBrokerSubscription(sub)
 }
 
 func (channel *Channel) removeBrokerSubscription(sub *bridge.Subscription) {
-    delete(channel.brokerSubs, sub.Id)
+    for i, cs := range channel.brokerSubs {
+        if sub.Id.ID() == cs.s.Id.ID() {
+            channel.brokerSubs = removeSub(channel.brokerSubs, i)
+        }
+    }
+}
+
+func removeSub(s []*connectionSub, i int) []*connectionSub {
+    s[len(s)-1], s[i] = s[i], s[len(s)-1]
+    return s[:len(s)-1]
+}
+
+type connectionSub struct {
+    c *bridge.Connection
+    s *bridge.Subscription
 }

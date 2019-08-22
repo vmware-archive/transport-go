@@ -3,6 +3,7 @@
 package bus
 
 import (
+    "bifrost/bridge"
     "bifrost/model"
     "bifrost/util"
     "errors"
@@ -20,8 +21,9 @@ type ChannelManager interface {
     SubscribeChannelHandler(channelName string, fn MessageHandlerFunction, runOnce bool) (*uuid.UUID, error)
     UnsubscribeChannelHandler(channelName string, id *uuid.UUID) error
     WaitForChannel(channelName string) error
-    MarkChannelAsGalactic(channelName string, brokerDestination string) (err error)
+    MarkChannelAsGalactic(channelName string, brokerDestination string, connection *bridge.Connection) (err error)
     MarkChannelAsLocal(channelName string) (err error)
+    ListenToMonitor()
 }
 
 func NewBusChannelManager(bus EventBus) ChannelManager {
@@ -29,14 +31,16 @@ func NewBusChannelManager(bus EventBus) ChannelManager {
     manager.Channels = make(map[string]*Channel)
     manager.bus = bus.(*bifrostEventBus)
     manager.monitor = util.GetMonitor()
+    manager.stopMonitorChan = make(chan bool)
     return manager
 }
 
-
 type busChannelManager struct {
-    Channels map[string]*Channel
-    bus      *bifrostEventBus
-    monitor  *util.MonitorStream
+    Channels        map[string]*Channel
+    bus             *bifrostEventBus
+    monitor         *util.MonitorStream
+    stopMonitorChan chan bool
+    monitorActive   bool
 }
 
 // Create a new Channel with the supplied Channel name. Returns pointer to new Channel object
@@ -48,7 +52,7 @@ func (manager *busChannelManager) CreateChannel(channelName string) *Channel {
 
 // Destroy a Channel and all the handlers listening on it.
 func (manager *busChannelManager) DestroyChannel(channelName string) {
-    util.GetMonitor().SendMonitorEvent(util.ChannelDestroyedEvt, channelName)
+    manager.monitor.SendMonitorEvent(util.ChannelDestroyedEvt, channelName)
     delete(manager.Channels, channelName)
 }
 
@@ -79,9 +83,8 @@ func (manager *busChannelManager) SubscribeChannelHandler(channelName string, fn
         return nil, err
     }
     id := uuid.New()
-    channel.subscribeHandler(fn,
-        &channelEventHandler{callBackFunction: fn, runOnce: runOnce, uuid: &id})
-    util.GetMonitor().SendMonitorEvent(util.ChannelSubscriberJoinedEvt, channelName)
+    channel.subscribeHandler(&channelEventHandler{callBackFunction: fn, runOnce: runOnce, uuid: &id})
+    manager.monitor.SendMonitorEvent(util.ChannelSubscriberJoinedEvt, channelName)
     return &id, nil
 }
 
@@ -101,7 +104,7 @@ func (manager *busChannelManager) UnsubscribeChannelHandler(channelName string, 
     if !found {
         return fmt.Errorf("no handler in Channel '%s' for uuid [%s]", channelName, uuid)
     }
-    util.GetMonitor().SendMonitorEvent(util.ChannelSubscriberLeftEvt, channelName)
+    manager.monitor.SendMonitorEvent(util.ChannelSubscriberLeftEvt, channelName)
     return nil
 }
 
@@ -117,14 +120,20 @@ func (manager *busChannelManager) WaitForChannel(channelName string) error {
 // Mark a channel as Galactic. This will map this channel to the supplied broker destination, if the broker connector
 // is active and connected, this will result in a subscription to the broker destination being created. Returns
 // an error if the channel does not exist.
-func (manager *busChannelManager) MarkChannelAsGalactic(channelName string, dest string) (err error) {
+func (manager *busChannelManager) MarkChannelAsGalactic(channelName string, dest string, conn *bridge.Connection) (err error) {
     channel, err := manager.GetChannel(channelName)
     if err != nil {
         return
     }
+
+    // mark as galactic/
     channel.SetGalactic(dest)
-    m := model.GenerateRequest(&model.MessageConfig{Payload: dest})                   // set the mapped destination as the payload
-    go util.GetMonitor().SendMonitorEventData(util.ChannelIsGalacticEvt, channelName, m) // inform the monitor.
+
+    // create a galactic event
+    pl := &galacticEvent{conn: conn, dest: dest}
+
+    m := model.GenerateRequest(&model.MessageConfig{Payload: pl})                      // set the mapped destination as the payload
+    go manager.monitor.SendMonitorEventData(util.ChannelIsGalacticEvt, channelName, m) // inform the monitor.
     return nil
 }
 
@@ -136,6 +145,82 @@ func (manager *busChannelManager) MarkChannelAsLocal(channelName string) (err er
         return
     }
     channel.SetLocal()
-    go util.GetMonitor().SendMonitorEvent(util.ChannelIsLocalEvt, channelName) // inform the monitor.
+
+    // get rid of all broker connections.
+    channel.removeBrokerConnections()
+
+    go manager.monitor.SendMonitorEvent(util.ChannelIsLocalEvt, channelName) // inform the monitor.
     return nil
+}
+
+func (manager *busChannelManager) StopListeningMonitor() {
+    manager.stopMonitorChan <- true
+}
+
+func (manager *busChannelManager) ListenToMonitor() {
+    manager.monitorActive = true
+    go func() {
+        for {
+            select {
+            case me := <-manager.bus.monitor.Stream:
+                switch me.EventType {
+                case util.ChannelIsGalacticEvt:
+                    manager.handleGalacticChannelEvent(me.Channel, me.Message)
+
+                case util.ChannelIsLocalEvt:
+                    manager.handleLocalChannelEvent(me.Channel, me.Message)
+                }
+            case <-manager.stopMonitorChan:
+                manager.monitorActive = false
+                break
+            }
+        }
+    }()
+}
+
+func (manager *busChannelManager) handleGalacticChannelEvent(channelName string, msg *model.Message) {
+    ch, _ := manager.GetChannel(channelName)
+
+    // pull out the details of the galactic event.
+    ge := msg.Payload.(*galacticEvent)
+
+    // check if channel is already subscribed on this connection
+    if !ch.isBrokerSubscribedToDestination(ge.conn, ge.dest) {
+        if sub, e := ge.conn.Subscribe(ge.dest); e == nil {
+
+            // add broker connection to channel.
+            ch.addBrokerConnection(ge.conn)
+
+            m := model.GenerateResponse(&model.MessageConfig{Payload: ge.dest}) // set the mapped destination as the payload
+            ch.addBrokerSubscription(ge.conn, sub)
+            manager.monitor.SendMonitorEventData(util.BrokerSubscribedEvt, channelName, m)
+            select {
+            case ch.brokerMappedEvent <- true: // let channel watcher know, the channel is mapped
+            default: // if no-one is listening, drop.
+            }
+        }
+    }
+}
+
+func (manager *busChannelManager) handleLocalChannelEvent(channelName string, msg *model.Message) {
+    ch, _ := manager.GetChannel(channelName)
+    // loop through all the connections we have mapped, and subscribe!
+    for _, s := range ch.brokerSubs {
+        if e := s.s.Unsubscribe(); e == nil {
+            ch.removeBrokerSubscription(s.s)
+            m := model.GenerateResponse(&model.MessageConfig{Payload: s.s.Destination}) // set the unmapped destination as the payload
+            manager.monitor.SendMonitorEventData(util.BrokerUnsubscribedEvt, channelName, m)
+            select {
+            case ch.brokerMappedEvent <- false: // let channel watcher know, the channel is un-mapped
+            default: // if no-one is listening, drop.
+            }
+        }
+    }
+    // get rid of all broker subscriptions on this channel.
+    ch.removeBrokerConnections()
+}
+
+type galacticEvent struct {
+    conn *bridge.Connection
+    dest string
 }
