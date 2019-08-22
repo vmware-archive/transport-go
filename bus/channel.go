@@ -155,7 +155,6 @@ func (channel *Channel) addBrokerConnection(c *bridge.Connection) {
 }
 
 func (channel *Channel) removeBrokerConnections() {
-    channel.brokerSubs = []*connectionSub{}
     channel.brokerConns = []*bridge.Connection{}
 }
 

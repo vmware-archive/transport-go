@@ -8,8 +8,6 @@ import (
     "bifrost/util"
     "net"
     "net/url"
-    "sync"
-
     //"fmt"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
@@ -220,8 +218,6 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
 
     x := 0
 
-    wg := sync.WaitGroup{}
-    wg.Add(1)
     h, e := b.ListenOnce(myChan)
     assert.Nil(t, e)
 
@@ -239,6 +235,7 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
         })
 
     testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn)
+    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn) // double up for fun
     <-c.brokerMappedEvent
     assert.Len(t, c.brokerConns, 1)
     <-m1
@@ -261,6 +258,7 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
         func(err error) {})
 
     testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn)
+    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn) // trigger double (should ignore)
     <-c.brokerMappedEvent
     err := conn.SendMessage("/queue/hiya",[]byte("Hi baby melody!"))
     assert.Nil(t, err)
@@ -268,3 +266,67 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
     assert.Equal(t, 2, x)
 }
 
+
+// This test performs a end to end run of the monitor.
+// it will create a ws broker subscription, map it to a single channel
+// then it will unsubscribe and check that the unsubscription went through ok.
+func TestChannelManager_TestListenToMonitorLocal(t *testing.T) {
+
+    util.ResetMonitor()
+    myChan := "mychan-local"
+
+    b := GetBus()
+
+    // run ws broker
+    u := runWebSocketEndPoint()
+    url, _ := url.Parse(u)
+    host, port, _ := net.SplitHostPort(url.Host)
+    testHost := host + ":" + port
+
+    testChannelManager = b.GetChannelManager()
+    testChannelManager.ListenToMonitor()
+
+    c := testChannelManager.CreateChannel(myChan)
+
+    bc := bridge.NewBrokerConnector()
+    cf := &bridge.BrokerConnectorConfig{Username: "guest", Password: "guest", UseWS: true, WSPath: "/", ServerAddr: testHost}
+    conn, e := bc.Connect(cf)
+
+    assert.Nil(t, e)
+    assert.NotNil(t, conn)
+
+    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/seeya", conn)
+    <-c.brokerMappedEvent
+    assert.Len(t, c.brokerConns, 1)
+
+    testChannelManager.MarkChannelAsLocal(myChan)
+    <-c.brokerMappedEvent
+    assert.Len(t, c.brokerConns, 0)
+    assert.Len(t, c.brokerSubs, 0)
+}
+
+func TestChannelManager_TestGalacticMonitorInvalidChannel(t *testing.T) {
+    testChannelManager = createManager()
+    testChannelManager.CreateChannel("fun-chan")
+
+    err := testChannelManager.MarkChannelAsGalactic("fun-chan", "/queue/woo", nil)
+    assert.Nil(t, err)
+
+}
+
+func TestChannelManager_TestLocalMonitorInvalidChannel(t *testing.T) {
+    testChannelManager = createManager()
+    testChannelManager.CreateChannel("fun-chan")
+
+    err := testChannelManager.MarkChannelAsLocal("fun-chan")
+    assert.Nil(t, err)
+}
+
+func TestChannelManager_StopListeningMonitor(t *testing.T) {
+    m := createManager().(*busChannelManager)
+    m.CreateChannel("fun-chan")
+    m.ListenToMonitor()
+    assert.True(t, m.monitorActive)
+    m.StopListeningMonitor()
+    assert.False(t, m.monitorActive)
+}
