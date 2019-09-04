@@ -2,10 +2,13 @@
 package bridge
 
 import (
+    "github.com/go-stomp/stomp/server"
     "go-bifrost/util"
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/google/uuid"
+    "log"
+    "net"
     "net/url"
     "sync"
 )
@@ -19,6 +22,7 @@ const (
 // BrokerConnector is used to connect to a message broker over TCP or WebSocket.
 type BrokerConnector interface {
     Connect(config *BrokerConnectorConfig) (*Connection, error)
+    StartTCPServer(address string) error
 }
 
 type brokerConnector struct {
@@ -112,4 +116,16 @@ func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (*Connection
     bc.c = bcConn
     bc.connected = true
     return bcConn, nil
+}
+
+func (bc *brokerConnector) StartTCPServer(address string) error {
+    //return server.ListenAndServe(address)
+    l, err := net.Listen("tcp", address)
+    if err != nil {
+        log.Fatalf("failed to listen: %s", err.Error())
+    }
+    defer func() { l.Close() }()
+
+    log.Println("listening on", l.Addr().Network(), l.Addr().String())
+    return server.Serve(l)
 }

@@ -33,6 +33,7 @@ type EventBus interface {
     RequestStream(channelName string, payload interface{}) (MessageHandler, error)
     RequestStreamForDestination(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error)
     ConnectBroker(config *bridge.BrokerConnectorConfig) (conn *bridge.Connection, err error)
+    StartTCPService(address string) error
 }
 
 var once sync.Once
@@ -53,6 +54,7 @@ type bifrostEventBus struct {
     Id                uuid.UUID
     monitor           *util.MonitorStream
     brokerConnections map[*uuid.UUID]*bridge.Connection
+    bc                bridge.BrokerConnector
 }
 
 func (bus *bifrostEventBus) GetId() *uuid.UUID {
@@ -65,6 +67,7 @@ func (bus *bifrostEventBus) init() {
     bus.ChannelManager = NewBusChannelManager(bus)
     bus.monitor = util.GetMonitor()
     bus.brokerConnections = make(map[*uuid.UUID]*bridge.Connection)
+    bus.bc = bridge.NewBrokerConnector()
     fmt.Printf("🌈 Bifröst booted with Id [%s]\n", bus.Id.String())
 }
 
@@ -325,13 +328,17 @@ func (bus *bifrostEventBus) RequestStreamForDestination(
 
 // Connect to a message broker. If successful, you get a pointer to a Connection. If not, you will get an error.
 func (bus *bifrostEventBus) ConnectBroker(config *bridge.BrokerConnectorConfig) (conn *bridge.Connection, err error) {
-    bc := bridge.NewBrokerConnector()
-    conn, err = bc.Connect(config)
+    conn, err = bus.bc.Connect(config)
     if conn != nil {
         bus.brokerConnections[conn.Id] = conn
     }
     bus.ChannelManager.ListenToMonitor()
     return
+}
+
+// Start a new STOMP TCP service operating on the supplied port
+func (bus *bifrostEventBus) StartTCPService(address string) error {
+    return bus.bc.StartTCPServer(address)
 }
 
 func (bus *bifrostEventBus) wrapMessageHandler(
@@ -452,3 +459,4 @@ func createMessageHandler(channel *Channel, destinationId *uuid.UUID) *messageHa
     messageHandler.destination = destinationId
     return messageHandler
 }
+

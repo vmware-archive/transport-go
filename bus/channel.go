@@ -143,7 +143,7 @@ func (channel *Channel) isBrokerSubscribed(sub *bridge.Subscription) bool {
 
 func (channel *Channel) isBrokerSubscribedToDestination(c *bridge.Connection, dest string) bool {
     for _, cs := range channel.brokerSubs {
-        if cs.s.Destination == dest && cs.c.Id == c.Id {
+        if cs.s != nil && cs.s.Destination == dest && cs.c.Id == c.Id {
             return true
         }
     }
