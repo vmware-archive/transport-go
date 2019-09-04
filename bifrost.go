@@ -95,13 +95,12 @@ func runDemoApp() {
     }
     fmt.Println("Connected to local broker!")
 
-    // mark our local channel as galactic and map it to our connection and the /topic/simple-stream service
-    // running on appfabric.vmware.com
+    // mark our local channel as galactic and map it to our connection and the /topic/simple service
+    // running locally
     err = cm.MarkChannelAsGalactic(channel, "/topic/simple", c)
     if err != nil {
         log.Panicf("unable to map local channel to broker destination: %e", err)
     }
-
 
     fmt.Printf("\nSending 10 messages to broker, every 500ms\n\n")
     time.Sleep(1 * time.Second)
