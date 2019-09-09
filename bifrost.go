@@ -5,6 +5,7 @@ import (
     "encoding/json"
     "flag"
     "fmt"
+    "github.com/google/uuid"
     "go-bifrost/bridge"
     "go-bifrost/bus"
     "go-bifrost/model"
@@ -20,6 +21,7 @@ var addr = ":62134"
 func main() {
     var runDemo = flag.Bool("demo", false, "Run Demo - Connect to local service")
     var runService = flag.Bool("service", false, "Run Service - Run local service")
+    var runCal = flag.Bool("cal", false, "Call Calendar service for the time on appfabric.vmware.com")
     flag.Parse()
 
     if *runService {
@@ -32,7 +34,11 @@ func main() {
         runDemoApp()
     }
 
-    if !*runDemo && !*runService {
+    if *runCal {
+        runDemoCal()
+    }
+
+    if !*runDemo && !*runService && !*runCal {
         fmt.Println("To try things out...")
         flag.PrintDefaults()
         os.Exit(1)
@@ -40,6 +46,87 @@ func main() {
 
 }
 
+
+func runDemoCal() {
+    // get a pointer to the bus.
+    b := bus.GetBus()
+
+    // get a pointer to the channel manager
+    cm := b.GetChannelManager()
+
+    channel := "calendar-service"
+    cm.CreateChannel(channel)
+
+    // create done signal
+    var done = make(chan bool)
+
+    // listen to stream of messages coming in on channel.
+    h, err := b.ListenStream(channel)
+
+    if err != nil {
+        log.Panicf("unable to listen to channel stream, error: %e", err)
+    }
+
+    // listen for five messages and then exit, send a completed signal on channel.
+    h.Handle(
+        func(msg *model.Message) {
+
+            // unmarshal the payload into a Response object (used by fabric services)
+            r := &model.Response{}
+            d := msg.Payload.([]byte)
+            json.Unmarshal(d, &r)
+            fmt.Printf("got time response from service: %s\n", r.Payload.(string))
+            done <- true
+        },
+        func(err error) {
+            log.Panicf("error received on channel %e", err)
+        })
+
+    // create a broker connector config, in this case, we will connect to the application fabric demo endpoint.
+    config := &bridge.BrokerConnectorConfig{
+        Username:   "guest",
+        Password:   "guest",
+        UseWS: true,
+        WSPath: "/fabric",
+        ServerAddr: "appfabric.vmware.com" }
+
+    // connect to broker.
+    c, err := b.ConnectBroker(config)
+    if err != nil {
+        log.Panicf("unable to connect to fabric broker, error: %e", err)
+    }
+    fmt.Println("Connected to fabric broker!")
+
+    // mark our local channel as galactic and map it to our connection and the /topic/simple service
+    // running locally
+    err = cm.MarkChannelAsGalactic(channel, "/topic/" + channel, c)
+    if err != nil {
+        log.Panicf("unable to map local channel to broker destination: %e", err)
+    }
+
+    id := uuid.New();
+    r := &model.Request{}
+    r.Request = "time"
+    r.Id = &id
+    m, _ := json.Marshal(r)
+    fmt.Println("Requesting time from service")
+
+    c.SendMessage("/pub/" + channel, m)
+    // wait for done signal
+    <-done
+
+    fmt.Printf("\nDone.\n\n")
+
+    // mark channel as local (unsubscribe from all mappings)
+    err = cm.MarkChannelAsLocal(channel)
+    if err != nil {
+        log.Panicf("unable to unsubscribe, error: %e", err)
+    }
+    err = c.Disconnect()
+    if err != nil {
+        log.Panicf("unable to disconnect, error: %e", err)
+    }
+}
 
 func runDemoApp() {
 
