@@ -60,14 +60,14 @@ func runDemoCal() {
     // create done signal
     var done = make(chan bool)
 
-    // listen to stream of messages coming in on channel.
+    // listen to stream RESPONSE messages coming in.
     h, err := b.ListenStream(channel)
 
     if err != nil {
         log.Panicf("unable to listen to channel stream, error: %e", err)
     }
 
-    // listen for five messages and then exit, send a completed signal on channel.
+    // handle response from calendar service.
     h.Handle(
         func(msg *model.Message) {
 
@@ -97,24 +97,25 @@ func runDemoCal() {
     }
     fmt.Println("Connected to fabric broker!")
 
-    // mark our local channel as galactic and map it to our connection and the /topic/simple service
-    // running locally
+    // mark our local channel as galactic and map it to our connection and the /topic/calendar-service destination
     err = cm.MarkChannelAsGalactic(channel, "/topic/" + channel, c)
     if err != nil {
         log.Panicf("unable to map local channel to broker destination: %e", err)
     }
 
+    // create request
     id := uuid.New();
     r := &model.Request{}
     r.Request = "time"
     r.Id = &id
     m, _ := json.Marshal(r)
-    fmt.Println("Requesting time from service")
+    fmt.Println("Requesting time from calendar service")
 
+    // send request.
     c.SendMessage("/pub/" + channel, m)
+
     // wait for done signal
     <-done
-
     fmt.Printf("\nDone.\n\n")
 
     // mark channel as local (unsubscribe from all mappings)
@@ -122,6 +123,7 @@ func runDemoCal() {
     if err != nil {
         log.Panicf("unable to unsubscribe, error: %e", err)
     }
+
     err = c.Disconnect()
     if err != nil {
         log.Panicf("unable to disconnect, error: %e", err)
