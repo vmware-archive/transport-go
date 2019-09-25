@@ -133,6 +133,9 @@ func (channel *Channel) listenToBrokerSubscription(sub *bridge.Subscription) {
 }
 
 func (channel *Channel) isBrokerSubscribed(sub *bridge.Subscription) bool {
+    channel.channelLock.Lock()
+    defer channel.channelLock.Unlock()
+
     for _, cs := range channel.brokerSubs {
         if sub.Id.ID() == cs.s.Id.ID() {
             return true
@@ -142,6 +145,9 @@ func (channel *Channel) isBrokerSubscribed(sub *bridge.Subscription) bool {
 }
 
 func (channel *Channel) isBrokerSubscribedToDestination(c *bridge.Connection, dest string) bool {
+    channel.channelLock.Lock()
+    defer channel.channelLock.Unlock()
+
     for _, cs := range channel.brokerSubs {
         if cs.s != nil && cs.s.Destination == dest && cs.c.Id == c.Id {
             return true
@@ -151,21 +157,33 @@ func (channel *Channel) isBrokerSubscribedToDestination(c *bridge.Connection, de
 }
 
 func (channel *Channel) addBrokerConnection(c *bridge.Connection) {
+    channel.channelLock.Lock()
+    defer channel.channelLock.Unlock()
+
     channel.brokerConns = append(channel.brokerConns, c)
 }
 
 func (channel *Channel) removeBrokerConnections() {
+    channel.channelLock.Lock()
+    defer channel.channelLock.Unlock()
+
     channel.brokerConns = []*bridge.Connection{}
 }
 
 func (channel *Channel) addBrokerSubscription(conn *bridge.Connection, sub *bridge.Subscription) {
-
     cs := &connectionSub{c: conn, s: sub}
+
+    channel.channelLock.Lock()
     channel.brokerSubs = append(channel.brokerSubs, cs)
+    channel.channelLock.Unlock()
+
     go channel.listenToBrokerSubscription(sub)
 }
 
 func (channel *Channel) removeBrokerSubscription(sub *bridge.Subscription) {
+    channel.channelLock.Lock()
+    defer channel.channelLock.Unlock()
+
     for i, cs := range channel.brokerSubs {
         if sub.Id.ID() == cs.s.Id.ID() {
             channel.brokerSubs = removeSub(channel.brokerSubs, i)
