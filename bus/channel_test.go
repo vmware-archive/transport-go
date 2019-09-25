@@ -96,11 +96,11 @@ func TestChannel_SendMessageRunOnceHasRun(t *testing.T) {
 func TestChannel_SendMultipleMessages(t *testing.T) {
     id := uuid.New()
     channel := NewChannel(testChannelName)
-    counter := 0
+    var counter int32 = 0
     handler := func(message *model.Message) {
         assert.Equal(t, message.Payload.(string), "chewy louie")
         assert.Equal(t, message.Channel, testChannelName)
-        counter++
+        inc(&counter)
     }
 
     channel.subscribeHandler(&channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
@@ -114,21 +114,22 @@ func TestChannel_SendMultipleMessages(t *testing.T) {
     channel.Send(message)
     channel.Send(message)
     channel.wg.Wait()
-    assert.Equal(t, 3, counter)
+    assert.Equal(t, int32(3), counter)
 }
 
 func TestChannel_MultiHandlerSingleMessage(t *testing.T) {
     id := uuid.New()
     channel := NewChannel(testChannelName)
-    counterA, counterB, counterC := 0, 0, 0
+    var counterA, counterB, counterC int32 = 0, 0, 0
+
     handlerA := func(message *model.Message) {
-        counterA++
+        inc(&counterA)
     }
     handlerB := func(message *model.Message) {
-        counterB++
+        inc(&counterB)
     }
     handlerC := func(message *model.Message) {
-        counterC++
+        inc(&counterC)
     }
 
     channel.subscribeHandler(&channelEventHandler{callBackFunction: handlerA, runOnce: false, uuid: &id})
@@ -149,7 +150,7 @@ func TestChannel_MultiHandlerSingleMessage(t *testing.T) {
     channel.wg.Wait()
     value := counterA + counterB + counterC
 
-    assert.Equal(t, 9, value)
+    assert.Equal(t, int32(9), value)
 }
 
 func TestChannel_Privacy(t *testing.T) {
