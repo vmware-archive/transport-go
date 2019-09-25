@@ -149,7 +149,7 @@ func (channel *Channel) isBrokerSubscribedToDestination(c *bridge.Connection, de
     defer channel.channelLock.Unlock()
 
     for _, cs := range channel.brokerSubs {
-        if cs.s != nil && cs.s.Destination == dest && cs.c.Id == c.Id {
+        if cs.s != nil && cs.s.Destination == dest && cs.c != nil && cs.c.Id == c.Id {
             return true
         }
     }
