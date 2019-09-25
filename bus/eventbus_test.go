@@ -20,6 +20,7 @@ import (
     "net/http/httptest"
     "net/url"
     "testing"
+    "sync/atomic"
 )
 
 var evtBusTest *bifrostEventBus
@@ -125,6 +126,10 @@ func createTestChannel() *Channel {
     return evtbusTestManager.CreateChannel(evtbusTestChannelName)
 }
 
+func inc(counter *int32) {
+    atomic.AddInt32(counter, 1)
+}
+
 func destroyTestChannel() {
     evtbusTestManager.DestroyChannel(evtbusTestChannelName)
     util.ResetMonitor()
@@ -152,21 +157,19 @@ func TestEventBus_SendRequestMessageNoChannel(t *testing.T) {
 }
 
 func TestEventBus_ListenStream(t *testing.T) {
-    c := createTestChannel()
+    createTestChannel()
     handler, err := evtBusTest.ListenStream(evtbusTestChannelName)
     assert.Nil(t, err)
     assert.NotNil(t, handler)
-    count := 0
+    var count int32 = 0
     handler.Handle(
         func(msg *model.Message) {
             assert.Equal(t, "hello melody", msg.Payload.(string))
-            count++
-            c.wg.Done()
+            inc(&count)
         },
         func(err error) {})
 
     for i := 0; i < 3; i++ {
-        c.wg.Add(1)
         evtBusTest.SendResponseMessage(evtbusTestChannelName, "hello melody", nil)
 
         // send requests to make sure we're only getting requests
@@ -174,25 +177,23 @@ func TestEventBus_ListenStream(t *testing.T) {
         evtBusTest.SendRequestMessage(evtbusTestChannelName, 1, nil)
     }
     evtbusTestManager.WaitForChannel(evtbusTestChannelName)
-    assert.Equal(t, 3, count)
+    assert.Equal(t, int32(3), count)
     destroyTestChannel()
 }
 
 func TestBifrostEventBus_ListenStreamForDestination(t *testing.T) {
-    c := createTestChannel()
+    createTestChannel()
     id := uuid.New()
     handler, _ := evtBusTest.ListenStreamForDestination(evtbusTestChannelName, &id)
-    count := 0
+    var count int32 = 0
     handler.Handle(
         func(msg *model.Message) {
             assert.Equal(t, "hello melody", msg.Payload.(string))
-            count++
-            c.wg.Done()
+            inc(&count)
         },
         func(err error) {})
 
     for i := 0; i < 20; i++ {
-        c.wg.Add(1)
         evtBusTest.SendResponseMessage(evtbusTestChannelName, "hello melody", &id)
 
         // send requests to make sure we're only getting requests
@@ -200,7 +201,7 @@ func TestBifrostEventBus_ListenStreamForDestination(t *testing.T) {
         evtBusTest.SendRequestMessage(evtbusTestChannelName, 1, &id)
     }
     evtbusTestManager.WaitForChannel(evtbusTestChannelName)
-    assert.Equal(t, 20, count)
+    assert.Equal(t, int32(20), count)
     destroyTestChannel()
 }
 
@@ -280,11 +281,11 @@ func TestEventBus_ListenOnceForDestinationNoDestination(t *testing.T) {
 func TestEventBus_ListenRequestStream(t *testing.T) {
     createTestChannel()
     handler, _ := evtBusTest.ListenRequestStream(evtbusTestChannelName)
-    count := 0
+    var count int32 = 0
     handler.Handle(
         func(msg *model.Message) {
             assert.Equal(t, "hello melody", msg.Payload.(string))
-            count++
+            inc(&count)
         },
         func(err error) {})
 
@@ -296,7 +297,7 @@ func TestEventBus_ListenRequestStream(t *testing.T) {
         evtBusTest.SendResponseMessage(evtbusTestChannelName, "will fail assertion again", nil)
     }
     evtbusTestManager.WaitForChannel(evtbusTestChannelName)
-    assert.GreaterOrEqual(t, count, 9998)
+    assert.Equal(t, count, int32(10000))
     destroyTestChannel()
 }
 
@@ -304,11 +305,11 @@ func TestEventBus_ListenRequestStreamForDestination(t *testing.T) {
     createTestChannel()
     id := uuid.New()
     handler, _ := evtBusTest.ListenRequestStreamForDestination(evtbusTestChannelName, &id)
-    count := 0
+    var count int32 = 0
     handler.Handle(
         func(msg *model.Message) {
             assert.Equal(t, "hello melody", msg.Payload.(string))
-            count++
+            inc(&count)
         },
         func(err error) {})
 
@@ -320,7 +321,7 @@ func TestEventBus_ListenRequestStreamForDestination(t *testing.T) {
         evtBusTest.SendResponseMessage(evtbusTestChannelName, "will fail assertion again", &id)
     }
     evtbusTestManager.WaitForChannel(evtbusTestChannelName)
-    assert.GreaterOrEqual(t, count, 995)
+    assert.Equal(t, count, int32(1000))
     destroyTestChannel()
 }
 
@@ -431,31 +432,26 @@ func TestEventBus_TestErrorMessageHandling(t *testing.T) {
     destroyTestChannel()
 }
 
-func TestEventBxus_ListenFirehose(t *testing.T) {
-    c := createTestChannel()
-    counter := 0
+func TestEventBus_ListenFirehose(t *testing.T) {
+    createTestChannel()
+    var counter int32 = 0
 
     responseHandler, _ := evtBusTest.ListenFirehose(evtbusTestChannelName)
     responseHandler.Handle(
         func(msg *model.Message) {
-            counter++
-            c.wg.Done()
+            inc(&counter)
         },
         func(err error) {
-            counter++
-            c.wg.Done()
+            inc(&counter)
         })
-    c.wg.Add(1)
     for i := 0; i < 5; i++ {
         err := errors.New("something went wrong")
-        c.wg.Add(3)
         evtBusTest.SendErrorMessage(evtbusTestChannelName, err, nil)
         evtBusTest.SendRequestMessage(evtbusTestChannelName, 0, nil)
         evtBusTest.SendResponseMessage(evtbusTestChannelName, 1, nil)
     }
-    c.wg.Done()
     evtbusTestManager.WaitForChannel(evtbusTestChannelName)
-    assert.GreaterOrEqual(t, counter, 13)
+    assert.Equal(t, counter, int32(15))
     destroyTestChannel()
 }
 

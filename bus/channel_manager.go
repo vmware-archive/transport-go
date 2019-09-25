@@ -155,6 +155,7 @@ func (manager *busChannelManager) MarkChannelAsLocal(channelName string) (err er
 
 func (manager *busChannelManager) StopListeningMonitor() {
     manager.stopMonitorChan <- true
+    manager.monitorActive = false
 }
 
 func (manager *busChannelManager) ListenToMonitor() {
@@ -171,7 +172,6 @@ func (manager *busChannelManager) ListenToMonitor() {
                     manager.handleLocalChannelEvent(me.Channel, me.Message)
                 }
             case <-manager.stopMonitorChan:
-                manager.monitorActive = false
                 break
             }
         }
