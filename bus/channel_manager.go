@@ -184,6 +184,10 @@ func (manager *busChannelManager) handleGalacticChannelEvent(channelName string,
     // pull out the details of the galactic event.
     ge := msg.Payload.(*galacticEvent)
 
+    if ge.conn == nil {
+        return
+    }
+
     // check if channel is already subscribed on this connection
     if !ch.isBrokerSubscribedToDestination(ge.conn, ge.dest) {
         if sub, e := ge.conn.Subscribe(ge.dest); e == nil {
