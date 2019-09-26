@@ -157,6 +157,11 @@ func TestBrokerConnector_ConnectBroker(t *testing.T) {
             // connect
             bc := NewBrokerConnector()
             c, err := bc.Connect(tc.config)
+
+            if err != nil {
+                fmt.Printf("unable to connect, error: %e", err)
+            }
+
             assert.NotNil(t, c)
             assert.Nil(t, err)
             if tc.config.UseWS {
