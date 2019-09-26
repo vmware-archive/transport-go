@@ -197,6 +197,7 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
 
     // run ws and tcp brokers.
     u := runWebSocketEndPoint()
+    go runStompBroker()
 
     url, _ := url.Parse(u)
     host, port, _ := net.SplitHostPort(url.Host)
@@ -238,7 +239,6 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
     <-c.brokerMappedEvent
     assert.Len(t, c.brokerConns, 1)
     <-m1
-    go runStompBroker()
 
     // lets add another connection to the same channel.
     cf = &bridge.BrokerConnectorConfig{Username: "guest", Password: "guest", ServerAddr: testBrokerAddress}
