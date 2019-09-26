@@ -30,9 +30,12 @@ func (c *Connection) Subscribe(destination string) (*Subscription, error) {
         return nil, fmt.Errorf("cannot subscribe to '%s', no connection to broker", destination)
     }
 
+    c.connLock.Lock()
     if sub, ok := c.subscriptions[destination]; ok {
+        c.connLock.Unlock()
         return sub, nil
     }
+    c.connLock.Unlock()
 
     // use websocket, if not use stomp TCP.
     if c.useWs {

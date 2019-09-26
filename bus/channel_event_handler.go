@@ -9,7 +9,6 @@ import (
 type channelEventHandler struct {
     callBackFunction MessageHandlerFunction
     runOnce          bool
-    hasRun           bool
     runCount         int64
     uuid             *uuid.UUID
 }

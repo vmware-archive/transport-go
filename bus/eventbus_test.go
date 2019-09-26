@@ -415,12 +415,12 @@ func TestEventBus_TestErrorMessageHandling(t *testing.T) {
     assert.NotNil(t, err)
 
     handler, _ := evtBusTest.ListenStream(evtbusTestChannelName)
-    countError := 0
+    var countError int32 = 0
     handler.Handle(
         func(msg *model.Message) {},
         func(err error) {
             assert.Errorf(t, err, "something went wrong")
-            countError++
+            inc(&countError)
         })
 
     for i := 0; i < 5; i++ {
@@ -428,7 +428,7 @@ func TestEventBus_TestErrorMessageHandling(t *testing.T) {
         evtBusTest.SendErrorMessage(evtbusTestChannelName, err, handler.GetId())
     }
     evtbusTestManager.WaitForChannel(evtbusTestChannelName)
-    assert.Equal(t, 5, countError)
+    assert.Equal(t, int32(5), countError)
     destroyTestChannel()
 }
 
@@ -538,17 +538,17 @@ func TestEventBus_RequestStream(t *testing.T) {
     id := uuid.New()
     channel.subscribeHandler(&channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
-    count := 0
+    var count int32 = 0
     responseHandler, _ := evtBusTest.RequestStream(evtbusTestChannelName, "who has the cutest laugh?")
     responseHandler.Handle(
         func(msg *model.Message) {
             assert.Equal(t, "why melody does of course", msg.Payload.(string))
-            count++
+            inc(&count)
         },
         func(err error) {})
 
     responseHandler.Fire()
-    assert.Equal(t, 5, count)
+    assert.Equal(t, int32(5), count)
     destroyTestChannel()
 }
 
@@ -569,17 +569,17 @@ func TestEventBus_RequestStreamForDesintation(t *testing.T) {
     id := uuid.New()
     channel.subscribeHandler(&channelEventHandler{callBackFunction: handler, runOnce: false, uuid: &id})
 
-    count := 0
+    var count int32 = 0
     responseHandler, _ := evtBusTest.RequestStreamForDestination(evtbusTestChannelName, "who has the cutest laugh?", &dest)
     responseHandler.Handle(
         func(msg *model.Message) {
             assert.Equal(t, "why melody does of course", msg.Payload.(string))
-            count++
+            inc(&count)
         },
         func(err error) {})
 
     responseHandler.Fire()
-    assert.Equal(t, 5, count)
+    assert.Equal(t, int32(5), count)
     destroyTestChannel()
 }
 

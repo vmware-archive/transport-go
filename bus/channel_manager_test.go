@@ -8,12 +8,10 @@ import (
     "go-bifrost/util"
     "net"
     "net/url"
-    //"fmt"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
-    //"net/url"
-    //"sync"
     "testing"
+    "time"
 )
 
 var testChannelManager ChannelManager
@@ -259,7 +257,13 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
 
     testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn)
     testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn) // trigger double (should ignore)
-    <-c.brokerMappedEvent
+
+    select {
+    case <-c.brokerMappedEvent:
+    case <-time.After(5 * time.Second):
+        assert.FailNow(t, "TestChannelManager_TestListenToMonitorGalactic timeout on brokerMappedEvent")
+    }
+
     err := conn.SendMessage("/queue/hiya",[]byte("Hi baby melody!"))
     assert.Nil(t, err)
     <-m2

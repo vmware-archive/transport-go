@@ -84,7 +84,7 @@ func TestChannel_SendMessageRunOnceHasRun(t *testing.T) {
 
     channel.Send(message)
     channel.wg.Wait()
-    h.hasRun = true
+    h.runCount = 1
     channel.Send(message)
     assert.Len(t, channel.eventHandlers, 0)
     assert.Equal(t, 1, count)
