@@ -12,6 +12,7 @@ import (
     "github.com/stretchr/testify/assert"
     "testing"
     "time"
+    "fmt"
 )
 
 var testChannelManager ChannelManager
@@ -242,6 +243,10 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
     // lets add another connection to the same channel.
     cf = &bridge.BrokerConnectorConfig{Username: "guest", Password: "guest", ServerAddr: testBrokerAddress}
     conn, e = bc.Connect(cf)
+
+    if e != nil {
+        fmt.Printf("unable to connect, error: %e", e)
+    }
 
     assert.Nil(t, e)
     assert.NotNil(t, conn)
