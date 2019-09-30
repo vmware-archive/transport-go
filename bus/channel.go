@@ -6,6 +6,7 @@ import (
     "go-bifrost/bridge"
     "go-bifrost/model"
     "sync"
+    "sync/atomic"
 )
 
 // Channel represents the stream and the subscribed event handlers waiting for ticks on the stream
@@ -75,7 +76,7 @@ func (channel *Channel) Send(message *model.Message) {
         handlerDuplicate := make([]*channelEventHandler, 0, len(eventHandlers))
         handlerDuplicate = append(handlerDuplicate, eventHandlers...)
         for n, eventHandler := range handlerDuplicate {
-            if eventHandler.runOnce && eventHandler.hasRun {
+            if eventHandler.runOnce && atomic.LoadInt64(&eventHandler.runCount) > 0 {
                 channel.removeEventHandler(n) // remove from slice.
             }
             channel.wg.Add(1)
@@ -91,10 +92,8 @@ func (channel *Channel) ContainsHandlers() bool {
 
 // Send message to handler function
 func (channel *Channel) sendMessageToHandler(handler *channelEventHandler, message *model.Message) {
-    //handler.hasRun = true
     handler.callBackFunction(message)
-    handler.hasRun = true
-    handler.runCount++
+    atomic.AddInt64(&handler.runCount, 1)
     channel.wg.Done()
 }
 
@@ -133,6 +132,9 @@ func (channel *Channel) listenToBrokerSubscription(sub *bridge.Subscription) {
 }
 
 func (channel *Channel) isBrokerSubscribed(sub *bridge.Subscription) bool {
+    channel.channelLock.Lock()
+    defer channel.channelLock.Unlock()
+
     for _, cs := range channel.brokerSubs {
         if sub.Id.ID() == cs.s.Id.ID() {
             return true
@@ -142,8 +144,11 @@ func (channel *Channel) isBrokerSubscribed(sub *bridge.Subscription) bool {
 }
 
 func (channel *Channel) isBrokerSubscribedToDestination(c *bridge.Connection, dest string) bool {
+    channel.channelLock.Lock()
+    defer channel.channelLock.Unlock()
+
     for _, cs := range channel.brokerSubs {
-        if cs.s != nil && cs.s.Destination == dest && cs.c.Id == c.Id {
+        if cs.s != nil && cs.s.Destination == dest && cs.c != nil && cs.c.Id == c.Id {
             return true
         }
     }
@@ -151,21 +156,39 @@ func (channel *Channel) isBrokerSubscribedToDestination(c *bridge.Connection, de
 }
 
 func (channel *Channel) addBrokerConnection(c *bridge.Connection) {
+    channel.channelLock.Lock()
+    defer channel.channelLock.Unlock()
+
+    for _, brCon := range channel.brokerConns {
+        if brCon.Id == c.Id {
+            return
+        }
+    }
+
     channel.brokerConns = append(channel.brokerConns, c)
 }
 
 func (channel *Channel) removeBrokerConnections() {
+    channel.channelLock.Lock()
+    defer channel.channelLock.Unlock()
+
     channel.brokerConns = []*bridge.Connection{}
 }
 
 func (channel *Channel) addBrokerSubscription(conn *bridge.Connection, sub *bridge.Subscription) {
-
     cs := &connectionSub{c: conn, s: sub}
+
+    channel.channelLock.Lock()
     channel.brokerSubs = append(channel.brokerSubs, cs)
+    channel.channelLock.Unlock()
+
     go channel.listenToBrokerSubscription(sub)
 }
 
 func (channel *Channel) removeBrokerSubscription(sub *bridge.Subscription) {
+    channel.channelLock.Lock()
+    defer channel.channelLock.Unlock()
+
     for i, cs := range channel.brokerSubs {
         if sub.Id.ID() == cs.s.Id.ID() {
             channel.brokerSubs = removeSub(channel.brokerSubs, i)

@@ -192,7 +192,7 @@ func (ws *BridgeClient) handleIncomingSTOMPFrames() {
                     if sub.Destination == f.Header.Get(frame.Destination) {
                         c := &model.MessageConfig{Payload: f.Body, Destination: sub.Destination}
                         if sub.subscribed {
-                            sub.C <- model.GenerateResponse(c)
+                            sendResponseSafe(sub.C, model.GenerateResponse(c))
                         }
                     }
                 }
@@ -212,4 +212,13 @@ func (ws *BridgeClient) handleIncomingSTOMPFrames() {
         }
 
     }
+}
+
+func sendResponseSafe(C chan *model.Message, m *model.Message) {
+    defer func() {
+        if r := recover(); r != nil {
+            log.Println("channel is closed, message undeliverable to closed channel.")
+        }
+    }()
+    C <- m
 }

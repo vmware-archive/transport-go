@@ -8,12 +8,11 @@ import (
     "go-bifrost/util"
     "net"
     "net/url"
-    //"fmt"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
-    //"net/url"
-    //"sync"
     "testing"
+    "time"
+    "fmt"
 )
 
 var testChannelManager ChannelManager
@@ -198,6 +197,7 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
 
     // run ws and tcp brokers.
     u := runWebSocketEndPoint()
+    go runStompBroker()
 
     url, _ := url.Parse(u)
     host, port, _ := net.SplitHostPort(url.Host)
@@ -239,11 +239,14 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
     <-c.brokerMappedEvent
     assert.Len(t, c.brokerConns, 1)
     <-m1
-    go runStompBroker()
 
     // lets add another connection to the same channel.
     cf = &bridge.BrokerConnectorConfig{Username: "guest", Password: "guest", ServerAddr: testBrokerAddress}
     conn, e = bc.Connect(cf)
+
+    if e != nil {
+        fmt.Printf("unable to connect, error: %e", e)
+    }
 
     assert.Nil(t, e)
     assert.NotNil(t, conn)
@@ -259,7 +262,13 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
 
     testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn)
     testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn) // trigger double (should ignore)
-    <-c.brokerMappedEvent
+
+    select {
+    case <-c.brokerMappedEvent:
+    case <-time.After(5 * time.Second):
+        assert.FailNow(t, "TestChannelManager_TestListenToMonitorGalactic timeout on brokerMappedEvent")
+    }
+
     err := conn.SendMessage("/queue/hiya",[]byte("Hi baby melody!"))
     assert.Nil(t, err)
     <-m2
