@@ -178,7 +178,7 @@ func (store *busStore) Mutate(request interface{}, requestType interface{},
     defer store.mutationStreamsLock.RUnlock()
 
     for _, ms := range store.mutationStreams {
-        go ms.onMutationRequest(&MutationRequest{
+        ms.onMutationRequest(&MutationRequest{
             Request: request,
             RequestType: requestType,
             SuccessHandler: successHandler,
