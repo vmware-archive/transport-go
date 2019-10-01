@@ -645,6 +645,12 @@ func TestEventBus_HandlerWithoutRequestToFire(t *testing.T) {
     destroyTestChannel()
 }
 
+func TestEventBus_GetStoreManager(t *testing.T) {
+    assert.NotNil(t, evtBusTest.GetStoreManager())
+    store := evtBusTest.GetStoreManager().CreateStore("test")
+    assert.NotNil(t, store)
+    assert.True(t, evtBusTest.GetStoreManager().DestroyStore("test"))
+}
 
 func TestChannelManager_TestConnectBroker(t *testing.T) {
     u := runWebSocketEndPoint()

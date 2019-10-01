@@ -9,6 +9,7 @@ import (
     "fmt"
     "github.com/google/uuid"
     "sync"
+    "go-bifrost/bus/store"
 )
 
 // EventBus provides access to ChannelManager, simple message sending and simple API calls for handling
@@ -34,6 +35,7 @@ type EventBus interface {
     RequestStreamForDestination(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error)
     ConnectBroker(config *bridge.BrokerConnectorConfig) (conn *bridge.Connection, err error)
     StartTCPService(address string) error
+    GetStoreManager() store.StoreManager
 }
 
 var once sync.Once
@@ -51,6 +53,7 @@ func GetBus() EventBus {
 
 type bifrostEventBus struct {
     ChannelManager    ChannelManager
+    storeManager      store.StoreManager
     Id                uuid.UUID
     monitor           *util.MonitorStream
     brokerConnections map[*uuid.UUID]*bridge.Connection
@@ -62,13 +65,17 @@ func (bus *bifrostEventBus) GetId() *uuid.UUID {
 }
 
 func (bus *bifrostEventBus) init() {
-
     bus.Id = uuid.New()
+    bus.storeManager = store.NewStoreManager()
     bus.ChannelManager = NewBusChannelManager(bus)
     bus.monitor = util.GetMonitor()
     bus.brokerConnections = make(map[*uuid.UUID]*bridge.Connection)
     bus.bc = bridge.NewBrokerConnector()
     fmt.Printf("🌈 Bifröst booted with Id [%s]\n", bus.Id.String())
+}
+
+func (bus *bifrostEventBus) GetStoreManager() store.StoreManager {
+    return bus.storeManager
 }
 
 // Get a pointer to the ChannelManager for managing Channels.
