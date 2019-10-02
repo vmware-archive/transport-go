@@ -78,6 +78,7 @@ func (channel *Channel) Send(message *model.Message) {
         for n, eventHandler := range handlerDuplicate {
             if eventHandler.runOnce && atomic.LoadInt64(&eventHandler.runCount) > 0 {
                 channel.removeEventHandler(n) // remove from slice.
+                continue
             }
             channel.wg.Add(1)
             go channel.sendMessageToHandler(eventHandler, message)

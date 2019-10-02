@@ -5,6 +5,7 @@ import (
     "go-bifrost/model"
     "fmt"
     "github.com/google/uuid"
+    "sync"
 )
 
 // Signature used for all functions used on bus stream APIs to Handle messages.
@@ -32,20 +33,23 @@ type messageHandler struct {
     closed          bool
     channel         *Channel
     requestMessage  *model.Message
-    runOnce         bool
     hasRun          bool
     runCount        int
     ignoreId        bool
     wrapperFunction MessageHandlerFunction
     successHandler  MessageHandlerFunction
     errorHandler    MessageErrorFunction
+    subscriptionId  *uuid.UUID
+    invokeOnce      sync.Once
 }
 
 func (msgHandler *messageHandler) Handle(successHandler MessageHandlerFunction, errorHandler MessageErrorFunction) {
     msgHandler.successHandler = successHandler
     msgHandler.errorHandler = errorHandler
     bus := GetBus().(*bifrostEventBus)
-    bus.GetChannelManager().SubscribeChannelHandler(msgHandler.channel.Name, msgHandler.wrapperFunction, msgHandler.runOnce)
+
+    msgHandler.subscriptionId, _ = bus.GetChannelManager().SubscribeChannelHandler(
+            msgHandler.channel.Name, msgHandler.wrapperFunction, false)
 }
 
 func (msgHandler *messageHandler) GetId() *uuid.UUID {
