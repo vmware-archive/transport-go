@@ -1,11 +1,16 @@
+// Copyright 2019 VMware, Inc. All rights reserved. -- VMware Confidential
+
 package store
 
 import "sync"
 
 // StoreManager interface controls all access to BusStores
 type StoreManager interface {
+    // Create a new Store, if the store already exists, then it will be returned.
     CreateStore(name string) BusStore
+    // Get a reference to the existing store. Returns nil if the store doesn't exist.
     GetStore(name string) BusStore
+    // Deletes a store.
     DestroyStore(name string) bool
 }
 

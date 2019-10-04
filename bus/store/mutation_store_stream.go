@@ -1,3 +1,5 @@
+// Copyright 2019 VMware, Inc. All rights reserved. -- VMware Confidential
+
 package store
 
 import (
@@ -6,17 +8,19 @@ import (
 )
 
 type MutationRequest struct {
-    Request           interface{}
-    RequestType       interface{}
-    SuccessHandler    func(interface{})
-    ErrorHandler      func(interface{})
+    Request        interface{}
+    RequestType    interface{}
+    SuccessHandler func(interface{})
+    ErrorHandler   func(interface{})
 }
 
 type MutationRequestHandlerFunction func(mutationReq *MutationRequest)
 
 // Interface for subscribing for mutation requests
 type MutationStoreStream interface {
+    // Subscribe to the mutation requests stream.
     Subscribe(handler MutationRequestHandlerFunction) error
+    // Unsubscribe from the stream.
     Unsubscribe() error
 }
 
@@ -39,10 +43,10 @@ func (f *mutationStreamFilter) match(mutationReq *MutationRequest) bool {
 }
 
 type mutationStoreStream struct {
-    handler             MutationRequestHandlerFunction
-    lock                sync.RWMutex
-    store               *busStore
-    filter              *mutationStreamFilter
+    handler MutationRequestHandlerFunction
+    lock    sync.RWMutex
+    store   *busStore
+    filter  *mutationStreamFilter
 }
 
 func newMutationStoreStream(store *busStore, filter *mutationStreamFilter) *mutationStoreStream {

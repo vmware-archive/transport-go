@@ -1,3 +1,5 @@
+// Copyright 2019 VMware, Inc. All rights reserved. -- VMware Confidential
+
 package store
 
 import (
@@ -7,50 +9,60 @@ import (
 
 // Describes a single store item change
 type StoreChange struct {
-    Id              string
-    Value           interface{}
-    State           interface{}
-    IsDeleteChange  bool
-    StoreVersion    int64
+    Id              string      // the id of the updated item
+    Value           interface{} // the updated value of the item
+    State           interface{} // state associated with this change
+    IsDeleteChange  bool        // true if the item was removed from the store
+    StoreVersion    int64       // the store's version when this change was made
 }
 
 // BusStore is a stateful in memory cache for objects. All state changes (any time the cache is modified)
 // will broadcast that updated object to any subscribers of the BusStore for those specific objects
 // or all objects of a certain type and state changes.
 type BusStore interface {
+    // Get the name (the id) of the store.
     GetName() string
+    // Add new or updates existing item in the store.
     Put(id string, value interface{}, state interface{})
+    // Get an item from the store.
     Get(id string) (interface{}, bool)
+    // Remove an item from the store. Returns true if the remove operation was successful.
     Remove(id string, state interface{}) bool
+    // Return a slice containing all store items.
     AllValues() []interface{}
+    // Return a map with all items from the store.
     AllValuesAsMap() map[string]interface{}
+    // Subscribe to state changes for a specific object.
     OnChange(id string, state ...interface{}) StoreStream
+    // Subscribe to state changes for all objects
     OnAllChanges(state ...interface{}) StoreStream
+    // Notify when the store has been initialize (via populate() or initialize()
     WhenReady(readyFunction func())
+    // Populate the store with a map of items and their ID's.
     Populate(items map[string]interface{}) error
+    // Mark the store as initialized and notify all watchers.
     Initialize()
+    // Subscribe to mutation requests made via mutate() method.
     OnMutationRequest(mutationType ...interface{}) MutationStoreStream
+    // Send a mutation request to any subscribers handling mutations.
     Mutate(request interface{}, requestType interface{},
             successHandler func(interface{}), errorHandler func(interface{}))
+    // Removes all items from the store and change its state to uninitialized".
     Reset()
 }
 
 // Internal BusStore implementation
 type busStore struct {
-    name                  string
-
-    itemsLock             sync.RWMutex
-    items                 map[string]interface{}
-    storeVersion          int64
-
-    storeStreamsLock      sync.RWMutex
-    storeStreams          []*storeStream
-
-    mutationStreamsLock   sync.RWMutex
-    mutationStreams       []*mutationStoreStream
-
-    initializer           sync.Once
-    readyC                chan struct{}
+    name                 string
+    itemsLock            sync.RWMutex
+    items                map[string]interface{}
+    storeVersion         int64
+    storeStreamsLock     sync.RWMutex
+    storeStreams         []*storeStream
+    mutationStreamsLock  sync.RWMutex
+    mutationStreams      []*mutationStoreStream
+    initializer          sync.Once
+    readyC               chan struct{}
 }
 
 func newBusStore(name string) BusStore {

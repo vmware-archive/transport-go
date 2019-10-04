@@ -1,3 +1,5 @@
+// Copyright 2019 VMware, Inc. All rights reserved. -- VMware Confidential
+
 package store
 
 import (
@@ -9,14 +11,16 @@ type StoreChangeHandlerFunction func(change *StoreChange)
 
 // Interface for subscribing for store changes
 type StoreStream interface {
+    // Subscribe to the store changes stream.
     Subscribe(handler StoreChangeHandlerFunction) error
+    // Unsubscribe from the stream.
     Unsubscribe() error
 }
 
 type streamFilter struct {
-    states              []interface{}
-    itemId              string
-    matchAllItems       bool
+    states        []interface{}
+    itemId        string
+    matchAllItems bool
 }
 
 func (f *streamFilter) match(change *StoreChange) bool {
@@ -36,10 +40,10 @@ func (f *streamFilter) match(change *StoreChange) bool {
 }
 
 type storeStream struct {
-    handler             StoreChangeHandlerFunction
-    lock                sync.RWMutex
-    store               *busStore
-    filter              *streamFilter
+    handler  StoreChangeHandlerFunction
+    lock     sync.RWMutex
+    store    *busStore
+    filter   *streamFilter
 }
 
 func newStoreStream(store *busStore, filter *streamFilter) *storeStream {
