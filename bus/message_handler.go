@@ -33,8 +33,7 @@ type messageHandler struct {
     closed          bool
     channel         *Channel
     requestMessage  *model.Message
-    hasRun          bool
-    runCount        int
+    runCount        int64
     ignoreId        bool
     wrapperFunction MessageHandlerFunction
     successHandler  MessageHandlerFunction

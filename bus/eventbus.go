@@ -9,6 +9,7 @@ import (
     "fmt"
     "github.com/google/uuid"
     "sync"
+    "sync/atomic"
 )
 
 // EventBus provides access to ChannelManager, simple message sending and simple API calls for handling
@@ -348,16 +349,14 @@ func (bus *bifrostEventBus) wrapMessageHandler(
         if messageHandler.errorHandler != nil {
             if runOnce {
                 messageHandler.invokeOnce.Do(func() {
-                    messageHandler.hasRun = true
-                    messageHandler.runCount++
+                    atomic.AddInt64(&messageHandler.runCount, 1)
                     messageHandler.errorHandler(err)
 
                     bus.GetChannelManager().UnsubscribeChannelHandler(
                         channel.Name, messageHandler.subscriptionId)
                 })
             } else {
-                messageHandler.hasRun = true
-                messageHandler.runCount++
+                atomic.AddInt64(&messageHandler.runCount, 1)
                 messageHandler.errorHandler(err)
             }
         }
@@ -366,16 +365,14 @@ func (bus *bifrostEventBus) wrapMessageHandler(
         if messageHandler.successHandler != nil {
             if runOnce {
                 messageHandler.invokeOnce.Do(func() {
-                    messageHandler.hasRun = true
-                    messageHandler.runCount++
+                    atomic.AddInt64(&messageHandler.runCount, 1)
                     messageHandler.successHandler(msg)
 
                     bus.GetChannelManager().UnsubscribeChannelHandler(
                         channel.Name, messageHandler.subscriptionId)
                 })
             } else {
-                messageHandler.hasRun = true
-                messageHandler.runCount++
+                atomic.AddInt64(&messageHandler.runCount, 1)
                 messageHandler.successHandler(msg)
             }
         }
