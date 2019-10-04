@@ -40,7 +40,7 @@ type messageHandler struct {
     successHandler  MessageHandlerFunction
     errorHandler    MessageErrorFunction
     subscriptionId  *uuid.UUID
-    invokeOnce      sync.Once
+    invokeOnce      *sync.Once
 }
 
 func (msgHandler *messageHandler) Handle(successHandler MessageHandlerFunction, errorHandler MessageErrorFunction) {

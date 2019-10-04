@@ -339,6 +339,11 @@ func (bus *bifrostEventBus) wrapMessageHandler(
 
     messageHandler := createMessageHandler(channel, destId)
     messageHandler.ignoreId = ignoreId
+
+    if (runOnce) {
+        messageHandler.invokeOnce = &sync.Once{}
+    }
+
     errorHandler := func(err error) {
         if messageHandler.errorHandler != nil {
             if runOnce {
