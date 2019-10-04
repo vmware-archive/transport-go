@@ -347,16 +347,14 @@ func (bus *bifrostEventBus) wrapMessageHandler(
     errorHandler := func(err error) {
         if messageHandler.errorHandler != nil {
             if runOnce {
-                if !checkHandlerHasRun(messageHandler) {
-                    messageHandler.invokeOnce.Do(func() {
-                        messageHandler.hasRun = true
-                        messageHandler.runCount++
-                        messageHandler.errorHandler(err)
+                messageHandler.invokeOnce.Do(func() {
+                    messageHandler.hasRun = true
+                    messageHandler.runCount++
+                    messageHandler.errorHandler(err)
 
-                        bus.GetChannelManager().UnsubscribeChannelHandler(
-                            channel.Name, messageHandler.subscriptionId)
-                    })
-                }
+                    bus.GetChannelManager().UnsubscribeChannelHandler(
+                        channel.Name, messageHandler.subscriptionId)
+                })
             } else {
                 messageHandler.hasRun = true
                 messageHandler.runCount++
@@ -367,16 +365,14 @@ func (bus *bifrostEventBus) wrapMessageHandler(
     successHandler := func(msg *model.Message) {
         if messageHandler.successHandler != nil {
             if runOnce {
-                if !checkHandlerHasRun(messageHandler) {
-                    messageHandler.invokeOnce.Do(func() {
-                        messageHandler.hasRun = true
-                        messageHandler.runCount++
-                        messageHandler.successHandler(msg)
+                messageHandler.invokeOnce.Do(func() {
+                    messageHandler.hasRun = true
+                    messageHandler.runCount++
+                    messageHandler.successHandler(msg)
 
-                        bus.GetChannelManager().UnsubscribeChannelHandler(
-                            channel.Name, messageHandler.subscriptionId)
-                    })
-                }
+                    bus.GetChannelManager().UnsubscribeChannelHandler(
+                        channel.Name, messageHandler.subscriptionId)
+                })
             } else {
                 messageHandler.hasRun = true
                 messageHandler.runCount++
@@ -421,10 +417,6 @@ func checkForSuppliedId(id *uuid.UUID) *uuid.UUID {
         id = &i
     }
     return id
-}
-
-func checkHandlerHasRun(handler *messageHandler) bool {
-    return handler.hasRun
 }
 
 func sendMessageToChannel(channelObject *Channel, message *model.Message) {
