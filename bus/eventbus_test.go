@@ -220,6 +220,10 @@ func TestEventBus_ListenOnce(t *testing.T) {
         },
         func(err error) {})
 
+    for i := 0; i < 10; i++ {
+        evtBusTest.SendRequestMessage(evtbusTestChannelName, 0, handler.GetDestinationId())
+    }
+
     for i := 0; i < 2; i++ {
         evtBusTest.SendResponseMessage(evtbusTestChannelName, 0, handler.GetDestinationId())
 

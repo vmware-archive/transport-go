@@ -9,6 +9,7 @@ import (
     "fmt"
     "github.com/google/uuid"
     "sync"
+    "sync/atomic"
     "go-bifrost/bus/store"
 )
 
@@ -133,7 +134,7 @@ func (bus *bifrostEventBus) ListenStream(channelName string) (MessageHandler, er
     if err != nil {
         return nil, err
     }
-    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, true, false, nil)
+    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, true, false, nil, false)
     return messageHandler, nil
 }
 
@@ -151,7 +152,7 @@ func (bus *bifrostEventBus) ListenStreamForDestination(channelName string, destI
     if destId == nil {
         return nil, fmt.Errorf("DestinationId cannot be nil")
     }
-    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, false, false, destId)
+    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, false, false, destId, false)
     return messageHandler, nil
 }
 
@@ -166,7 +167,7 @@ func (bus *bifrostEventBus) ListenRequestStream(channelName string) (MessageHand
     if err != nil {
         return nil, err
     }
-    messageHandler := bus.wrapMessageHandler(channel, model.RequestDir, true, false, nil)
+    messageHandler := bus.wrapMessageHandler(channel, model.RequestDir, true, false, nil, false)
     return messageHandler, nil
 }
 
@@ -186,7 +187,7 @@ func (bus *bifrostEventBus) ListenRequestStreamForDestination(
     if destId == nil {
         return nil, fmt.Errorf("DestinationId cannot be nil")
     }
-    messageHandler := bus.wrapMessageHandler(channel, model.RequestDir, false, false, destId)
+    messageHandler := bus.wrapMessageHandler(channel, model.RequestDir, false, false, destId, false)
     return messageHandler, nil
 }
 
@@ -198,8 +199,7 @@ func (bus *bifrostEventBus) ListenRequestOnce(channelName string) (MessageHandle
         return nil, err
     }
     id := checkForSuppliedId(nil)
-    messageHandler := bus.wrapMessageHandler(channel, model.RequestDir, true, false, id)
-    messageHandler.runOnce = true
+    messageHandler := bus.wrapMessageHandler(channel, model.RequestDir, true, false, id, true)
     return messageHandler, nil
 }
 
@@ -215,8 +215,7 @@ func (bus *bifrostEventBus) ListenRequestOnceForDestination(
     if destId == nil {
         return nil, fmt.Errorf("DestinationId cannot be nil")
     }
-    messageHandler := bus.wrapMessageHandler(channel, model.RequestDir, false, false, destId)
-    messageHandler.runOnce = true
+    messageHandler := bus.wrapMessageHandler(channel, model.RequestDir, false, false, destId, true)
     return messageHandler, nil
 }
 
@@ -225,7 +224,7 @@ func (bus *bifrostEventBus) ListenFirehose(channelName string) (MessageHandler, 
     if err != nil {
         return nil, err
     }
-    messageHandler := bus.wrapMessageHandler(channel, model.RequestDir, true, true, nil)
+    messageHandler := bus.wrapMessageHandler(channel, model.RequestDir, true, true, nil, false)
     return messageHandler, nil
 }
 
@@ -236,8 +235,7 @@ func (bus *bifrostEventBus) ListenOnce(channelName string) (MessageHandler, erro
         return nil, err
     }
     id := checkForSuppliedId(nil)
-    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, true, false, id)
-    messageHandler.runOnce = true
+    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, true, false, id, true)
     return messageHandler, nil
 }
 
@@ -250,8 +248,7 @@ func (bus *bifrostEventBus) ListenOnceForDestination(channelName string, destId 
     if destId == nil {
         return nil, fmt.Errorf("DestinationId cannot be nil")
     }
-    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, false, false, destId)
-    messageHandler.runOnce = true
+    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, false, false, destId, true)
     return messageHandler, nil
 }
 
@@ -263,11 +260,10 @@ func (bus *bifrostEventBus) RequestOnce(channelName string, payload interface{})
         return nil, err
     }
     destId := checkForSuppliedId(nil)
-    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, true, false, destId)
+    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, true, false, destId, true)
     config := buildConfig(channelName, payload, destId)
     message := model.GenerateRequest(config)
     messageHandler.requestMessage = message
-    messageHandler.runOnce = true
     return messageHandler, nil
 }
 
@@ -283,11 +279,10 @@ func (bus *bifrostEventBus) RequestOnceForDestination(
     if destId == nil {
         return nil, fmt.Errorf("DestinationId cannot be nil")
     }
-    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, false, false, destId)
+    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, false, false, destId, true)
     config := buildConfig(channelName, payload, destId)
     message := model.GenerateRequest(config)
     messageHandler.requestMessage = message
-    messageHandler.runOnce = true
     return messageHandler, nil
 }
 
@@ -305,11 +300,10 @@ func (bus *bifrostEventBus) RequestStream(channelName string, payload interface{
         return nil, err
     }
     id := checkForSuppliedId(nil)
-    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, true, false, id)
+    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, true, false, id, false)
     config := buildConfig(channelName, payload, id)
     message := model.GenerateRequest(config)
     messageHandler.requestMessage = message
-    messageHandler.runOnce = false
     return messageHandler, nil
 }
 
@@ -325,11 +319,10 @@ func (bus *bifrostEventBus) RequestStreamForDestination(
     if destId == nil {
         return nil, fmt.Errorf("DestinationId cannot be nil")
     }
-    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, false, false, destId)
+    messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, false, false, destId, false)
     config := buildConfig(channelName, payload, destId)
     message := model.GenerateRequest(config)
     messageHandler.requestMessage = message
-    messageHandler.runOnce = false
     return messageHandler, nil
 }
 
@@ -349,35 +342,44 @@ func (bus *bifrostEventBus) StartTCPService(address string) error {
 }
 
 func (bus *bifrostEventBus) wrapMessageHandler(
-    channel *Channel, direction model.Direction, ignoreId bool, allTraffic bool, destId *uuid.UUID) *messageHandler {
+    channel *Channel, direction model.Direction, ignoreId bool, allTraffic bool, destId *uuid.UUID,
+    runOnce bool) *messageHandler {
 
     messageHandler := createMessageHandler(channel, destId)
     messageHandler.ignoreId = ignoreId
+
+    if (runOnce) {
+        messageHandler.invokeOnce = &sync.Once{}
+    }
+
     errorHandler := func(err error) {
         if messageHandler.errorHandler != nil {
-            if checkHandlerSingleRun(messageHandler) {
-                if !checkHandlerHasRun(messageHandler) {
-                    messageHandler.hasRun = true
-                    messageHandler.runCount++
+            if runOnce {
+                messageHandler.invokeOnce.Do(func() {
+                    atomic.AddInt64(&messageHandler.runCount, 1)
                     messageHandler.errorHandler(err)
-                }
+
+                    bus.GetChannelManager().UnsubscribeChannelHandler(
+                        channel.Name, messageHandler.subscriptionId)
+                })
             } else {
-                messageHandler.hasRun = true
+                atomic.AddInt64(&messageHandler.runCount, 1)
                 messageHandler.errorHandler(err)
             }
         }
     }
     successHandler := func(msg *model.Message) {
         if messageHandler.successHandler != nil {
-            if checkHandlerSingleRun(messageHandler) {
-                if !checkHandlerHasRun(messageHandler) {
-                    messageHandler.hasRun = true
-                    messageHandler.runCount++
+            if runOnce {
+                messageHandler.invokeOnce.Do(func() {
+                    atomic.AddInt64(&messageHandler.runCount, 1)
                     messageHandler.successHandler(msg)
-                }
+
+                    bus.GetChannelManager().UnsubscribeChannelHandler(
+                        channel.Name, messageHandler.subscriptionId)
+                })
             } else {
-                messageHandler.hasRun = true
-                messageHandler.runCount++
+                atomic.AddInt64(&messageHandler.runCount, 1)
                 messageHandler.successHandler(msg)
             }
         }
@@ -419,14 +421,6 @@ func checkForSuppliedId(id *uuid.UUID) *uuid.UUID {
         id = &i
     }
     return id
-}
-
-func checkHandlerHasRun(handler *messageHandler) bool {
-    return handler.hasRun
-}
-
-func checkHandlerSingleRun(handler *messageHandler) bool {
-    return handler.runOnce
 }
 
 func sendMessageToChannel(channelObject *Channel, message *model.Message) {

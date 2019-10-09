@@ -7,6 +7,7 @@ import (
     "go-bifrost/model"
     "sync"
     "sync/atomic"
+    "github.com/google/uuid"
 )
 
 // Channel represents the stream and the subscribed event handlers waiting for ticks on the stream
@@ -78,6 +79,7 @@ func (channel *Channel) Send(message *model.Message) {
         for n, eventHandler := range handlerDuplicate {
             if eventHandler.runOnce && atomic.LoadInt64(&eventHandler.runCount) > 0 {
                 channel.removeEventHandler(n) // remove from slice.
+                continue
             }
             channel.wg.Add(1)
             go channel.sendMessageToHandler(eventHandler, message)
@@ -102,6 +104,19 @@ func (channel *Channel) subscribeHandler(handler *channelEventHandler) {
     channel.channelLock.Lock()
     defer channel.channelLock.Unlock()
     channel.eventHandlers = append(channel.eventHandlers, handler)
+}
+
+func (channel *Channel) unsubscribeHandler(uuid *uuid.UUID) bool {
+    channel.channelLock.Lock()
+    defer channel.channelLock.Unlock()
+
+    for i, handler := range channel.eventHandlers {
+        if handler.uuid.ID() == uuid.ID() {
+            channel.removeEventHandler(i)
+            return true
+        }
+    }
+    return false
 }
 
 // Remove handler function from being subscribed to the Channel.

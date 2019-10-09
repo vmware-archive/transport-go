@@ -94,13 +94,7 @@ func (manager *busChannelManager) UnsubscribeChannelHandler(channelName string, 
     if err != nil {
         return err
     }
-    found := false
-    for i, handler := range channel.eventHandlers {
-        if handler.uuid.ID() == uuid.ID() {
-            channel.removeEventHandler(i)
-            found = true
-        }
-    }
+    found := channel.unsubscribeHandler(uuid)
     if !found {
         return fmt.Errorf("no handler in Channel '%s' for uuid [%s]", channelName, uuid)
     }
