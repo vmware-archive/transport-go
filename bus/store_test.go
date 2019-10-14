@@ -59,6 +59,7 @@ func testGalacticStore(itemType reflect.Type)  (BusStore, *mockGalacticStoreConn
         syncChannelConfig: &storeSyncChannelConfig{
             syncChannelName: "sync-channel",
             conn: conn,
+            pubPrefix: "/pub/",
         },
         itemType: itemType,
     }
@@ -484,7 +485,7 @@ func TestBusStore_InitGalacticStore(t *testing.T) {
     assert.EqualError(t, store.Populate(nil), "populate() API is not supported for galactic stores")
 
     assert.Equal(t, len(conn.messages), 1)
-    assert.Equal(t, conn.lastTopic(), "sync-channel")
+    assert.Equal(t, conn.lastTopic(), "/pub/sync-channel")
     assert.Equal(t, conn.lastMessage()["request"], "openStore")
 
     rq := conn.lastMessage()["payload"].(map[string]interface{})
@@ -513,7 +514,7 @@ func TestBusStore_InitGalacticStore(t *testing.T) {
     store.Put("id1", "value1", "add")
     assert.Equal(t, len(conn.messages), 2)
 
-    assert.Equal(t, conn.lastTopic(), "sync-channel")
+    assert.Equal(t, conn.lastTopic(), "/pub/sync-channel")
     assert.Equal(t, conn.lastMessage()["request"], "updateStore")
     rq = conn.lastMessage()["payload"].(map[string]interface{})
     assert.Equal(t, rq["storeId"], "testStore")
@@ -527,7 +528,7 @@ func TestBusStore_InitGalacticStore(t *testing.T) {
     assert.True(t, store.Remove("id3", "removing"))
     assert.Equal(t, len(conn.messages), 3)
 
-    assert.Equal(t, conn.lastTopic(), "sync-channel")
+    assert.Equal(t, conn.lastTopic(), "/pub/sync-channel")
     assert.Equal(t, conn.lastMessage()["request"], "updateStore")
     rq = conn.lastMessage()["payload"].(map[string]interface{})
     assert.Equal(t, rq["storeId"], "testStore")
