@@ -10,7 +10,6 @@ import (
     "github.com/google/uuid"
     "sync"
     "sync/atomic"
-    "go-bifrost/bus/store"
 )
 
 // EventBus provides access to ChannelManager, simple message sending and simple API calls for handling
@@ -36,7 +35,7 @@ type EventBus interface {
     RequestStreamForDestination(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error)
     ConnectBroker(config *bridge.BrokerConnectorConfig) (conn *bridge.Connection, err error)
     StartTCPService(address string) error
-    GetStoreManager() store.StoreManager
+    GetStoreManager() StoreManager
 }
 
 var once sync.Once
@@ -54,7 +53,7 @@ func GetBus() EventBus {
 
 type bifrostEventBus struct {
     ChannelManager    ChannelManager
-    storeManager      store.StoreManager
+    storeManager      StoreManager
     Id                uuid.UUID
     monitor           *util.MonitorStream
     brokerConnections map[*uuid.UUID]*bridge.Connection
@@ -67,7 +66,7 @@ func (bus *bifrostEventBus) GetId() *uuid.UUID {
 
 func (bus *bifrostEventBus) init() {
     bus.Id = uuid.New()
-    bus.storeManager = store.NewStoreManager()
+    bus.storeManager = newStoreManager(bus)
     bus.ChannelManager = NewBusChannelManager(bus)
     bus.monitor = util.GetMonitor()
     bus.brokerConnections = make(map[*uuid.UUID]*bridge.Connection)
@@ -75,7 +74,7 @@ func (bus *bifrostEventBus) init() {
     fmt.Printf("🌈 Bifröst booted with Id [%s]\n", bus.Id.String())
 }
 
-func (bus *bifrostEventBus) GetStoreManager() store.StoreManager {
+func (bus *bifrostEventBus) GetStoreManager() StoreManager {
     return bus.storeManager
 }
 
@@ -332,7 +331,6 @@ func (bus *bifrostEventBus) ConnectBroker(config *bridge.BrokerConnectorConfig) 
     if conn != nil {
         bus.brokerConnections[conn.Id] = conn
     }
-    bus.ChannelManager.ListenToMonitor()
     return
 }
 

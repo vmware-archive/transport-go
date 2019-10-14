@@ -14,6 +14,8 @@ import (
     "os"
     "strconv"
     "time"
+    "sync"
+    "reflect"
 )
 
 var addr = ":62134"
@@ -22,6 +24,7 @@ func main() {
     var runDemo = flag.Bool("demo", false, "Run Demo - Connect to local service")
     var runService = flag.Bool("service", false, "Run Service - Run local service")
     var runCal = flag.Bool("cal", false, "Call Calendar service for the time on appfabric.vmware.com")
+    var runStore = flag.Bool("store", false, "Open galactic store from appfabric.vmware.com")
     flag.Parse()
 
     if *runService {
@@ -38,7 +41,11 @@ func main() {
         runDemoCal()
     }
 
-    if !*runDemo && !*runService && !*runCal {
+    if *runStore {
+        runDemoStore()
+    }
+
+    if !*runDemo && !*runService && !*runCal && !*runStore {
         fmt.Println("To try things out...")
         flag.PrintDefaults()
         os.Exit(1)
@@ -128,6 +135,97 @@ func runDemoCal() {
     if err != nil {
         log.Panicf("unable to disconnect, error: %e", err)
     }
+}
+
+type SampleMessageItem struct {
+    From string `json:"from"`
+    Message string `json:"message"`
+}
+
+func (mi SampleMessageItem) print() {
+    fmt.Println("FROM:", mi.From)
+    fmt.Println("Message:", mi.Message)
+}
+
+func runDemoStore() {
+    // get a pointer to the bus.
+    b := bus.GetBus()
+
+    // Local store
+    stringStore := b.GetStoreManager().CreateStore("localStringStore")
+
+    stringStore.WhenReady(func() {
+        fmt.Println("Local string store initialized")
+        fmt.Println(stringStore.AllValues())
+    })
+    stringStore.Populate(map[string]interface{} {
+        "key1": "value1",
+        "key2": "value2",
+        "key3": "value3",
+    })
+
+    // create a broker connector config, in this case, we will connect to the application fabric demo endpoint.
+    config := &bridge.BrokerConnectorConfig{
+        Username:   "guest",
+        Password:   "guest",
+        UseWS: true,
+        WSPath: "/fabric",
+        ServerAddr: "appfabric.vmware.com" }
+
+    // connect to broker.
+    c, err := b.ConnectBroker(config)
+    if err != nil {
+        log.Panicf("unable to connect to fabric broker, error: %e", err)
+    }
+    fmt.Println("Connected to fabric broker:", config.ServerAddr)
+
+    err = b.GetStoreManager().ConfigureStoreSyncChannel(c, "/topic/", "/pub/")
+    if err != nil {
+        log.Panicf("unable to configure store sync channel, error: %e", err)
+    }
+
+    var motdStore bus.BusStore
+    motdStore, err = b.GetStoreManager().OpenGalacticStoreWithItemType(
+            "messageOfTheDayStore", c, reflect.TypeOf(SampleMessageItem{}))
+    if err != nil {
+        log.Panicf("failed to open galactic store, error: %e", err)
+    }
+
+    wg := sync.WaitGroup{}
+    wg.Add(1)
+    motdStore.WhenReady(func() {
+        wg.Done()
+    })
+
+    wg.Wait()
+
+    originalItem := motdStore.GetValue("messageOfTheDay").(SampleMessageItem)
+    originalItem.print()
+
+    storeStream := motdStore.OnChange("messageOfTheDay")
+    storeStream.Subscribe(func(change *bus.StoreChange) {
+        if change.IsDeleteChange {
+            fmt.Println("Item removed: ", change.Id)
+        } else {
+            fmt.Println("Store item changed: ")
+            change.Value.(SampleMessageItem).print()
+        }
+        wg.Done()
+    })
+
+    wg.Add(1)
+    motdStore.Put("messageOfTheDay",
+        SampleMessageItem{
+            Message: "updated sample message",
+            From: "test user",
+        }, "update")
+    wg.Wait()
+
+    wg.Add(1)
+    motdStore.Put("messageOfTheDay", originalItem, "update")
+    wg.Wait()
+
+    b.GetStoreManager().DestroyStore("messageOfTheDayStore")
 }
 
 func runDemoApp() {

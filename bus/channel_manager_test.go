@@ -119,36 +119,6 @@ func TestChannelManager_TestWaitForGroupOnBadChannel(t *testing.T) {
     assert.Error(t, err, "no such Channel as 'unknown'")
 }
 
-func TestChannelManager_TestGalacticChannelOpen(t *testing.T) {
-
-    testChannelManager = createManager()
-    testChannelManager.CreateChannel(testChannelManagerChannelName)
-    d := make(chan bool)
-    s := util.GetMonitor()
-    id := uuid.New()
-    var listenMonitor = func() {
-        // mark channel as galactic.
-
-        c := &bridge.Connection{Id: &id}
-        e := testChannelManager.MarkChannelAsGalactic(testChannelManagerChannelName, "/topic/testy-test", c)
-        assert.Nil(t, e)
-
-        for {
-            e := <-s.Stream
-            if e.EventType == util.ChannelIsGalacticEvt {
-                evt := e.Message.Payload.(*galacticEvent)
-                assert.Equal(t, "/topic/testy-test", evt.dest)
-                d <- true
-                break
-            }
-        }
-    }
-    go listenMonitor()
-    // wait until we get what we need.
-    <-d
-    util.ResetMonitor()
-}
-
 func TestChannelManager_TestGalacticChannelOpenError(t *testing.T) {
     // channel is not open / does not exist, so this should fail.
     e := testChannelManager.MarkChannelAsGalactic(evtbusTestChannelName, "/topic/testy-test", nil)
@@ -160,32 +130,6 @@ func TestChannelManager_TestGalacticChannelCloseError(t *testing.T) {
     // channel is not open / does not exist, so this should fail.
     e := testChannelManager.MarkChannelAsLocal(evtbusTestChannelName)
     assert.Error(t, e)
-    util.ResetMonitor()
-}
-
-func TestChannelManager_TestLocalChannel(t *testing.T) {
-    testChannelManager = createManager()
-    testChannelManager.CreateChannel(testChannelManagerChannelName)
-    d := make(chan bool)
-    s := util.GetMonitor()
-    var listenMonitor = func() {
-
-        // map channel to galactic dest
-        e := testChannelManager.MarkChannelAsLocal(testChannelManagerChannelName)
-        assert.Nil(t, e)
-
-        for {
-            e := <-s.Stream
-            if e.EventType == util.ChannelIsLocalEvt {
-                d <- true
-                break
-            }
-        }
-    }
-
-    go listenMonitor()
-    // wait for us to get what we need.
-    <-d
     util.ResetMonitor()
 }
 
@@ -204,10 +148,7 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
     testHost := host + ":" + port
 
     testChannelManager = b.GetChannelManager()
-    testChannelManager.ListenToMonitor()
-
     c := testChannelManager.CreateChannel(myChan)
-    testChannelManager.ListenToMonitor()
 
     bc := bridge.NewBrokerConnector()
     cf := &bridge.BrokerConnectorConfig{Username: "guest", Password: "guest", UseWS: true, WSPath: "/", ServerAddr: testHost}
@@ -293,7 +234,6 @@ func TestChannelManager_TestListenToMonitorLocal(t *testing.T) {
     testHost := host + ":" + port
 
     testChannelManager = b.GetChannelManager()
-    testChannelManager.ListenToMonitor()
 
     c := testChannelManager.CreateChannel(myChan)
 
@@ -329,13 +269,4 @@ func TestChannelManager_TestLocalMonitorInvalidChannel(t *testing.T) {
 
     err := testChannelManager.MarkChannelAsLocal("fun-chan")
     assert.Nil(t, err)
-}
-
-func TestChannelManager_StopListeningMonitor(t *testing.T) {
-    m := createManager().(*busChannelManager)
-    m.CreateChannel("fun-chan")
-    m.ListenToMonitor()
-    assert.True(t, m.monitorActive)
-    m.StopListeningMonitor()
-    assert.False(t, m.monitorActive)
 }
