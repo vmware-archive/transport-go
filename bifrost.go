@@ -3,7 +3,6 @@ package main
 
 import (
     "encoding/json"
-    "flag"
     "fmt"
     "github.com/google/uuid"
     "go-bifrost/bridge"
@@ -16,43 +15,57 @@ import (
     "time"
     "sync"
     "reflect"
+    "github.com/urfave/cli"
 )
 
 var addr = ":62134"
 
 func main() {
-    var runDemo = flag.Bool("demo", false, "Run Demo - Connect to local service")
-    var runService = flag.Bool("service", false, "Run Service - Run local service")
-    var runCal = flag.Bool("cal", false, "Call Calendar service for the time on appfabric.vmware.com")
-    var runStore = flag.Bool("store", false, "Open galactic store from appfabric.vmware.com")
-    flag.Parse()
-
-    if *runService {
-        fmt.Println("Service Starting...")
-        b := bus.GetBus()
-        b.StartTCPService(addr)
+    app := cli.NewApp()
+    app.Name = "Bifrost demo app"
+    app.Usage = "Demonstrates different features of the Bifrost bus"
+    app.Commands = []cli.Command{
+        {
+            Name: "demo",
+            Usage: "Run Demo - Connect to local service",
+            Action: func(c *cli.Context) error {
+                runDemoApp()
+                return nil
+            },
+        },
+        {
+            Name: "cal",
+            Usage: "Call Calendar service for the time on appfabric.vmware.com",
+            Action: func(c *cli.Context) error {
+                runDemoCal()
+                return nil
+            },
+        },
+        {
+            Name: "service",
+            Usage: "Run Service - Run local service",
+            Action: func(c *cli.Context) error {
+                fmt.Println("Service Starting...")
+                b := bus.GetBus()
+                b.StartTCPService(addr)
+                return nil
+            },
+        },
+        {
+            Name: "store",
+            Usage: "Open galactic store from appfabric.vmware.com",
+            Action: func(c *cli.Context) error {
+                runDemoStore()
+                return nil
+            },
+        },
     }
 
-    if *runDemo {
-        runDemoApp()
+    err := app.Run(os.Args)
+    if err != nil {
+        log.Fatal(err)
     }
-
-    if *runCal {
-        runDemoCal()
-    }
-
-    if *runStore {
-        runDemoStore()
-    }
-
-    if !*runDemo && !*runService && !*runCal && !*runStore {
-        fmt.Println("To try things out...")
-        flag.PrintDefaults()
-        os.Exit(1)
-    }
-
 }
-
 
 func runDemoCal() {
     // get a pointer to the bus.
