@@ -23,7 +23,6 @@ type ChannelManager interface {
     WaitForChannel(channelName string) error
     MarkChannelAsGalactic(channelName string, brokerDestination string, connection *bridge.Connection) (err error)
     MarkChannelAsLocal(channelName string) (err error)
-    ListenToMonitor()
 }
 
 func NewBusChannelManager(bus EventBus) ChannelManager {
@@ -31,7 +30,6 @@ func NewBusChannelManager(bus EventBus) ChannelManager {
     manager.Channels = make(map[string]*Channel)
     manager.bus = bus.(*bifrostEventBus)
     manager.monitor = util.GetMonitor()
-    manager.stopMonitorChan = make(chan bool)
     return manager
 }
 
@@ -39,8 +37,6 @@ type busChannelManager struct {
     Channels        map[string]*Channel
     bus             *bifrostEventBus
     monitor         *util.MonitorStream
-    stopMonitorChan chan bool
-    monitorActive   bool
 }
 
 // Create a new Channel with the supplied Channel name. Returns pointer to new Channel object
@@ -126,8 +122,7 @@ func (manager *busChannelManager) MarkChannelAsGalactic(channelName string, dest
     // create a galactic event
     pl := &galacticEvent{conn: conn, dest: dest}
 
-    m := model.GenerateRequest(&model.MessageConfig{Payload: pl})                      // set the mapped destination as the payload
-    go manager.monitor.SendMonitorEventData(util.ChannelIsGalacticEvt, channelName, m) // inform the monitor.
+    manager.handleGalacticChannelEvent(channelName, pl)
     return nil
 }
 
@@ -143,40 +138,13 @@ func (manager *busChannelManager) MarkChannelAsLocal(channelName string) (err er
     // get rid of all broker connections.
     channel.removeBrokerConnections()
 
-    go manager.monitor.SendMonitorEvent(util.ChannelIsLocalEvt, channelName) // inform the monitor.
+    manager.handleLocalChannelEvent(channelName)
+
     return nil
 }
 
-func (manager *busChannelManager) StopListeningMonitor() {
-    manager.stopMonitorChan <- true
-    manager.monitorActive = false
-}
-
-func (manager *busChannelManager) ListenToMonitor() {
-    manager.monitorActive = true
-    go func() {
-        for {
-            select {
-            case me := <-manager.bus.monitor.Stream:
-                switch me.EventType {
-                case util.ChannelIsGalacticEvt:
-                    manager.handleGalacticChannelEvent(me.Channel, me.Message)
-
-                case util.ChannelIsLocalEvt:
-                    manager.handleLocalChannelEvent(me.Channel, me.Message)
-                }
-            case <-manager.stopMonitorChan:
-                break
-            }
-        }
-    }()
-}
-
-func (manager *busChannelManager) handleGalacticChannelEvent(channelName string, msg *model.Message) {
+func (manager *busChannelManager) handleGalacticChannelEvent(channelName string, ge *galacticEvent) {
     ch, _ := manager.GetChannel(channelName)
-
-    // pull out the details of the galactic event.
-    ge := msg.Payload.(*galacticEvent)
 
     if ge.conn == nil {
         return
@@ -200,7 +168,7 @@ func (manager *busChannelManager) handleGalacticChannelEvent(channelName string,
     }
 }
 
-func (manager *busChannelManager) handleLocalChannelEvent(channelName string, msg *model.Message) {
+func (manager *busChannelManager) handleLocalChannelEvent(channelName string) {
     ch, _ := manager.GetChannel(channelName)
     // loop through all the connections we have mapped, and subscribe!
     for _, s := range ch.brokerSubs {

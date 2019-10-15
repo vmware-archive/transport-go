@@ -114,9 +114,8 @@ func (ws *BridgeClient) Subscribe(destination string) *BridgeClientSub {
         frame.Destination, destination,
         frame.Ack, stomp.AckAuto.String())
 
-
     // send subscription frame.
-    go ws.SendFrame(subscribeFrame)
+    ws.SendFrame(subscribeFrame)
     return s
 }
 

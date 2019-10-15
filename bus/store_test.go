@@ -1,6 +1,6 @@
 // Copyright 2019 VMware, Inc. All rights reserved. -- VMware Confidential
 
-package store
+package bus
 
 import (
     "testing"
@@ -8,6 +8,8 @@ import (
     "sync"
     "sync/atomic"
     "fmt"
+    "reflect"
+    "encoding/json"
 )
 
 type testItem struct {
@@ -16,14 +18,60 @@ type testItem struct {
 }
 
 func testStore() BusStore {
-    store := newBusStore("testStore")
+    store := newBusStore("testStore", nil, nil)
     store.Initialize()
     return store
+}
+
+type mockGalacticStoreConnection struct {
+    messages  []map[string]interface{}
+    topics []string
+}
+
+func (con *mockGalacticStoreConnection) SendMessage(destination string, payload []byte) error {
+    var msgPayload map[string]interface{}
+    json.Unmarshal(payload, &msgPayload)
+    con.messages = append(con.messages, msgPayload)
+    con.topics = append(con.topics, destination)
+    return nil
+}
+
+func (con *mockGalacticStoreConnection) lastMessage() map[string]interface{} {
+    n := len(con.messages)
+    return con.messages[n-1]
+}
+
+func (con *mockGalacticStoreConnection) lastTopic() string {
+    n := len(con.topics)
+    return con.topics[n-1]
+}
+
+func testGalacticStore(itemType reflect.Type)  (BusStore, *mockGalacticStoreConnection) {
+
+    GetBus().GetChannelManager().CreateChannel("sync-channel")
+
+    conn := &mockGalacticStoreConnection{
+        messages: make([]map[string]interface{}, 0),
+        topics: make([]string,0),
+    }
+
+    conf := &galacticStoreConfig{
+        syncChannelConfig: &storeSyncChannelConfig{
+            syncChannelName: "sync-channel",
+            conn: conn,
+            pubPrefix: "/pub/",
+        },
+        itemType: itemType,
+    }
+
+    store := newBusStore("testStore", GetBus(), conf)
+    return store, conn
 }
 
 func TestBusStore_CreateStore(t *testing.T) {
     store := testStore()
     assert.Equal(t, store.GetName(), "testStore")
+    assert.False(t, store.IsGalactic())
 }
 
 func TestBusStore_PutAndGet(t *testing.T) {
@@ -237,7 +285,7 @@ func TestBusStore_OnAllChanges(t *testing.T) {
 }
 
 func TestBusStore_WhenReady(t *testing.T) {
-    store := newBusStore("testStore")
+    store := newBusStore("testStore", nil, nil)
 
     wg := sync.WaitGroup{}
     var counter int32 = 0
@@ -267,7 +315,7 @@ func TestBusStore_WhenReady(t *testing.T) {
 }
 
 func TestBusStore_Populate(t *testing.T) {
-    store := newBusStore("testStore")
+    store := newBusStore("testStore", nil, nil)
 
     wg := sync.WaitGroup{}
     counter := 0
@@ -307,7 +355,7 @@ func TestBusStore_Populate(t *testing.T) {
 }
 
 func TestBusStore_Reset(t *testing.T) {
-    store := newBusStore("testStore")
+    store := newBusStore("testStore", nil, nil)
     wg := sync.WaitGroup{}
     counter := 0
 
@@ -428,4 +476,110 @@ func TestBusStore_OnMutationRequest_ErrorHandling(t *testing.T) {
 
     err = ms.Subscribe(func(mutationReq *MutationRequest) {})
     assert.EqualError(t, err, "stream already subscribed")
+}
+
+func TestBusStore_InitGalacticStore(t *testing.T) {
+    store, conn := testGalacticStore(nil)
+
+    assert.True(t, store.IsGalactic())
+    assert.EqualError(t, store.Populate(nil), "populate() API is not supported for galactic stores")
+
+    assert.Equal(t, len(conn.messages), 1)
+    assert.Equal(t, conn.lastTopic(), "/pub/sync-channel")
+    assert.Equal(t, conn.lastMessage()["request"], "openStore")
+
+    rq := conn.lastMessage()["payload"].(map[string]interface{})
+    assert.Equal(t, rq["storeId"], "testStore")
+
+    wg := sync.WaitGroup{}
+    wg.Add(1)
+
+    store.WhenReady(func() {
+        wg.Done()
+    })
+
+    var jsonBlob = []byte(`{
+        "storeId": "testStore",
+        "responseType": "storeContentResponse",
+        "items": {
+            "id3": "value3"
+        },
+        "storeVersion": 12
+    }`)
+    GetBus().SendResponseMessage("sync-channel", jsonBlob, nil)
+
+    wg.Wait()
+    assert.Equal(t, len(store.AllValues()), 1)
+
+    store.Put("id1", "value1", "add")
+    assert.Equal(t, len(conn.messages), 2)
+
+    assert.Equal(t, conn.lastTopic(), "/pub/sync-channel")
+    assert.Equal(t, conn.lastMessage()["request"], "updateStore")
+    rq = conn.lastMessage()["payload"].(map[string]interface{})
+    assert.Equal(t, rq["storeId"], "testStore")
+    assert.Equal(t, rq["itemId"], "id1")
+    assert.Equal(t, rq["newItemValue"], "value1")
+    assert.Equal(t, rq["clientStoreVersion"], float64(12))
+
+    assert.False(t, store.Remove("id1", "removing"))
+    assert.Equal(t, len(conn.messages), 2)
+
+    assert.True(t, store.Remove("id3", "removing"))
+    assert.Equal(t, len(conn.messages), 3)
+
+    assert.Equal(t, conn.lastTopic(), "/pub/sync-channel")
+    assert.Equal(t, conn.lastMessage()["request"], "updateStore")
+    rq = conn.lastMessage()["payload"].(map[string]interface{})
+    assert.Equal(t, rq["storeId"], "testStore")
+    assert.Equal(t, rq["itemId"], "id3")
+    assert.Equal(t, rq["newItemValue"], nil)
+    assert.Equal(t, rq["clientStoreVersion"], float64(12))
+}
+
+func TestBusStore_GalacticStoreUpdates(t *testing.T) {
+    store,_ := testGalacticStore(nil)
+
+    wg := sync.WaitGroup{}
+    wg.Add(1)
+
+    var lastStoreChange *StoreChange
+
+    store.OnAllChanges().Subscribe(func(change *StoreChange) {
+        lastStoreChange = change
+        wg.Done()
+    })
+
+    var jsonBlob = []byte(`{
+        "storeId": "testStore",
+        "responseType": "updateStoreResponse",
+        "itemId": "id1",
+        "newItemValue": "value1",
+        "storeVersion": 54
+    }`)
+    GetBus().SendResponseMessage("sync-channel", jsonBlob, nil)
+
+    wg.Wait()
+
+    assert.Equal(t, store.(*busStore).storeVersion, int64(54))
+    assert.NotNil(t, lastStoreChange)
+
+    assert.Equal(t, lastStoreChange.Id, "id1")
+    assert.Equal(t, lastStoreChange.Value, "value1")
+    assert.Equal(t, store.GetValue("id1"), "value1")
+
+    wg.Add(1)
+    jsonBlob = []byte(`{
+        "storeId": "testStore",
+        "responseType": "updateStoreResponse",
+        "itemId": "id1",
+        "storeVersion": 55
+    }`)
+    GetBus().SendResponseMessage("sync-channel", jsonBlob, nil)
+
+    wg.Wait()
+    assert.Equal(t, lastStoreChange.Id, "id1")
+    assert.Equal(t, lastStoreChange.Value, "value1")
+    assert.Equal(t, lastStoreChange.IsDeleteChange, true)
+    assert.Nil(t, store.GetValue("id1"))
 }

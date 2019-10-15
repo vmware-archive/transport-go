@@ -22,8 +22,7 @@ type MessageHandler interface {
     GetDestinationId() *uuid.UUID
     Handle(successHandler MessageHandlerFunction, errorHandler MessageErrorFunction)
     Fire() error
-    //TODO: Add Close!!!!!
-    //Close()
+    Close()
 }
 
 type messageHandler struct {
@@ -49,6 +48,14 @@ func (msgHandler *messageHandler) Handle(successHandler MessageHandlerFunction, 
 
     msgHandler.subscriptionId, _ = bus.GetChannelManager().SubscribeChannelHandler(
             msgHandler.channel.Name, msgHandler.wrapperFunction, false)
+}
+
+func (msgHandler *messageHandler) Close()  {
+    if msgHandler.subscriptionId != nil {
+        bus := GetBus().(*bifrostEventBus)
+        bus.GetChannelManager().UnsubscribeChannelHandler(
+            msgHandler.channel.Name, msgHandler.subscriptionId)
+    }
 }
 
 func (msgHandler *messageHandler) GetId() *uuid.UUID {
