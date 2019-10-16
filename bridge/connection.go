@@ -12,19 +12,30 @@ import (
     "sync"
 )
 
+type Connection interface {
+    GetId() *uuid.UUID
+    Subscribe(destination string) (Subscription, error)
+    Disconnect() (err error)
+    SendMessage(destination string, payload []byte) error
+}
+
 // Connection represents a Connection to a message broker.
-type Connection struct {
-    Id             *uuid.UUID
+type connection struct {
+    id             *uuid.UUID
     useWs          bool
     conn           *stomp.Conn
     wsConn         *BridgeClient
     disconnectChan chan bool
-    subscriptions  map[string]*Subscription
+    subscriptions  map[string]Subscription
     connLock       sync.Mutex
 }
 
+func (c *connection) GetId() *uuid.UUID{
+    return c.id
+}
+
 // Subscribe to a destination, only one subscription can exist for a destination
-func (c *Connection) Subscribe(destination string) (*Subscription, error) {
+func (c *connection) Subscribe(destination string) (Subscription, error) {
     // check if the subscription exists, if so, return it.
     if c == nil {
         return nil, fmt.Errorf("cannot subscribe to '%s', no connection to broker", destination)
@@ -46,7 +57,7 @@ func (c *Connection) Subscribe(destination string) (*Subscription, error) {
 }
 
 // Disconnect from broker, will close all channels
-func (c *Connection) Disconnect() (err error) {
+func (c *connection) Disconnect() (err error) {
     if c == nil {
         return fmt.Errorf("cannot disconnect, not connected")
     }
@@ -66,7 +77,7 @@ func (c *Connection) Disconnect() (err error) {
     return err
 }
 
-func (c *Connection) cleanUpConnection() {
+func (c *connection) cleanUpConnection() {
     if c.conn != nil {
         c.conn = nil
     }
@@ -75,19 +86,19 @@ func (c *Connection) cleanUpConnection() {
     }
 }
 
-func (c *Connection) subscribeWs(destination string) (*Subscription, error) {
+func (c *connection) subscribeWs(destination string) (Subscription, error) {
     c.connLock.Lock()
     defer c.connLock.Unlock()
     if c.wsConn != nil {
         wsSub := c.wsConn.Subscribe(destination)
-        sub := &Subscription{wsStompSub: wsSub, Id: wsSub.Id, C: wsSub.C, Destination: destination}
+        sub := &subscription{wsStompSub: wsSub, id: wsSub.Id, c: wsSub.C, destination: destination}
         c.subscriptions[destination] = sub
         return sub, nil
     }
     return nil, fmt.Errorf("cannot subscribe, websocket not connected / established")
 }
 
-func (c *Connection) subscribeTCP(destination string) (*Subscription, error) {
+func (c *connection) subscribeTCP(destination string) (Subscription, error) {
     c.connLock.Lock()
     defer c.connLock.Unlock()
     if c.conn != nil {
@@ -95,14 +106,14 @@ func (c *Connection) subscribeTCP(destination string) (*Subscription, error) {
         id := uuid.New()
         destChan := make(chan *model.Message)
         go c.listenTCPFrames(sub.C, destChan)
-        bcSub := &Subscription{stompTCPSub: sub, Id: &id, C: destChan}
+        bcSub := &subscription{stompTCPSub: sub, id: &id, c: destChan}
         c.subscriptions[destination] = bcSub
         return bcSub, nil
     }
     return nil, fmt.Errorf("no STOMP TCP connection established")
 }
 
-func (c *Connection) listenTCPFrames(src chan *stomp.Message, dst chan *model.Message) {
+func (c *connection) listenTCPFrames(src chan *stomp.Message, dst chan *model.Message) {
     defer func() {
         if r := recover(); r != nil {
             log.Println("subscription is closed, message undeliverable to closed channel.")
@@ -127,7 +138,7 @@ func (c *Connection) listenTCPFrames(src chan *stomp.Message, dst chan *model.Me
 }
 
 // Send a []byte payload to a destination.
-func (c *Connection) SendMessage(destination string, payload []byte) error {
+func (c *connection) SendMessage(destination string, payload []byte) error {
     c.connLock.Lock()
     defer c.connLock.Unlock()
     if c != nil && !c.useWs && c.conn != nil {

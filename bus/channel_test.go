@@ -8,6 +8,7 @@ import (
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
     "testing"
+    "github.com/stretchr/testify/mock"
 )
 
 var testChannelName string = "testing"
@@ -212,8 +213,8 @@ func TestChannel_RemoveEventHandlerOOBIndex(t *testing.T) {
 func TestChannel_AddRemoveBrokerSubscription(t *testing.T) {
     channel := NewChannel(testChannelName)
     id := uuid.New()
-    sub := &bridge.Subscription{Id: &id}
-    c := &bridge.Connection{Id: &id}
+    sub := &MockBridgeSubscription{Id: &id}
+    c := &MockBridgeConnection{Id: &id}
     channel.addBrokerSubscription(c, sub)
     assert.Len(t, channel.brokerSubs, 1)
     channel.removeBrokerSubscription(sub)
@@ -227,9 +228,11 @@ func TestChannel_CheckIfBrokerSubscribed(t *testing.T) {
     sId := uuid.New()
     sId2 := uuid.New()
 
-    c := &bridge.Connection{Id: &cId}
-    s := &bridge.Subscription{Id: &sId}
-    s2 := &bridge.Subscription{Id: &sId2}
+    c := &MockBridgeConnection{
+        Id: &cId,
+    }
+    s := &MockBridgeSubscription{Id: &sId}
+    s2 := &MockBridgeSubscription{Id: &sId2}
 
     cm := NewBusChannelManager(GetBus())
     ch := cm.CreateChannel("testing-broker-subs")
@@ -239,4 +242,48 @@ func TestChannel_CheckIfBrokerSubscribed(t *testing.T) {
 
     ch.removeBrokerSubscription(s)
     assert.False(t, ch.isBrokerSubscribed(s))
+}
+
+type MockBridgeConnection struct {
+    mock.Mock
+    Id *uuid.UUID
+}
+
+func (c *MockBridgeConnection) GetId() *uuid.UUID {
+    return c.Id
+}
+
+func (c *MockBridgeConnection) Subscribe(destination string) (bridge.Subscription, error) {
+    args := c.MethodCalled("Subscribe", destination)
+    return args.Get(0).(bridge.Subscription), args.Error(1)
+}
+
+func (c *MockBridgeConnection) Disconnect() (err error) {
+    return nil
+}
+
+func (c *MockBridgeConnection) SendMessage(destination string, payload []byte) error {
+    args := c.MethodCalled("SendMessage", destination, payload)
+    return args.Error(0)
+}
+
+type MockBridgeSubscription struct {
+    Id *uuid.UUID
+    Destination string
+}
+
+func (m *MockBridgeSubscription) GetId() *uuid.UUID {
+    return m.Id
+}
+
+func (m *MockBridgeSubscription) GetDestination() string {
+    return m.Destination
+}
+
+func (m *MockBridgeSubscription) GetMsgChannel() chan *model.Message {
+    return nil
+}
+
+func (m *MockBridgeSubscription) Unsubscribe() error {
+    return nil
 }

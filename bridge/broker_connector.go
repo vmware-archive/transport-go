@@ -21,12 +21,12 @@ const (
 
 // BrokerConnector is used to connect to a message broker over TCP or WebSocket.
 type BrokerConnector interface {
-    Connect(config *BrokerConnectorConfig) (*Connection, error)
+    Connect(config *BrokerConnectorConfig) (Connection, error)
     StartTCPServer(address string) error
 }
 
 type brokerConnector struct {
-    c         *Connection
+    c         Connection
     config    *BrokerConnectorConfig
     connected bool
     //bus           bus.EventBus
@@ -54,7 +54,7 @@ func checkConfig(config *BrokerConnectorConfig) error {
 }
 
 // Connect to broker using supplied connector config.
-func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (*Connection, error) {
+func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (Connection, error) {
 
     err := checkConfig(config)
     if err != nil {
@@ -69,7 +69,7 @@ func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (*Connection, 
     return bc.connectTCP(config, err)
 }
 
-func (bc *brokerConnector) connectTCP(config *BrokerConnectorConfig, err error) (*Connection, error) {
+func (bc *brokerConnector) connectTCP(config *BrokerConnectorConfig, err error) (Connection, error) {
     if config.HostHeader == "" {
         config.HostHeader = "/"
     }
@@ -83,10 +83,10 @@ func (bc *brokerConnector) connectTCP(config *BrokerConnectorConfig, err error) 
     }
     defer util.GetMonitor().SendMonitorEvent(util.BrokerConnectedEvtTcp, "no-channel")
     id := uuid.New()
-    bcConn := &Connection{
-        Id:             &id,
+    bcConn := &connection{
+        id:             &id,
         conn:           conn,
-        subscriptions:  make(map[string]*Subscription),
+        subscriptions:  make(map[string]Subscription),
         useWs:          false,
         connLock:       sync.Mutex{},
         disconnectChan: make(chan bool)}
@@ -96,7 +96,7 @@ func (bc *brokerConnector) connectTCP(config *BrokerConnectorConfig, err error) 
     return bcConn, nil
 }
 
-func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (*Connection, error) {
+func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (Connection, error) {
 
     u := url.URL{Scheme: "ws", Host: config.ServerAddr, Path: config.WSPath}
     c := NewBridgeWsClient()
@@ -106,10 +106,10 @@ func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (*Connection
     }
     defer util.GetMonitor().SendMonitorEvent(util.BrokerConnectedEvtWs, "no-channel")
     id := uuid.New()
-    bcConn := &Connection{
-        Id:             &id,
+    bcConn := &connection{
+        id:             &id,
         wsConn:         c,
-        subscriptions:  make(map[string]*Subscription),
+        subscriptions:  make(map[string]Subscription),
         useWs:          true,
         connLock:       sync.Mutex{},
         disconnectChan: make(chan bool)}

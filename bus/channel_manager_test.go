@@ -119,6 +119,42 @@ func TestChannelManager_TestWaitForGroupOnBadChannel(t *testing.T) {
     assert.Error(t, err, "no such Channel as 'unknown'")
 }
 
+func TestChannelManager_TestGalacticChannelOpen(t *testing.T) {
+
+    testChannelManager = createManager()
+    galacticChannel := testChannelManager.CreateChannel(testChannelManagerChannelName)
+    id := uuid.New()
+
+    // mark channel as galactic.
+
+    subId := uuid.New()
+    sub := &MockBridgeSubscription{
+        Id: &subId,
+    }
+
+    c := &MockBridgeConnection{Id: &id}
+    c.On("Subscribe", "/topic/testy-test").Return(sub, nil).Once()
+    e := testChannelManager.MarkChannelAsGalactic(testChannelManagerChannelName, "/topic/testy-test", c)
+
+    assert.Nil(t, e)
+    c.AssertExpectations(t)
+
+    assert.True(t, galacticChannel.galactic)
+
+    assert.Equal(t, len(galacticChannel.brokerConns), 1)
+    assert.Equal(t, galacticChannel.brokerConns[0], c)
+
+    assert.Equal(t, len(galacticChannel.brokerSubs), 1)
+    assert.Equal(t, galacticChannel.brokerSubs[0].s, sub)
+    assert.Equal(t, galacticChannel.brokerSubs[0].c, c)
+
+    testChannelManager.MarkChannelAsLocal(testChannelManagerChannelName)
+    assert.False(t, galacticChannel.galactic)
+
+    assert.Equal(t, len(galacticChannel.brokerConns), 0)
+    assert.Equal(t, len(galacticChannel.brokerSubs), 0)
+}
+
 func TestChannelManager_TestGalacticChannelOpenError(t *testing.T) {
     // channel is not open / does not exist, so this should fail.
     e := testChannelManager.MarkChannelAsGalactic(evtbusTestChannelName, "/topic/testy-test", nil)

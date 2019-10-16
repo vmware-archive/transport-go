@@ -39,7 +39,7 @@ func Example_connectUsingBrokerViaWebSocket() {
     var listener = func() {
         for {
             // listen for incoming messages from subscription.
-            m := <-s.C
+            m := <-s.GetMsgChannel()
 
             // unmarshal message.
             r := &model.Response{}

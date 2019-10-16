@@ -21,7 +21,7 @@ type ChannelManager interface {
     SubscribeChannelHandler(channelName string, fn MessageHandlerFunction, runOnce bool) (*uuid.UUID, error)
     UnsubscribeChannelHandler(channelName string, id *uuid.UUID) error
     WaitForChannel(channelName string) error
-    MarkChannelAsGalactic(channelName string, brokerDestination string, connection *bridge.Connection) (err error)
+    MarkChannelAsGalactic(channelName string, brokerDestination string, connection bridge.Connection) (err error)
     MarkChannelAsLocal(channelName string) (err error)
 }
 
@@ -110,7 +110,7 @@ func (manager *busChannelManager) WaitForChannel(channelName string) error {
 // Mark a channel as Galactic. This will map this channel to the supplied broker destination, if the broker connector
 // is active and connected, this will result in a subscription to the broker destination being created. Returns
 // an error if the channel does not exist.
-func (manager *busChannelManager) MarkChannelAsGalactic(channelName string, dest string, conn *bridge.Connection) (err error) {
+func (manager *busChannelManager) MarkChannelAsGalactic(channelName string, dest string, conn bridge.Connection) (err error) {
     channel, err := manager.GetChannel(channelName)
     if err != nil {
         return
@@ -174,7 +174,7 @@ func (manager *busChannelManager) handleLocalChannelEvent(channelName string) {
     for _, s := range ch.brokerSubs {
         if e := s.s.Unsubscribe(); e == nil {
             ch.removeBrokerSubscription(s.s)
-            m := model.GenerateResponse(&model.MessageConfig{Payload: s.s.Destination}) // set the unmapped destination as the payload
+            m := model.GenerateResponse(&model.MessageConfig{Payload: s.s.GetDestination()}) // set the unmapped destination as the payload
             manager.monitor.SendMonitorEventData(util.BrokerUnsubscribedEvt, channelName, m)
             select {
             case ch.brokerMappedEvent <- false: // let channel watcher know, the channel is un-mapped
@@ -187,6 +187,6 @@ func (manager *busChannelManager) handleLocalChannelEvent(channelName string) {
 }
 
 type galacticEvent struct {
-    conn *bridge.Connection
+    conn bridge.Connection
     dest string
 }
