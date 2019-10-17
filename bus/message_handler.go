@@ -39,21 +39,20 @@ type messageHandler struct {
     errorHandler    MessageErrorFunction
     subscriptionId  *uuid.UUID
     invokeOnce      *sync.Once
+    channelManager  ChannelManager
 }
 
 func (msgHandler *messageHandler) Handle(successHandler MessageHandlerFunction, errorHandler MessageErrorFunction) {
     msgHandler.successHandler = successHandler
     msgHandler.errorHandler = errorHandler
-    bus := GetBus().(*bifrostEventBus)
 
-    msgHandler.subscriptionId, _ = bus.GetChannelManager().SubscribeChannelHandler(
+    msgHandler.subscriptionId, _ = msgHandler.channelManager.SubscribeChannelHandler(
             msgHandler.channel.Name, msgHandler.wrapperFunction, false)
 }
 
 func (msgHandler *messageHandler) Close()  {
     if msgHandler.subscriptionId != nil {
-        bus := GetBus().(*bifrostEventBus)
-        bus.GetChannelManager().UnsubscribeChannelHandler(
+        msgHandler.channelManager.UnsubscribeChannelHandler(
             msgHandler.channel.Name, msgHandler.subscriptionId)
     }
 }

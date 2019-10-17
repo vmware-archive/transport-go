@@ -270,6 +270,7 @@ func (c *MockBridgeConnection) SendMessage(destination string, payload []byte) e
 type MockBridgeSubscription struct {
     Id *uuid.UUID
     Destination string
+    Channel chan *model.Message
 }
 
 func (m *MockBridgeSubscription) GetId() *uuid.UUID {
@@ -281,7 +282,7 @@ func (m *MockBridgeSubscription) GetDestination() string {
 }
 
 func (m *MockBridgeSubscription) GetMsgChannel() chan *model.Message {
-    return nil
+    return m.Channel
 }
 
 func (m *MockBridgeSubscription) Unsubscribe() error {

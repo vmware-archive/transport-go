@@ -343,7 +343,7 @@ func (bus *bifrostEventBus) wrapMessageHandler(
     channel *Channel, direction model.Direction, ignoreId bool, allTraffic bool, destId *uuid.UUID,
     runOnce bool) *messageHandler {
 
-    messageHandler := createMessageHandler(channel, destId)
+    messageHandler := createMessageHandler(channel, destId, bus.ChannelManager)
     messageHandler.ignoreId = ignoreId
 
     if (runOnce) {
@@ -450,8 +450,9 @@ func buildError(channelName string, err error, destinationId *uuid.UUID) *model.
     return config
 }
 
-func createMessageHandler(channel *Channel, destinationId *uuid.UUID) *messageHandler {
+func createMessageHandler(channel *Channel, destinationId *uuid.UUID, channelManager ChannelManager) *messageHandler {
     messageHandler := new(messageHandler)
+    messageHandler.channelManager = channelManager
     messageHandler.channel = channel
     id := uuid.New()
     messageHandler.id = &id
