@@ -20,7 +20,7 @@ type Channel struct {
     channelLock               sync.Mutex
     wg                        sync.WaitGroup
     brokerSubs                []*connectionSub
-    brokerConns               []*bridge.Connection
+    brokerConns               []bridge.Connection
     brokerMappedEvent         chan bool
 }
 
@@ -34,7 +34,7 @@ func NewChannel(channelName string) *Channel {
         private:           false,
         wg:                sync.WaitGroup{},
         brokerMappedEvent: make(chan bool, 10),
-        brokerConns:       []*bridge.Connection{},
+        brokerConns:       []bridge.Connection{},
         brokerSubs:        []*connectionSub{}}
     return c
 }
@@ -135,9 +135,9 @@ func (channel *Channel) removeEventHandler(index int) {
     channel.eventHandlers = channel.eventHandlers[:numHandlers-1]
 }
 
-func (channel *Channel) listenToBrokerSubscription(sub *bridge.Subscription) {
+func (channel *Channel) listenToBrokerSubscription(sub bridge.Subscription) {
     for {
-        msg, m := <-sub.C
+        msg, m := <-sub.GetMsgChannel()
         if m {
             channel.Send(msg)
         } else {
@@ -146,36 +146,36 @@ func (channel *Channel) listenToBrokerSubscription(sub *bridge.Subscription) {
     }
 }
 
-func (channel *Channel) isBrokerSubscribed(sub *bridge.Subscription) bool {
+func (channel *Channel) isBrokerSubscribed(sub bridge.Subscription) bool {
     channel.channelLock.Lock()
     defer channel.channelLock.Unlock()
 
     for _, cs := range channel.brokerSubs {
-        if sub.Id.ID() == cs.s.Id.ID() {
+        if sub.GetId().ID() == cs.s.GetId().ID() {
             return true
         }
     }
     return false
 }
 
-func (channel *Channel) isBrokerSubscribedToDestination(c *bridge.Connection, dest string) bool {
+func (channel *Channel) isBrokerSubscribedToDestination(c bridge.Connection, dest string) bool {
     channel.channelLock.Lock()
     defer channel.channelLock.Unlock()
 
     for _, cs := range channel.brokerSubs {
-        if cs.s != nil && cs.s.Destination == dest && cs.c != nil && cs.c.Id == c.Id {
+        if cs.s != nil && cs.s.GetDestination() == dest && cs.c != nil && cs.c.GetId() == c.GetId() {
             return true
         }
     }
     return false
 }
 
-func (channel *Channel) addBrokerConnection(c *bridge.Connection) {
+func (channel *Channel) addBrokerConnection(c bridge.Connection) {
     channel.channelLock.Lock()
     defer channel.channelLock.Unlock()
 
     for _, brCon := range channel.brokerConns {
-        if brCon.Id == c.Id {
+        if brCon.GetId() == c.GetId() {
             return
         }
     }
@@ -187,10 +187,10 @@ func (channel *Channel) removeBrokerConnections() {
     channel.channelLock.Lock()
     defer channel.channelLock.Unlock()
 
-    channel.brokerConns = []*bridge.Connection{}
+    channel.brokerConns = []bridge.Connection{}
 }
 
-func (channel *Channel) addBrokerSubscription(conn *bridge.Connection, sub *bridge.Subscription) {
+func (channel *Channel) addBrokerSubscription(conn bridge.Connection, sub bridge.Subscription) {
     cs := &connectionSub{c: conn, s: sub}
 
     channel.channelLock.Lock()
@@ -200,12 +200,12 @@ func (channel *Channel) addBrokerSubscription(conn *bridge.Connection, sub *brid
     go channel.listenToBrokerSubscription(sub)
 }
 
-func (channel *Channel) removeBrokerSubscription(sub *bridge.Subscription) {
+func (channel *Channel) removeBrokerSubscription(sub bridge.Subscription) {
     channel.channelLock.Lock()
     defer channel.channelLock.Unlock()
 
     for i, cs := range channel.brokerSubs {
-        if sub.Id.ID() == cs.s.Id.ID() {
+        if sub.GetId().ID() == cs.s.GetId().ID() {
             channel.brokerSubs = removeSub(channel.brokerSubs, i)
         }
     }
@@ -217,6 +217,6 @@ func removeSub(s []*connectionSub, i int) []*connectionSub {
 }
 
 type connectionSub struct {
-    c *bridge.Connection
-    s *bridge.Subscription
+    c bridge.Connection
+    s bridge.Subscription
 }

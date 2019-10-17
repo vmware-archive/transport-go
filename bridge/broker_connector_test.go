@@ -165,20 +165,20 @@ func TestBrokerConnector_ConnectBroker(t *testing.T) {
             assert.NotNil(t, c)
             assert.Nil(t, err)
             if tc.config.UseWS {
-                assert.NotNil(t, c.wsConn)
+                assert.NotNil(t, c.(*connection).wsConn)
             }
             if !tc.config.UseWS {
-                assert.NotNil(t, c.conn)
+                assert.NotNil(t, c.(*connection).conn)
             }
 
             // disconnect
             err = c.Disconnect()
             assert.Nil(t, err)
             if tc.config.UseWS {
-                assert.Nil(t, c.wsConn)
+                assert.Nil(t, c.(*connection).wsConn)
             }
             if !tc.config.UseWS {
-                assert.Nil(t, c.conn)
+                assert.Nil(t, c.(*connection).conn)
             }
 
         })
@@ -242,13 +242,13 @@ func TestBrokerConnector_Subscribe(t *testing.T) {
                 }
                 go ping()
             }
-            msg := <-s.C
+            msg := <-s.GetMsgChannel()
             ba := msg.Payload.([]byte)
             assert.Equal(t, "happy baby melody!", string(ba))
 
             // check re-subscribe returns same sub
             s2, _ := c.Subscribe("/topic/test")
-            assert.Equal(t, s.Id.ID(), s2.Id.ID())
+            assert.Equal(t, s.GetId().ID(), s2.GetId().ID())
 
             c.Disconnect()
         })
@@ -257,13 +257,14 @@ func TestBrokerConnector_Subscribe(t *testing.T) {
 
 func TestBrokerConnector_SubscribeError(t *testing.T) {
     bc := NewBrokerConnector()
-    c, _ := bc.Connect(nil)
-    s, err := c.Subscribe("/topic/test")
+    c, err := bc.Connect(nil)
     assert.NotNil(t, err)
-    assert.Nil(t, s)
+    assert.Nil(t, c)
 
-    fakeConn := new(Connection)
+    fakeConn := new(connection)
     fakeConn.useWs = true
+
+    var s Subscription
 
     // check websocket connection check
     s, err = fakeConn.Subscribe("/topic/test")
@@ -271,16 +272,14 @@ func TestBrokerConnector_SubscribeError(t *testing.T) {
     assert.Nil(t, s)
 
     // test tcp connection check
-    fakeConn = new(Connection)
+    fakeConn = new(connection)
     s, err = fakeConn.Subscribe("/topic/test")
     assert.NotNil(t, err)
     assert.Nil(t, s)
 }
 
 func TestBrokerConnector_DisconnectNoConnect(t *testing.T) {
-    bc := NewBrokerConnector()
-    // connect without any config
-    c, _ := bc.Connect(nil)
+    var c *connection = nil
     err := c.Disconnect()
     assert.NotNil(t, err)
     assert.Nil(t, c)
@@ -351,16 +350,16 @@ func TestBrokerConnector_Unsubscribe(t *testing.T) {
                 go ping()
             }
 
-            <-s.C
+            <-s.GetMsgChannel()
 
             // unsubscribe
             err := s.Unsubscribe()
 
-            <-s.C // will catch channel close event.
+            <-s.GetMsgChannel() // will catch channel close event.
             assert.Nil(t, err)
 
             // unsubscribe on sub with no connection
-            x := new(Subscription)
+            x := new(subscription)
             err = x.Unsubscribe()
             assert.NotNil(t, err)
 

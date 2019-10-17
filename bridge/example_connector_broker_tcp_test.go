@@ -38,7 +38,7 @@ func Example_connectUsingBrokerViaTCP() {
     var consumer = func() {
         for {
             // listen for incoming messages from subscription.
-            m := <-s.C
+            m := <-s.GetMsgChannel()
             n++
 
             // get byte array.

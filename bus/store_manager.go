@@ -21,11 +21,11 @@ type StoreManager interface {
     DestroyStore(name string) bool
     // Configure galactic store sync channel for a given connection.
     // Should be called before OpenGalacticStore() and OpenGalacticStoreWithItemType() APIs.
-    ConfigureStoreSyncChannel(conn *bridge.Connection, topicPrefix string, pubPrefix string) error
+    ConfigureStoreSyncChannel(conn bridge.Connection, topicPrefix string, pubPrefix string) error
     // Open new galactic store
-    OpenGalacticStore(name string, conn *bridge.Connection) (BusStore, error)
+    OpenGalacticStore(name string, conn bridge.Connection) (BusStore, error)
     // Open new galactic store and deserialize items from server to itemType
-    OpenGalacticStoreWithItemType(name string, conn *bridge.Connection, itemType reflect.Type) (BusStore, error)
+    OpenGalacticStoreWithItemType(name string, conn bridge.Connection, itemType reflect.Type) (BusStore, error)
 }
 
 // Interface which is a subset of the bridge.Connection methods.
@@ -93,12 +93,12 @@ func (m *storeManager) DestroyStore(name string) bool {
 }
 
 func (m *storeManager) ConfigureStoreSyncChannel(
-        conn *bridge.Connection, topicPrefix string, pubPrefix string) error {
+        conn bridge.Connection, topicPrefix string, pubPrefix string) error {
 
     m.syncChannelsLock.Lock()
     defer m.syncChannelsLock.Unlock()
 
-    _, ok := m.syncChannels[*conn.Id]
+    _, ok := m.syncChannels[*conn.GetId()]
     if ok {
         return fmt.Errorf("store sync channel already configured for this connection")
     }
@@ -110,7 +110,7 @@ func (m *storeManager) ConfigureStoreSyncChannel(
         pubPrefix += "/"
     }
 
-    syncChannel := "fabric-store-sync." + conn.Id.String()
+    syncChannel := "fabric-store-sync." + conn.GetId().String()
 
     storeSyncChannelConfig := &storeSyncChannelConfig{
         topicPrefix:     topicPrefix,
@@ -118,7 +118,7 @@ func (m *storeManager) ConfigureStoreSyncChannel(
         syncChannelName: syncChannel,
         conn:            conn,
     }
-    m.syncChannels[*conn.Id] = storeSyncChannelConfig
+    m.syncChannels[*conn.GetId()] = storeSyncChannelConfig
 
     m.eventBus.GetChannelManager().CreateChannel(syncChannel)
     m.eventBus.GetChannelManager().MarkChannelAsGalactic(syncChannel, topicPrefix + syncChannel, conn)
@@ -126,15 +126,15 @@ func (m *storeManager) ConfigureStoreSyncChannel(
     return nil
 }
 
-func (m *storeManager) OpenGalacticStore(name string, conn *bridge.Connection) (BusStore, error) {
+func (m *storeManager) OpenGalacticStore(name string, conn bridge.Connection) (BusStore, error) {
     return m.OpenGalacticStoreWithItemType(name, conn, nil)
 }
 
 func (m *storeManager) OpenGalacticStoreWithItemType(
-        name string, conn *bridge.Connection, itemType reflect.Type) (BusStore, error) {
+        name string, conn bridge.Connection, itemType reflect.Type) (BusStore, error) {
 
     m.syncChannelsLock.RLock()
-    chanConf, ok := m.syncChannels[*conn.Id]
+    chanConf, ok := m.syncChannels[*conn.GetId()]
     m.syncChannelsLock.RUnlock()
 
     if !ok {

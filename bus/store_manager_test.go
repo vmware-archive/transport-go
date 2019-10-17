@@ -7,9 +7,9 @@ import (
     "github.com/stretchr/testify/assert"
     "sync"
     "sync/atomic"
-    "go-bifrost/bridge"
     "github.com/google/uuid"
     "reflect"
+    "github.com/stretchr/testify/mock"
 )
 
 func createTestStoreManager() StoreManager {
@@ -76,7 +76,15 @@ func TestStoreManager_DestroyStore(t *testing.T) {
 func TestStoreManager_ConfigureStoreSyncChannel(t *testing.T) {
     m := createTestStoreManager()
     id := uuid.New()
-    con := &bridge.Connection{Id: &id}
+    con := &MockBridgeConnection{Id: &id}
+
+    subId := uuid.New()
+    s := &MockBridgeSubscription{
+        Id: &subId,
+    }
+    syncChannelDst := "/topic-prefix/fabric-store-sync." + id.String()
+    con.On("Subscribe", syncChannelDst).Return(s, nil)
+    con.On("SendMessage", syncChannelDst, mock.Anything).Return(nil)
     m.ConfigureStoreSyncChannel(con, "/topic-prefix", "/pub-prefix")
 
     storeManagerImpl := m.(*storeManager)
@@ -98,7 +106,7 @@ func TestStoreManager_ConfigureStoreSyncChannel(t *testing.T) {
 func TestStoreManager_OpenGalacticStore(t *testing.T) {
     m := createTestStoreManager()
     id := uuid.New()
-    con := &bridge.Connection{Id: &id}
+    con := &MockBridgeConnection{Id: &id}
 
     var s BusStore
     var err error
@@ -108,7 +116,12 @@ func TestStoreManager_OpenGalacticStore(t *testing.T) {
     assert.Nil(t, s)
     assert.EqualError(t, err, "sync channel is not configured for this connection")
 
-
+    subId := uuid.New()
+    sub := &MockBridgeSubscription{
+        Id: &subId,
+    }
+    con.On("Subscribe", mock.Anything).Return(sub, nil)
+    con.On("SendMessage", mock.Anything, mock.Anything).Return(nil)
     m.ConfigureStoreSyncChannel(con, "/topic-prefix", "/pub-prefix")
 
     storeManagerImpl := m.(*storeManager)
@@ -153,8 +166,14 @@ type MockStoreItem struct {
 func TestStoreManager_OpenGalacticStoreWithType(t *testing.T) {
     m := createTestStoreManager()
     id := uuid.New()
-    con := &bridge.Connection{Id: &id}
+    con := &MockBridgeConnection{Id: &id}
 
+    subId := uuid.New()
+    sub := &MockBridgeSubscription{
+        Id: &subId,
+    }
+    con.On("Subscribe", mock.Anything).Return(sub, nil)
+    con.On("SendMessage", mock.Anything, mock.Anything).Return(nil)
     m.ConfigureStoreSyncChannel(con, "/topic-prefix", "/pub-prefix")
 
     storeManagerImpl := m.(*storeManager)
