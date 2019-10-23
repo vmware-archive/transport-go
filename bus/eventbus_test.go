@@ -108,6 +108,11 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+func newTestEventBus() EventBus {
+    bf := new(bifrostEventBus)
+    bf.init()
+    return bf
+}
 
 func init() {
     evtBusTest = GetBus().(*bifrostEventBus)
@@ -675,4 +680,16 @@ func TestChannelManager_TestConnectBroker(t *testing.T) {
     destroyTestChannel()
     killWebSocketEndpoint()
     util.ResetMonitor()
+}
+
+func TestEventBus_TestCreateSyncTransaction(t *testing.T) {
+    tr := evtBusTest.CreateSyncTransaction()
+    assert.NotNil(t, tr)
+    assert.Equal(t, tr.(*busTransaction).transactionType, syncTransaction)
+}
+
+func TestEventBus_TestCreateAsyncTransaction(t *testing.T) {
+    tr := evtBusTest.CreateAsyncTransaction()
+    assert.NotNil(t, tr)
+    assert.Equal(t, tr.(*busTransaction).transactionType, asyncTransaction)
 }

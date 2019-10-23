@@ -2,7 +2,6 @@
 
 package bridge
 
-import "C"
 import (
     "go-bifrost/model"
     "bufio"
@@ -176,6 +175,8 @@ func (ws *BridgeClient) listenSocket() {
 func (ws *BridgeClient) handleIncomingSTOMPFrames() {
     for {
         select {
+        case <-ws.disconnectedChan:
+            return
         case f := <-ws.inboundChan:
             switch f.Command {
             case frame.CONNECTED:
@@ -190,9 +191,11 @@ func (ws *BridgeClient) handleIncomingSTOMPFrames() {
                 for _, sub := range ws.Subscriptions {
                     if sub.Destination == f.Header.Get(frame.Destination) {
                         c := &model.MessageConfig{Payload: f.Body, Destination: sub.Destination}
+                        sub.lock.RLock()
                         if sub.subscribed {
                             sendResponseSafe(sub.C, model.GenerateResponse(c))
                         }
+                        sub.lock.RUnlock()
                     }
                 }
 
@@ -206,10 +209,7 @@ func (ws *BridgeClient) handleIncomingSTOMPFrames() {
                     }
                 }
             }
-        case <-ws.disconnectedChan:
-            break
         }
-
     }
 }
 
