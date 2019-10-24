@@ -3,16 +3,12 @@
 package bus
 
 import (
-    "go-bifrost/bridge"
     "go-bifrost/model"
     "go-bifrost/util"
-    "net"
-    "net/url"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
     "testing"
     "time"
-    "fmt"
 )
 
 var testChannelManager ChannelManager
@@ -175,23 +171,22 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
 
     b := GetBus()
 
-    // run ws and tcp brokers.
-    u := runWebSocketEndPoint()
-    go runStompBroker()
-
-    url, _ := url.Parse(u)
-    host, port, _ := net.SplitHostPort(url.Host)
-    testHost := host + ":" + port
-
     testChannelManager = b.GetChannelManager()
     c := testChannelManager.CreateChannel(myChan)
 
-    bc := bridge.NewBrokerConnector()
-    cf := &bridge.BrokerConnectorConfig{Username: "guest", Password: "guest", UseWS: true, WSPath: "/", ServerAddr: testHost}
-    conn, e := bc.Connect(cf)
 
-    assert.Nil(t, e)
-    assert.NotNil(t, conn)
+
+    // mark channel as galactic.
+    id := uuid.New()
+    subId := uuid.New()
+    mockSub := &MockBridgeSubscription{
+        Id: &subId,
+        Channel: make(chan *model.Message, 10),
+        Destination: "/queue/hiya",
+    }
+
+    mockCon := &MockBridgeConnection{Id: &id}
+    mockCon.On("Subscribe", "/queue/hiya").Return(mockSub, nil).Once()
 
     x := 0
 
@@ -211,22 +206,25 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
 
         })
 
-    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn)
-    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn) // double up for fun
+    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", mockCon)
+    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", mockCon) // double up for fun
     <-c.brokerMappedEvent
     assert.Len(t, c.brokerConns, 1)
+    mockSub.GetMsgChannel() <- &model.Message{Payload: "test-message", Direction: model.ResponseDir}
     <-m1
 
     // lets add another connection to the same channel.
-    cf = &bridge.BrokerConnectorConfig{Username: "guest", Password: "guest", ServerAddr: testBrokerAddress}
-    conn, e = bc.Connect(cf)
 
-    if e != nil {
-        fmt.Printf("unable to connect, error: %e", e)
+    id2 := uuid.New()
+    subId2 := uuid.New()
+    mockSub2 := &MockBridgeSubscription{
+        Id: &subId2,
+        Channel: make(chan *model.Message, 10),
+        Destination: "/queue/hiya",
     }
 
-    assert.Nil(t, e)
-    assert.NotNil(t, conn)
+    mockCon2 := &MockBridgeConnection{Id: &id2}
+    mockCon2.On("Subscribe", "/queue/hiya").Return(mockSub2, nil).Once()
 
     h, e = b.ListenOnce(myChan)
 
@@ -237,8 +235,8 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
         },
         func(err error) {})
 
-    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn)
-    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", conn) // trigger double (should ignore)
+    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", mockCon2)
+    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/hiya", mockCon2) // trigger double (should ignore)
 
     select {
     case <-c.brokerMappedEvent:
@@ -246,8 +244,8 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
         assert.FailNow(t, "TestChannelManager_TestListenToMonitorGalactic timeout on brokerMappedEvent")
     }
 
-    err := conn.SendMessage("/queue/hiya",[]byte("Hi baby melody!"))
-    assert.Nil(t, err)
+    mockSub.GetMsgChannel() <- &model.Message{Payload: "Hi baby melody!", Direction: model.ResponseDir}
+
     <-m2
     assert.Equal(t, 2, x)
 }
@@ -264,23 +262,21 @@ func TestChannelManager_TestListenToMonitorLocal(t *testing.T) {
     b := GetBus()
 
     // run ws broker
-    u := runWebSocketEndPoint()
-    url, _ := url.Parse(u)
-    host, port, _ := net.SplitHostPort(url.Host)
-    testHost := host + ":" + port
-
     testChannelManager = b.GetChannelManager()
 
     c := testChannelManager.CreateChannel(myChan)
 
-    bc := bridge.NewBrokerConnector()
-    cf := &bridge.BrokerConnectorConfig{Username: "guest", Password: "guest", UseWS: true, WSPath: "/", ServerAddr: testHost}
-    conn, e := bc.Connect(cf)
 
-    assert.Nil(t, e)
-    assert.NotNil(t, conn)
+    subId := uuid.New()
+    sub := &MockBridgeSubscription{
+        Id: &subId,
+    }
 
-    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/seeya", conn)
+    id := uuid.New()
+    mockCon := &MockBridgeConnection{Id: &id}
+    mockCon.On("Subscribe", "/queue/seeya").Return(sub, nil).Once()
+
+    testChannelManager.MarkChannelAsGalactic(myChan, "/queue/seeya", mockCon)
     <-c.brokerMappedEvent
     assert.Len(t, c.brokerConns, 1)
 
