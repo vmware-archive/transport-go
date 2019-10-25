@@ -35,6 +35,12 @@ func (mock *MockBrokerConnector) StartTCPServer(address string) error {
     return args.Error(0)
 }
 
+func newTestEventBus() EventBus {
+    bf := new(bifrostEventBus)
+    bf.init()
+    return bf
+}
+
 func init() {
     evtBusTest = GetBus().(*bifrostEventBus)
 }
@@ -585,8 +591,7 @@ func TestChannelManager_TestConnectBroker(t *testing.T) {
 
     // create new bifrostEventBus instance and replace the brokerConnector
     // with MockBrokerConnector instance.
-    evtBusTest = new(bifrostEventBus)
-    evtBusTest.init()
+    evtBusTest := newTestEventBus().(*bifrostEventBus)
     evtBusTest.bc = new(MockBrokerConnector)
 
     // connect to broker
@@ -608,4 +613,16 @@ func TestChannelManager_TestConnectBroker(t *testing.T) {
     assert.Equal(t, c, mockCon)
     assert.Equal(t, len(evtBusTest.brokerConnections), 1)
     assert.Equal(t, evtBusTest.brokerConnections[mockCon.Id], mockCon)
+}
+
+func TestEventBus_TestCreateSyncTransaction(t *testing.T) {
+    tr := evtBusTest.CreateSyncTransaction()
+    assert.NotNil(t, tr)
+    assert.Equal(t, tr.(*busTransaction).transactionType, syncTransaction)
+}
+
+func TestEventBus_TestCreateAsyncTransaction(t *testing.T) {
+    tr := evtBusTest.CreateAsyncTransaction()
+    assert.NotNil(t, tr)
+    assert.Equal(t, tr.(*busTransaction).transactionType, asyncTransaction)
 }

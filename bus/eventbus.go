@@ -36,6 +36,8 @@ type EventBus interface {
     ConnectBroker(config *bridge.BrokerConnectorConfig) (conn bridge.Connection, err error)
     StartTCPService(address string) error
     GetStoreManager() StoreManager
+    CreateSyncTransaction() BusTransaction
+    CreateAsyncTransaction() BusTransaction
 }
 
 var once sync.Once
@@ -339,6 +341,14 @@ func (bus *bifrostEventBus) StartTCPService(address string) error {
     return bus.bc.StartTCPServer(address)
 }
 
+func (bus *bifrostEventBus) CreateAsyncTransaction() BusTransaction {
+    return newBusTransaction(bus, asyncTransaction)
+}
+
+func (bus *bifrostEventBus) CreateSyncTransaction() BusTransaction {
+    return newBusTransaction(bus, syncTransaction)
+}
+
 func (bus *bifrostEventBus) wrapMessageHandler(
     channel *Channel, direction model.Direction, ignoreId bool, allTraffic bool, destId *uuid.UUID,
     runOnce bool) *messageHandler {
@@ -450,13 +460,13 @@ func buildError(channelName string, err error, destinationId *uuid.UUID) *model.
     return config
 }
 
-func createMessageHandler(channel *Channel, destinationId *uuid.UUID, channelManager ChannelManager) *messageHandler {
+func createMessageHandler(channel *Channel, destinationId *uuid.UUID, channelMgr ChannelManager) *messageHandler {
     messageHandler := new(messageHandler)
-    messageHandler.channelManager = channelManager
     messageHandler.channel = channel
     id := uuid.New()
     messageHandler.id = &id
     messageHandler.destination = destinationId
+    messageHandler.channelManager = channelMgr
     return messageHandler
 }
 

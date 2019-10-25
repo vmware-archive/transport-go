@@ -92,12 +92,13 @@ func runWebSocketEndPoint() {
     log.Println("WebSocket listening on", s.Listener.Addr().Network(), s.Listener.Addr().String())
     httpServer = s
     webSocketURLChan <- s.URL
-    websocketURL = s.URL
 }
 
 func init() {
     go runStompBroker()
     go runWebSocketEndPoint()
+
+    websocketURL = <-webSocketURLChan
 }
 
 func TestBrokerConnector_BadConfig(t *testing.T) {
@@ -132,8 +133,7 @@ func TestBrokerConnector_BadConfig(t *testing.T) {
 }
 
 func TestBrokerConnector_ConnectBroker(t *testing.T) {
-    u := <-webSocketURLChan
-    url, _ := url.Parse(u)
+    url, _ := url.Parse(websocketURL)
     host, port, _ := net.SplitHostPort(url.Host)
     testHost := host + ":" + port
 
@@ -286,7 +286,6 @@ func TestBrokerConnector_DisconnectNoConnect(t *testing.T) {
 }
 
 func TestBrokerConnector_SendMessageOnWs(t *testing.T) {
-    // u := <- webSocketURLChan
     url, _ := url.Parse(websocketURL)
     host, port, _ := net.SplitHostPort(url.Host)
     testHost := host + ":" + port
@@ -316,7 +315,6 @@ func TestBrokerConnector_SendMessageOnWs(t *testing.T) {
 }
 
 func TestBrokerConnector_Unsubscribe(t *testing.T) {
-    //u := <-webSocketURLChan
     u := websocketURL
     url, _ := url.Parse(u)
     host, port, _ := net.SplitHostPort(url.Host)

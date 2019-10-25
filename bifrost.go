@@ -164,19 +164,6 @@ func runDemoStore() {
     // get a pointer to the bus.
     b := bus.GetBus()
 
-    // Local store
-    stringStore := b.GetStoreManager().CreateStore("localStringStore")
-
-    stringStore.WhenReady(func() {
-        fmt.Println("Local string store initialized")
-        fmt.Println(stringStore.AllValues())
-    })
-    stringStore.Populate(map[string]interface{} {
-        "key1": "value1",
-        "key2": "value2",
-        "key3": "value3",
-    })
-
     // create a broker connector config, in this case, we will connect to the application fabric demo endpoint.
     config := &bridge.BrokerConnectorConfig{
         Username:   "guest",
@@ -238,7 +225,41 @@ func runDemoStore() {
     motdStore.Put("messageOfTheDay", originalItem, "update")
     wg.Wait()
 
+    // Local stores
+    localStringStore := b.GetStoreManager().CreateStore("localStringStore")
+    localMessageStore := b.GetStoreManager().CreateStore("localSampleMessageStore")
+
+    // use async transaction to wait for the two local stores.
+    tr := b.CreateAsyncTransaction()
+    tr.WaitForStoreReady(localStringStore.GetName())
+    tr.WaitForStoreReady(localMessageStore.GetName())
+
+    wg.Add(1)
+    tr.OnComplete(func(responses []*model.Message) {
+        fmt.Println("Local stores initialized")
+        fmt.Println("localStringStore:")
+        fmt.Println(responses[0].Payload)
+        fmt.Println("localSampleMessageStore:")
+        fmt.Println(responses[1].Payload)
+        wg.Done()
+    })
+
+    fmt.Println("Waiting for local stores...")
+    tr.Commit()
+
+    localStringStore.Populate(map[string]interface{} {
+        "key1": "value1",
+        "key2": "value2",
+        "key3": "value3",
+    })
+
+    // copy the values from the galactic motdStore to the local
+    // store
+    localMessageStore.Populate(motdStore.AllValuesAsMap())
+
     b.GetStoreManager().DestroyStore("messageOfTheDayStore")
+
+    wg.Wait()
 }
 
 func runDemoApp() {
