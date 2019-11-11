@@ -25,12 +25,12 @@ func main() {
     app := cli.NewApp()
     app.Name = "Bifrost demo app"
     app.Usage = "Demonstrates different features of the Bifrost bus"
-    app.Commands = []cli.Command{
-        {
+    app.Commands = []*cli.Command{
+        &cli.Command{
             Name: "demo",
             Usage: "Run Demo - Connect to local service. You first need to start the service with 'service' command.",
             Flags: []cli.Flag{
-                cli.BoolFlag{
+                &cli.BoolFlag{
                     Name:  "tcp",
                     Usage: "Use TCP connection ",
                 },
@@ -40,7 +40,7 @@ func main() {
                 return nil
             },
         },
-        {
+        &cli.Command{
             Name: "cal",
             Usage: "Call Calendar service for the time on appfabric.vmware.com",
             Action: func(c *cli.Context) error {
@@ -48,11 +48,11 @@ func main() {
                 return nil
             },
         },
-        {
+        &cli.Command{
             Name: "service",
             Usage: "Run Service - Run local service",
             Flags: []cli.Flag{
-                cli.BoolFlag{
+                &cli.BoolFlag{
                     Name:  "tcp",
                     Usage: "Use TCP connection ",
                 },
@@ -62,7 +62,7 @@ func main() {
                 return nil
             },
         },
-        {
+        &cli.Command{
             Name: "store",
             Usage: "Open galactic store from appfabric.vmware.com",
             Action: func(c *cli.Context) error {
