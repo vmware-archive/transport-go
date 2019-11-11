@@ -46,9 +46,10 @@ func (con *mockGalacticStoreConnection) lastTopic() string {
     return con.topics[n-1]
 }
 
-func testGalacticStore(itemType reflect.Type)  (BusStore, *mockGalacticStoreConnection) {
+func testGalacticStore(itemType reflect.Type)  (BusStore, *mockGalacticStoreConnection, EventBus) {
 
-    GetBus().GetChannelManager().CreateChannel("sync-channel")
+    bus := newTestEventBus()
+    bus.GetChannelManager().CreateChannel("sync-channel")
 
     conn := &mockGalacticStoreConnection{
         messages: make([]map[string]interface{}, 0),
@@ -64,8 +65,8 @@ func testGalacticStore(itemType reflect.Type)  (BusStore, *mockGalacticStoreConn
         itemType: itemType,
     }
 
-    store := newBusStore("testStore", GetBus(), conf)
-    return store, conn
+    store := newBusStore("testStore", bus, conf)
+    return store, conn, bus
 }
 
 func TestBusStore_CreateStore(t *testing.T) {
@@ -479,7 +480,7 @@ func TestBusStore_OnMutationRequest_ErrorHandling(t *testing.T) {
 }
 
 func TestBusStore_InitGalacticStore(t *testing.T) {
-    store, conn := testGalacticStore(nil)
+    store, conn, bus := testGalacticStore(nil)
 
     assert.True(t, store.IsGalactic())
     assert.EqualError(t, store.Populate(nil), "populate() API is not supported for galactic stores")
@@ -506,7 +507,7 @@ func TestBusStore_InitGalacticStore(t *testing.T) {
         },
         "storeVersion": 12
     }`)
-    GetBus().SendResponseMessage("sync-channel", jsonBlob, nil)
+    bus.SendResponseMessage("sync-channel", jsonBlob, nil)
 
     wg.Wait()
     assert.Equal(t, len(store.AllValues()), 1)
@@ -538,7 +539,7 @@ func TestBusStore_InitGalacticStore(t *testing.T) {
 }
 
 func TestBusStore_GalacticStoreUpdates(t *testing.T) {
-    store,_ := testGalacticStore(nil)
+    store, _, bus := testGalacticStore(nil)
 
     wg := sync.WaitGroup{}
     wg.Add(1)
@@ -557,7 +558,7 @@ func TestBusStore_GalacticStoreUpdates(t *testing.T) {
         "newItemValue": "value1",
         "storeVersion": 54
     }`)
-    GetBus().SendResponseMessage("sync-channel", jsonBlob, nil)
+    bus.SendResponseMessage("sync-channel", jsonBlob, nil)
 
     wg.Wait()
 
@@ -575,7 +576,7 @@ func TestBusStore_GalacticStoreUpdates(t *testing.T) {
         "itemId": "id1",
         "storeVersion": 55
     }`)
-    GetBus().SendResponseMessage("sync-channel", jsonBlob, nil)
+    bus.SendResponseMessage("sync-channel", jsonBlob, nil)
 
     wg.Wait()
     assert.Equal(t, lastStoreChange.Id, "id1")

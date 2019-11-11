@@ -12,6 +12,8 @@ import (
     "testing"
     "sync/atomic"
     "github.com/stretchr/testify/mock"
+    "go-bifrost/stompserver"
+    "sync"
 )
 
 var evtBusTest *bifrostEventBus
@@ -625,4 +627,57 @@ func TestEventBus_TestCreateAsyncTransaction(t *testing.T) {
     tr := evtBusTest.CreateAsyncTransaction()
     assert.NotNil(t, tr)
     assert.Equal(t, tr.(*busTransaction).transactionType, asyncTransaction)
+}
+
+type MockRawConnListener struct {
+    stopped bool
+    connections chan stompserver.RawConnection
+    wg sync.WaitGroup
+}
+
+func(cl *MockRawConnListener) Accept() (stompserver.RawConnection, error) {
+    cl.wg.Done()
+    con := <- cl.connections
+    return con, nil
+}
+
+func (cl *MockRawConnListener) Close() error {
+    cl.stopped = true
+    cl.wg.Done()
+    return nil
+}
+
+func TestBifrostEventBus_StartFabricEndpoint(t *testing.T) {
+    bus := newTestEventBus().(*bifrostEventBus)
+
+    connListener := &MockRawConnListener{
+        connections: make(chan stompserver.RawConnection),
+    }
+
+    err := bus.StartFabricEndpoint(connListener, EndpointConfig{})
+    assert.EqualError(t, err, "invalid TopicPrefix")
+
+    err = bus.StartFabricEndpoint(connListener, EndpointConfig{TopicPrefix: "asd"})
+    assert.EqualError(t, err, "invalid TopicPrefix")
+
+    err = bus.StartFabricEndpoint(connListener, EndpointConfig{TopicPrefix: "/topic",
+        AppRequestQueuePrefix: "/pub"})
+    assert.EqualError(t, err, "missing UserQueuePrefix")
+
+    connListener.wg.Add(1)
+    go bus.StartFabricEndpoint(connListener, EndpointConfig{TopicPrefix: "/topic"})
+
+    connListener.wg.Wait()
+
+    err = bus.StartFabricEndpoint(connListener, EndpointConfig{TopicPrefix: "/topic"})
+    assert.EqualError(t, err, "fabric endpoint is already running")
+
+    connListener.wg.Add(1)
+    bus.StopFabricEndpoint()
+    connListener.wg.Wait()
+
+    assert.Nil(t, bus.fabEndpoint)
+    assert.True(t, connListener.stopped)
+
+    assert.EqualError(t, bus.StopFabricEndpoint(), "fabric endpoint is not running")
 }

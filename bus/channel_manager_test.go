@@ -14,19 +14,19 @@ import (
 var testChannelManager ChannelManager
 var testChannelManagerChannelName string = "melody"
 
-func createManager() ChannelManager {
-    b := GetBus()
+func createManager() (ChannelManager, EventBus) {
+    b := newTestEventBus()
     manager := NewBusChannelManager(b)
-    return manager
+    return manager, b
 }
 
 func TestChannelManager_Boot(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
     assert.Len(t, testChannelManager.GetAllChannels(), 0)
 }
 
 func TestChannelManager_CreateChannel(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
 
     testChannelManager.CreateChannel(testChannelManagerChannelName)
     assert.Len(t, testChannelManager.GetAllChannels(), 1)
@@ -37,7 +37,7 @@ func TestChannelManager_CreateChannel(t *testing.T) {
 }
 
 func TestChannelManager_GetNotExistentChannel(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
 
     fetchedChannel, err := testChannelManager.GetChannel(testChannelManagerChannelName)
     assert.NotNil(t, err)
@@ -45,7 +45,7 @@ func TestChannelManager_GetNotExistentChannel(t *testing.T) {
 }
 
 func TestChannelManager_DestroyChannel(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
 
     testChannelManager.CreateChannel(testChannelManagerChannelName)
     testChannelManager.DestroyChannel(testChannelManagerChannelName)
@@ -56,7 +56,7 @@ func TestChannelManager_DestroyChannel(t *testing.T) {
 }
 
 func TestChannelManager_SubscribeChannelHandler(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
     testChannelManager.CreateChannel(testChannelManagerChannelName)
 
     handler := func(*model.Message) {}
@@ -68,14 +68,14 @@ func TestChannelManager_SubscribeChannelHandler(t *testing.T) {
 }
 
 func TestChannelManager_SubscribeChannelHandlerMissingChannel(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
     handler := func(*model.Message) {}
     _, err := testChannelManager.SubscribeChannelHandler(testChannelManagerChannelName, handler, false)
     assert.NotNil(t, err)
 }
 
 func TestChannelManager_UnsubscribeChannelHandler(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
     testChannelManager.CreateChannel(testChannelManagerChannelName)
 
     handler := func(*model.Message) {}
@@ -89,14 +89,14 @@ func TestChannelManager_UnsubscribeChannelHandler(t *testing.T) {
 }
 
 func TestChannelManager_UnsubscribeChannelHandlerMissingChannel(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
     uuid := uuid.New()
     err := testChannelManager.UnsubscribeChannelHandler(testChannelManagerChannelName, &uuid)
     assert.NotNil(t, err)
 }
 
 func TestChannelManager_UnsubscribeChannelHandlerNoId(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
     testChannelManager.CreateChannel(testChannelManagerChannelName)
 
     handler := func(*model.Message) {}
@@ -110,14 +110,14 @@ func TestChannelManager_UnsubscribeChannelHandlerNoId(t *testing.T) {
 }
 
 func TestChannelManager_TestWaitForGroupOnBadChannel(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
     err := testChannelManager.WaitForChannel("unknown")
     assert.Error(t, err, "no such Channel as 'unknown'")
 }
 
 func TestChannelManager_TestGalacticChannelOpen(t *testing.T) {
 
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
     galacticChannel := testChannelManager.CreateChannel(testChannelManagerChannelName)
     id := uuid.New()
 
@@ -169,7 +169,7 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
     util.ResetMonitor()
     myChan := "mychan"
 
-    b := GetBus()
+    b := newTestEventBus()
 
     testChannelManager = b.GetChannelManager()
     c := testChannelManager.CreateChannel(myChan)
@@ -259,7 +259,7 @@ func TestChannelManager_TestListenToMonitorLocal(t *testing.T) {
     util.ResetMonitor()
     myChan := "mychan-local"
 
-    b := GetBus()
+    b := newTestEventBus()
 
     // run ws broker
     testChannelManager = b.GetChannelManager()
@@ -287,7 +287,7 @@ func TestChannelManager_TestListenToMonitorLocal(t *testing.T) {
 }
 
 func TestChannelManager_TestGalacticMonitorInvalidChannel(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
     testChannelManager.CreateChannel("fun-chan")
 
     err := testChannelManager.MarkChannelAsGalactic("fun-chan", "/queue/woo", nil)
@@ -296,7 +296,7 @@ func TestChannelManager_TestGalacticMonitorInvalidChannel(t *testing.T) {
 }
 
 func TestChannelManager_TestLocalMonitorInvalidChannel(t *testing.T) {
-    testChannelManager = createManager()
+    testChannelManager, _ = createManager()
     testChannelManager.CreateChannel("fun-chan")
 
     err := testChannelManager.MarkChannelAsLocal("fun-chan")

@@ -4,7 +4,6 @@ package bridge
 
 import (
     "go-bifrost/model"
-    "github.com/go-stomp/stomp"
     "github.com/go-stomp/stomp/frame"
     "github.com/google/uuid"
     "sync"
@@ -28,8 +27,7 @@ func (cs *BridgeClientSub) Unsubscribe() {
     cs.lock.Unlock()
     unsubscribeFrame := frame.New(frame.UNSUBSCRIBE,
         frame.Id, cs.Id.String(),
-        frame.Destination, cs.Destination,
-        frame.Ack, stomp.AckAuto.String())
+        frame.Destination, cs.Destination)
 
     cs.Client.SendFrame(unsubscribeFrame)
 }
