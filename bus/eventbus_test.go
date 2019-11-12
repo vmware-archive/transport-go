@@ -670,7 +670,7 @@ func TestBifrostEventBus_StartFabricEndpoint(t *testing.T) {
     connListener.wg.Wait()
 
     err = bus.StartFabricEndpoint(connListener, EndpointConfig{TopicPrefix: "/topic"})
-    assert.EqualError(t, err, "fabric endpoint is already running")
+    assert.EqualError(t, err, "unable to start: fabric endpoint is already running")
 
     connListener.wg.Add(1)
     bus.StopFabricEndpoint()
@@ -679,5 +679,5 @@ func TestBifrostEventBus_StartFabricEndpoint(t *testing.T) {
     assert.Nil(t, bus.fabEndpoint)
     assert.True(t, connListener.stopped)
 
-    assert.EqualError(t, bus.StopFabricEndpoint(), "fabric endpoint is not running")
+    assert.EqualError(t, bus.StopFabricEndpoint(), "unable to stop: fabric endpoint is not running")
 }

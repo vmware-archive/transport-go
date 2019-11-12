@@ -344,7 +344,7 @@ func (bus *bifrostEventBus) StartFabricEndpoint(
         connectionListener stompserver.RawConnectionListener, config EndpointConfig) error {
 
     if bus.fabEndpoint != nil {
-        return fmt.Errorf("fabric endpoint is already running")
+        return fmt.Errorf("unable to start: fabric endpoint is already running")
     }
     if configErr := config.validate(); configErr != nil {
         return configErr
@@ -358,7 +358,7 @@ func (bus *bifrostEventBus) StartFabricEndpoint(
 func (bus *bifrostEventBus) StopFabricEndpoint() error {
     fe := bus.fabEndpoint
     if fe == nil {
-        return fmt.Errorf("fabric endpoint is not running")
+        return fmt.Errorf("unable to stop: fabric endpoint is not running")
     }
     bus.fabEndpoint = nil
     fe.Stop()
