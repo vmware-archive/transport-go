@@ -1,0 +1,135 @@
+// Copyright 2019 VMware, Inc. All rights reserved. -- VMware Confidential
+
+package service
+
+import (
+    "go-bifrost/bus"
+    "sync"
+    "fmt"
+    "go-bifrost/model"
+    "log"
+)
+
+// Registry with all local fabric services.
+type ServiceRegistry interface {
+    // Registers a new fabric service and associates it with a given EventBus channel.
+    // Only one fabric service can be associated with a given channel.
+    // If the fabric service implements the FabricInitializableService interface
+    // its Init method will be called during the registration process.
+    RegisterService(service FabricService, serviceChannelName string) error
+    // Unregisters the fabric service associated with the given channel.
+    UnregisterService(serviceChannelName string) error
+}
+
+type serviceRegistry struct {
+    lock sync.Mutex
+    services map[string]*fabricServiceWrapper
+    bus bus.EventBus
+}
+
+var once sync.Once
+var registry ServiceRegistry
+
+func GetServiceRegistry() ServiceRegistry {
+    once.Do(func() {
+        registry = NewServiceRegistry(bus.GetBus())
+    })
+    return registry
+}
+
+func NewServiceRegistry(bus bus.EventBus) ServiceRegistry {
+    return &serviceRegistry{
+        bus: bus,
+        services: make(map[string]*fabricServiceWrapper),
+    }
+}
+
+func (r *serviceRegistry) RegisterService(service FabricService, serviceChannelName string) error {
+    r.lock.Lock()
+    defer r.lock.Unlock()
+
+    if _, ok := r.services[serviceChannelName]; ok {
+        return fmt.Errorf("unable to register service: service channel name is already used")
+    }
+
+    sw := newServiceWrapper(r.bus, service, serviceChannelName)
+    err := sw.init()
+    if err != nil {
+        return err
+    }
+
+    r.services[serviceChannelName] = sw
+    return nil
+}
+
+func (r *serviceRegistry) UnregisterService(serviceChannelName string) error {
+    r.lock.Lock()
+    defer r.lock.Unlock()
+    sw, ok := r.services[serviceChannelName]
+    if !ok {
+        return fmt.Errorf("unable to unregister service: no service is registered for this channel")
+    }
+    sw.unregister()
+    delete(r.services, serviceChannelName)
+    return nil
+}
+
+type fabricServiceWrapper struct {
+    service            FabricService
+    fabricCore         *fabricCore
+    requestMsgHandler  bus.MessageHandler
+}
+
+func newServiceWrapper(
+        bus bus.EventBus, service FabricService, serviceChannelName string) *fabricServiceWrapper {
+
+    return &fabricServiceWrapper{
+        service: service,
+        fabricCore: &fabricCore{
+            bus:         bus,
+            channelName: serviceChannelName,
+        },
+    }
+}
+
+func (sw *fabricServiceWrapper) init() error {
+    sw.fabricCore.bus.GetChannelManager().CreateChannel(sw.fabricCore.channelName)
+
+    initializationService, ok := sw.service.(FabricInitializableService)
+    if ok {
+        initializationErr := initializationService.Init(sw.fabricCore)
+        if initializationErr != nil {
+            return initializationErr
+        }
+    }
+
+    mh, err := sw.fabricCore.bus.ListenRequestStream(sw.fabricCore.channelName)
+    if err != nil {
+        return err
+    }
+
+    sw.requestMsgHandler = mh
+    mh.Handle(
+        func(message *model.Message) {
+            requestPtr, ok := message.Payload.(*model.Request)
+            if !ok {
+                request, ok := message.Payload.(model.Request)
+                if !ok {
+                    log.Println("cannot cast service request payload to model.Request")
+                    return
+                }
+                requestPtr = &request
+            }
+
+            sw.service.HandleServiceRequest(requestPtr, sw.fabricCore)
+        },
+        func(e error) {})
+
+    return nil
+}
+
+func (sw *fabricServiceWrapper) unregister() {
+    if sw.requestMsgHandler != nil {
+        sw.requestMsgHandler.Close()
+    }
+}

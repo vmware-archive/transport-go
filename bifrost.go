@@ -16,6 +16,7 @@ import (
     "sync"
     "reflect"
     "github.com/urfave/cli"
+    "go-bifrost/service"
 )
 
 var addr = ":62134"
@@ -24,7 +25,7 @@ func main() {
     app := cli.NewApp()
     app.Name = "Bifrost demo app"
     app.Usage = "Demonstrates different features of the Bifrost bus"
-    app.Commands = []cli.Command{
+    app.Commands = []*cli.Command{
         {
             Name: "demo",
             Usage: "Run Demo - Connect to local service",
@@ -56,6 +57,14 @@ func main() {
             Usage: "Open galactic store from appfabric.vmware.com",
             Action: func(c *cli.Context) error {
                 runDemoStore()
+                return nil
+            },
+        },
+        {
+            Name: "fabric-services",
+            Usage: "Starts a couple of demo fabric services locally",
+            Action: func(c *cli.Context) error {
+                runDemoFabricServices()
                 return nil
             },
         },
@@ -347,5 +356,117 @@ func runDemoApp() {
     err = c.Disconnect()
     if err != nil {
         log.Panicf("unable to disconnect, error: %e", err)
+    }
+}
+
+func runDemoFabricServices() {
+    b := bus.GetBus()
+
+    fmt.Println("Registering calendar and simple-stream services.")
+    simpleTickerService := &simpleStreamTickerService{ channelName: "simple-stream" }
+    service.GetServiceRegistry().RegisterService(simpleTickerService, simpleTickerService.channelName)
+    service.GetServiceRegistry().RegisterService(&calendarService{}, "calendar-service")
+
+
+    wg := sync.WaitGroup{}
+    mh,_ := b.ListenStream("calendar-service")
+    mh.Handle(func(message *model.Message) {
+        resp := message.Payload.(model.Response)
+        if resp.Error {
+            fmt.Println("Received error response from calendar-service:", resp.ErrorMessage)
+        } else {
+            fmt.Println("Received response from calendar-service:", resp.Payload)
+        }
+        wg.Done()
+    }, func(e error) {})
+
+    wg.Add(1)
+    fmt.Println("Sending \"time\" request to the calendar service")
+    b.SendRequestMessage("calendar-service", model.Request{Request: "time"}, nil)
+    wg.Wait()
+    wg.Add(1)
+    fmt.Println("Sending \"date\" request to the calendar service")
+    b.SendRequestMessage("calendar-service", model.Request{Request: "date"}, nil)
+    wg.Wait()
+    wg.Add(1)
+    fmt.Println("Sending invalid request to the calendar service")
+    b.SendRequestMessage("calendar-service", model.Request{Request: "invalid-request"}, nil)
+    wg.Wait()
+
+    counter := 0
+    wg.Add(10)
+    fmt.Println("Subscribing to the simple-stream channel and waiting for 10 messages...")
+    tickerMh, _ := b.ListenStream(simpleTickerService.channelName)
+    tickerMh.Handle(func(message *model.Message) {
+        resp := message.Payload.(model.Response)
+        if resp.Error {
+            fmt.Println("Received error response from simple-stream:", resp.ErrorMessage)
+        } else {
+            fmt.Println("Received response from simple-stream:", resp.Payload)
+        }
+        wg.Done()
+
+        counter++
+        if counter == 5 {
+            b.SendRequestMessage(simpleTickerService.channelName, model.Request{Request: "offline"}, nil)
+            fmt.Println("Temporary stopping the simple-stream service for 3 seconds...")
+            time.Sleep(3 * time.Second)
+            fmt.Println("Resuming the simple-stream...")
+            b.SendRequestMessage(simpleTickerService.channelName, model.Request{Request: "online"}, nil)
+        }
+
+    }, func(e error) {})
+
+    wg.Wait()
+}
+
+type simpleStreamTickerService struct {
+    online bool
+    channelName string
+}
+
+func (fs *simpleStreamTickerService) HandleServiceRequest(request *model.Request, core service.FabricServiceCore) {
+    switch request.Request {
+    case "online":
+        fs.online = true
+    case "offline":
+        fs.online = false
+    default:
+        core.HandleUnknownRequest(request)
+    }
+}
+
+func (fs *simpleStreamTickerService) Init(core service.FabricServiceCore) error {
+    fs.online = true
+    ticker := time.NewTicker(500 * time.Millisecond)
+    go func() {
+        for {
+            <-ticker.C
+            if fs.online {
+                now := time.Now()
+                id := uuid.New()
+                response := model.Response{
+                    Payload: fmt.Sprintf("ping-%d", now.Nanosecond() + now.Second()),
+                    Id: &id,
+                }
+                core.Bus().SendResponseMessage(fs.channelName, response, nil)
+            }
+        }
+    }()
+    return nil
+}
+
+type calendarService struct {}
+
+func (cs *calendarService) HandleServiceRequest(
+        request *model.Request, core service.FabricServiceCore) {
+
+    switch request.Request {
+    case "time":
+        core.SendResponse(request, time.Now().Format("07:04:05.000 AM (-0700)"))
+    case "date":
+        core.SendResponse(request, time.Now().Format("Mon, 02 Jan 2006"))
+    default:
+        core.HandleUnknownRequest(request)
     }
 }
