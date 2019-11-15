@@ -48,8 +48,12 @@ func (r *serviceRegistry) RegisterService(service FabricService, serviceChannelN
     r.lock.Lock()
     defer r.lock.Unlock()
 
+    if service == nil {
+        return fmt.Errorf("unable to register service: nil service")
+    }
+
     if _, ok := r.services[serviceChannelName]; ok {
-        return fmt.Errorf("unable to register service: service channel name is already used")
+        return fmt.Errorf("unable to register service: service channel name is already used: %s", serviceChannelName)
     }
 
     sw := newServiceWrapper(r.bus, service, serviceChannelName)
@@ -67,7 +71,7 @@ func (r *serviceRegistry) UnregisterService(serviceChannelName string) error {
     defer r.lock.Unlock()
     sw, ok := r.services[serviceChannelName]
     if !ok {
-        return fmt.Errorf("unable to unregister service: no service is registered for this channel")
+        return fmt.Errorf("unable to unregister service: no service is registered for channel \"%s\"", serviceChannelName)
     }
     sw.unregister()
     delete(r.services, serviceChannelName)

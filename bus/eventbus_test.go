@@ -36,9 +36,7 @@ func (mock *MockBrokerConnector) StartTCPServer(address string) error {
 }
 
 func newTestEventBus() EventBus {
-    bf := new(bifrostEventBus)
-    bf.init()
-    return bf
+    return NewEventBusInstance()
 }
 
 func init() {
