@@ -47,6 +47,9 @@ func TestFabricCore_SendMethods(t *testing.T) {
     req := model.Request{
         Id: &id,
         Request: "test-request",
+        BrokerDestination: &model.BrokerDestinationConfig{
+            Destination: "test",
+        },
     }
 
     wg.Add(1)
@@ -60,6 +63,7 @@ func TestFabricCore_SendMethods(t *testing.T) {
     assert.Equal(t, response.Id, req.Id)
     assert.Equal(t, response.Payload, "test-response")
     assert.False(t, response.Error)
+    assert.Equal(t, response.BrokerDestination.Destination, "test")
 
     wg.Add(1)
     core.SendErrorResponse(&req, 404, "test-error")

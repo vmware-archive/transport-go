@@ -33,9 +33,10 @@ func (core *fabricCore) Bus() bus.EventBus {
 
 func (core *fabricCore) SendResponse(request *model.Request, responsePayload interface{}) {
     response := model.Response{
-        Id:          request.Id,
-        Destination: core.channelName,
-        Payload:     responsePayload,
+        Id:                request.Id,
+        Destination:       core.channelName,
+        Payload:           responsePayload,
+        BrokerDestination: request.BrokerDestination,
     }
     core.bus.SendResponseMessage(core.channelName, response, request.Id)
 }
@@ -44,11 +45,12 @@ func (core *fabricCore) SendErrorResponse(
         request *model.Request, responseErrorCode int, responseErrorMessage string) {
 
     response := model.Response{
-        Id:           request.Id,
-        Destination:  core.channelName,
-        Error:        true,
-        ErrorCode:    responseErrorCode,
-        ErrorMessage: responseErrorMessage,
+        Id:                request.Id,
+        Destination:       core.channelName,
+        Error:             true,
+        ErrorCode:         responseErrorCode,
+        ErrorMessage:      responseErrorMessage,
+        BrokerDestination: request.BrokerDestination,
     }
     core.bus.SendResponseMessage(core.channelName, response, request.Id)
 }
