@@ -16,24 +16,31 @@ import (
     "sync"
     "reflect"
     "github.com/urfave/cli"
+    "go-bifrost/stompserver"
 )
 
-var addr = ":62134"
+var addr = "localhost:8090"
 
 func main() {
     app := cli.NewApp()
     app.Name = "Bifrost demo app"
     app.Usage = "Demonstrates different features of the Bifrost bus"
-    app.Commands = []cli.Command{
-        {
+    app.Commands = []*cli.Command{
+        &cli.Command{
             Name: "demo",
-            Usage: "Run Demo - Connect to local service",
+            Usage: "Run Demo - Connect to local service. You first need to start the service with 'service' command.",
+            Flags: []cli.Flag{
+                &cli.BoolFlag{
+                    Name:  "tcp",
+                    Usage: "Use TCP connection ",
+                },
+            },
             Action: func(c *cli.Context) error {
-                runDemoApp()
+                runDemoApp(c)
                 return nil
             },
         },
-        {
+        &cli.Command{
             Name: "cal",
             Usage: "Call Calendar service for the time on appfabric.vmware.com",
             Action: func(c *cli.Context) error {
@@ -41,17 +48,21 @@ func main() {
                 return nil
             },
         },
-        {
+        &cli.Command{
             Name: "service",
             Usage: "Run Service - Run local service",
+            Flags: []cli.Flag{
+                &cli.BoolFlag{
+                    Name:  "tcp",
+                    Usage: "Use TCP connection ",
+                },
+            },
             Action: func(c *cli.Context) error {
-                fmt.Println("Service Starting...")
-                b := bus.GetBus()
-                b.StartTCPService(addr)
+                runLocalFabricBroker(c)
                 return nil
             },
         },
-        {
+        &cli.Command{
             Name: "store",
             Usage: "Open galactic store from appfabric.vmware.com",
             Action: func(c *cli.Context) error {
@@ -262,7 +273,10 @@ func runDemoStore() {
     wg.Wait()
 }
 
-func runDemoApp() {
+func runDemoApp(ctx *cli.Context) {
+
+    // ensure unique message ping message ids
+    rand.Seed(time.Now().UTC().UnixNano())
 
     // get a pointer to the bus.
     b := bus.GetBus()
@@ -278,7 +292,6 @@ func runDemoApp() {
 
     // listen to stream of messages coming in on channel.
     h, err := b.ListenStream(channel)
-
     if err != nil {
         log.Panicf("unable to listen to channel stream, error: %e", err)
     }
@@ -303,11 +316,21 @@ func runDemoApp() {
             log.Panicf("error received on channel %e", err)
         })
 
-    // create a broker connector config, in this case, we will connect to the application fabric demo endpoint.
-    config := &bridge.BrokerConnectorConfig{
-        Username:   "guest",
-        Password:   "guest",
-        ServerAddr: addr }
+    // create a broker connector config, in this case, we will connect to local fabric broker
+    var config *bridge.BrokerConnectorConfig
+    if ctx.Bool("tcp") {
+        config = &bridge.BrokerConnectorConfig{
+            Username:   "guest",
+            Password:   "guest",
+            ServerAddr: addr }
+    } else {
+        config = &bridge.BrokerConnectorConfig{
+            Username:   "guest",
+            Password:   "guest",
+            UseWS: true,
+            WSPath: "/fabric",
+            ServerAddr: addr }
+    }
 
     // connect to broker.
     c, err := b.ConnectBroker(config)
@@ -316,21 +339,20 @@ func runDemoApp() {
     }
     fmt.Println("Connected to local broker!")
 
-    // mark our local channel as galactic and map it to our connection and the /topic/simple service
+    // mark our local channel as galactic and map it to our connection and the /topic/ping-service
     // running locally
-    err = cm.MarkChannelAsGalactic(channel, "/topic/simple", c)
+    err = cm.MarkChannelAsGalactic(channel, "/topic/ping-service", c)
     if err != nil {
         log.Panicf("unable to map local channel to broker destination: %e", err)
     }
 
-    fmt.Printf("\nSending 10 messages to broker, every 500ms\n\n")
+    fmt.Printf("\nSending 5 public messages to broker, every 500ms\n\n")
     time.Sleep(1 * time.Second)
-    for i := 0; i < 10; i++ {
-
+    for i := 0; i < 5; i++ {
         pl := "ping--" + strconv.Itoa(rand.Intn(10000000))
         r := &model.Response{Payload: pl}
         m, _ := json.Marshal(r)
-        c.SendMessage("/topic/simple", m)
+        c.SendMessage("/pub/ping-service", m)
         time.Sleep(500 * time.Millisecond)
     }
 
@@ -344,8 +366,104 @@ func runDemoApp() {
     if err != nil {
         log.Panicf("unable to unsubscribe, error: %e", err)
     }
+
+    privateChannel := "my-private-channel"
+    cm.CreateChannel(privateChannel)
+    // mark the privateChannel channel as galactic and map it to /user/queue/ping-service
+    err = cm.MarkChannelAsGalactic(privateChannel, "/user/queue/ping-service", c)
+    if err != nil {
+        log.Panicf("unable to map local channel to broker destination: %e", err)
+    }
+
+    // listen to stream of messages coming in on channel.
+    ph, err := b.ListenStream(privateChannel)
+    if err != nil {
+        log.Panicf("unable to listen to channel stream, error: %e", err)
+    }
+
+    count = 0
+    // listen for five messages and then exit, send a completed signal on channel.
+    ph.Handle(
+        func(msg *model.Message) {
+            // unmarshal the payload into a Response object (used by fabric services)
+            r := &model.Response{}
+            d := msg.Payload.([]byte)
+            json.Unmarshal(d, &r)
+            fmt.Printf("Stream ticked from local broker on private channel: %s\n", r.Payload.(string))
+            count++
+            if count >=5 {
+                done <- true
+            }
+        },
+        func(err error) {
+            log.Panicf("error received on channel %e", err)
+        })
+
+    fmt.Printf("\nSending 5 private messages to broker, every 500ms\n\n")
+    time.Sleep(1 * time.Second)
+    for i := 0; i < 5; i++ {
+
+        pl := "ping--" + strconv.Itoa(rand.Intn(10000000))
+        r := &model.Response{Payload: pl}
+        m, _ := json.Marshal(r)
+        c.SendMessage("/pub/queue/ping-service", m)
+        time.Sleep(500 * time.Millisecond)
+    }
+
+    // wait for done signal
+    <-done
+
+    // mark channel as local (unsubscribe from all mappings)
+    err = cm.MarkChannelAsLocal(privateChannel)
+    if err != nil {
+        log.Panicf("unable to unsubscribe, error: %e", err)
+    }
+
     err = c.Disconnect()
     if err != nil {
         log.Panicf("unable to disconnect, error: %e", err)
+    }
+}
+
+func runLocalFabricBroker(c *cli.Context) {
+    fmt.Println("Service Starting...")
+
+    b := bus.GetBus()
+    b.GetChannelManager().CreateChannel("ping-service")
+    mh, _ := b.ListenRequestStream("ping-service")
+    mh.Handle(func(message *model.Message) {
+        req := message.Payload.(model.Request)
+        requestMessage := req.Payload.(string)
+        response := model.Response{
+            Payload:     requestMessage + "-pong",
+            Id:          req.Id,
+            Destination: req.Destination,
+            BrokerDestination: req.BrokerDestination,
+        }
+
+        b.SendResponseMessage("ping-service", response, nil)
+    }, func(e error) {
+    })
+
+    var err error
+    var connectionListener stompserver.RawConnectionListener
+    if c.Bool("tcp") {
+        connectionListener, err = stompserver.NewTcpConnectionListener(addr)
+    } else {
+        connectionListener, err = stompserver.NewWebSocketConnectionListener(addr, "/fabric", nil)
+    }
+
+    if err == nil {
+        err = b.StartFabricEndpoint(connectionListener, bus.EndpointConfig{
+            TopicPrefix:      "/topic",
+            AppRequestPrefix: "/pub",
+            UserQueuePrefix: "/user/queue",
+            AppRequestQueuePrefix: "/pub/queue",
+            Heartbeat:        60000, // 6 seconds
+        })
+    }
+
+    if err != nil {
+        fmt.Println("Failed to start local fabric broker", err)
     }
 }

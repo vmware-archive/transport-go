@@ -9,6 +9,7 @@ import (
     "errors"
     "fmt"
     "github.com/google/uuid"
+    "sync"
 )
 
 // ChannelManager interfaces controls all access to channels vis the bus.
@@ -37,23 +38,39 @@ type busChannelManager struct {
     Channels        map[string]*Channel
     bus             *bifrostEventBus
     monitor         *util.MonitorStream
+    lock sync.RWMutex
 }
 
 // Create a new Channel with the supplied Channel name. Returns pointer to new Channel object
 func (manager *busChannelManager) CreateChannel(channelName string) *Channel {
+    manager.lock.Lock()
+    defer manager.lock.Unlock()
+
     manager.monitor.SendMonitorEvent(util.ChannelCreatedEvt, channelName)
+
+    channel, ok := manager.Channels[channelName]
+    if ok {
+        return channel
+    }
+
     manager.Channels[channelName] = NewChannel(channelName)
     return manager.Channels[channelName]
 }
 
 // Destroy a Channel and all the handlers listening on it.
 func (manager *busChannelManager) DestroyChannel(channelName string) {
+    manager.lock.Lock()
+    defer manager.lock.Unlock()
+
     manager.monitor.SendMonitorEvent(util.ChannelDestroyedEvt, channelName)
     delete(manager.Channels, channelName)
 }
 
 // Get a pointer to a Channel by name. Returns points, or error if no Channel is found.
 func (manager *busChannelManager) GetChannel(channelName string) (*Channel, error) {
+    manager.lock.RLock()
+    defer manager.lock.RUnlock()
+
     if channel, ok := manager.Channels[channelName]; ok {
         return channel, nil
     } else {
@@ -68,6 +85,9 @@ func (manager *busChannelManager) GetAllChannels() map[string]*Channel {
 
 // Check Channel exists, returns true if so.
 func (manager *busChannelManager) CheckChannelExists(channelName string) bool {
+    manager.lock.RLock()
+    defer manager.lock.RUnlock()
+
     return manager.Channels[channelName] != nil
 }
 

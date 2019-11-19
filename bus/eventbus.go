@@ -10,6 +10,7 @@ import (
     "github.com/google/uuid"
     "sync"
     "sync/atomic"
+    "go-bifrost/stompserver"
 )
 
 // EventBus provides access to ChannelManager, simple message sending and simple API calls for handling
@@ -34,7 +35,8 @@ type EventBus interface {
     RequestStream(channelName string, payload interface{}) (MessageHandler, error)
     RequestStreamForDestination(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error)
     ConnectBroker(config *bridge.BrokerConnectorConfig) (conn bridge.Connection, err error)
-    StartTCPService(address string) error
+    StartFabricEndpoint(connectionListener stompserver.RawConnectionListener, config EndpointConfig) error
+    StopFabricEndpoint() error
     GetStoreManager() StoreManager
     CreateSyncTransaction() BusTransaction
     CreateAsyncTransaction() BusTransaction
@@ -60,6 +62,7 @@ type bifrostEventBus struct {
     monitor           *util.MonitorStream
     brokerConnections map[*uuid.UUID]bridge.Connection
     bc                bridge.BrokerConnector
+    fabEndpoint       FabricEndpoint
 }
 
 func (bus *bifrostEventBus) GetId() *uuid.UUID {
@@ -336,9 +339,30 @@ func (bus *bifrostEventBus) ConnectBroker(config *bridge.BrokerConnectorConfig) 
     return
 }
 
-// Start a new STOMP TCP service operating on the supplied port
-func (bus *bifrostEventBus) StartTCPService(address string) error {
-    return bus.bc.StartTCPServer(address)
+// Start a new Fabric Endpoint
+func (bus *bifrostEventBus) StartFabricEndpoint(
+        connectionListener stompserver.RawConnectionListener, config EndpointConfig) error {
+
+    if bus.fabEndpoint != nil {
+        return fmt.Errorf("unable to start: fabric endpoint is already running")
+    }
+    if configErr := config.validate(); configErr != nil {
+        return configErr
+    }
+
+    bus.fabEndpoint = newFabricEndpoint(bus, connectionListener, config)
+    bus.fabEndpoint.Start()
+    return nil
+}
+
+func (bus *bifrostEventBus) StopFabricEndpoint() error {
+    fe := bus.fabEndpoint
+    if fe == nil {
+        return fmt.Errorf("unable to stop: fabric endpoint is not running")
+    }
+    bus.fabEndpoint = nil
+    fe.Stop()
+    return nil
 }
 
 func (bus *bifrostEventBus) CreateAsyncTransaction() BusTransaction {
