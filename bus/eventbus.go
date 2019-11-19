@@ -48,11 +48,15 @@ var busInstance EventBus
 // Get a reference to the EventBus.
 func GetBus() EventBus {
     once.Do(func() {
-        bf := new(bifrostEventBus)
-        bf.init()
-        busInstance = bf
+        busInstance = NewEventBusInstance()
     })
     return busInstance
+}
+
+func NewEventBusInstance() EventBus {
+    bf := new(bifrostEventBus)
+    bf.init()
+    return bf
 }
 
 type bifrostEventBus struct {
