@@ -557,7 +557,7 @@ func (cs *calendarService) HandleServiceRequest(
 
     switch request.Request {
     case "time":
-        core.SendResponse(request, time.Now().Format("07:04:05.000 AM (-0700)"))
+        core.SendResponse(request, time.Now().Format("03:04:05.000 AM (-0700)"))
     case "date":
         core.SendResponse(request, time.Now().Format("Mon, 02 Jan 2006"))
     case "rest-time":
