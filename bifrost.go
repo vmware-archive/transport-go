@@ -75,8 +75,14 @@ func main() {
         {
             Name: "fabric-services",
             Usage: "Starts a couple of demo fabric services locally",
+            Flags: []cli.Flag{
+                &cli.BoolFlag{
+                    Name:  "localhost",
+                    Usage: "Use localhost Bifrost broker",
+                },
+            },
             Action: func(c *cli.Context) error {
-                runDemoFabricServices()
+                runDemoFabricServices(c)
                 return nil
             },
         },
@@ -435,7 +441,7 @@ func runDemoApp(ctx *cli.Context) {
     }
 }
 
-func runDemoFabricServices() {
+func runDemoFabricServices(c *cli.Context) {
     b := bus.GetBus()
 
     fmt.Println("Registering calendar and simple-stream services.")
@@ -443,6 +449,9 @@ func runDemoFabricServices() {
     service.GetServiceRegistry().RegisterService(simpleTickerService, simpleTickerService.channelName)
     service.GetServiceRegistry().RegisterService(&calendarService{}, "calendar-service")
 
+    if c.Bool("localhost") {
+        service.GetServiceRegistry().SetGlobalRestServiceBaseHost("localhost:8090")
+    }
 
     wg := sync.WaitGroup{}
     mh,_ := b.ListenStream("calendar-service")
@@ -455,6 +464,15 @@ func runDemoFabricServices() {
         }
         wg.Done()
     }, func(e error) {})
+
+    wg.Add(1)
+    if c.Bool("localhost") {
+        fmt.Println("Sending REST request to the http://localhost:8090/rest/samples/calendar/time")
+    } else {
+        fmt.Println("Sending REST request to the http://appfabric.vmware.com/rest/samples/calendar/time")
+    }
+    b.SendRequestMessage("calendar-service", model.Request{Request: "rest-time"}, nil)
+    wg.Wait()
 
     wg.Add(1)
     fmt.Println("Sending \"time\" request to the calendar service")
@@ -542,6 +560,19 @@ func (cs *calendarService) HandleServiceRequest(
         core.SendResponse(request, time.Now().Format("07:04:05.000 AM (-0700)"))
     case "date":
         core.SendResponse(request, time.Now().Format("Mon, 02 Jan 2006"))
+    case "rest-time":
+        core.RestServiceRequest(&service.RestServiceRequest{
+            Url: "http://appfabric.vmware.com/rest/samples/calendar/time",
+            HttpMethod: "POST",
+            Body: model.Request{
+                Request: "time",
+            },
+            ResponseType: reflect.TypeOf(model.Response{}),
+        }, func(response *model.Response) {
+            core.SendResponse(request, response.Payload.(model.Response).Payload)
+        }, func(response *model.Response) {
+            core.SendErrorResponse(request, response.ErrorCode, response.ErrorMessage)
+        })
     default:
         core.HandleUnknownRequest(request)
     }

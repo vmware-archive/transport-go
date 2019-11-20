@@ -6,15 +6,15 @@ import (
     "testing"
     "github.com/stretchr/testify/assert"
     "go-bifrost/model"
-    bus2 "go-bifrost/bus"
+    "go-bifrost/bus"
     "sync"
     "github.com/google/uuid"
     "errors"
 )
 
 func newTestServiceRegistry() *serviceRegistry {
-    bus := bus2.NewEventBusInstance()
-    return NewServiceRegistry(bus).(*serviceRegistry)
+    eventBus := bus.NewEventBusInstance()
+    return NewServiceRegistry(eventBus).(*serviceRegistry)
 }
 
 type mockFabricService struct {
@@ -128,4 +128,12 @@ func TestServiceRegistry_UnregisterService(t *testing.T) {
     assert.Equal(t, len(mockService.processedRequests), 0)
     assert.EqualError(t, registry.UnregisterService("test-channel"),
         "unable to unregister service: no service is registered for channel \"test-channel\"")
+}
+
+func TestServiceRegistry_SetGlobalRestServiceBaseHost(t *testing.T) {
+    registry := newTestServiceRegistry()
+    rs := &restService{}
+    registry.RegisterService(rs, restServiceChannel)
+    registry.SetGlobalRestServiceBaseHost("localhost:9999")
+    assert.Equal(t, rs.baseHost, "localhost:9999")
 }
