@@ -32,12 +32,6 @@ type serviceRegistry struct {
 var once sync.Once
 var registry ServiceRegistry
 
-func init() {
-    // auto-register the RestService in the global registry as part
-    // of the package initialization
-    GetServiceRegistry().RegisterService(&restService{}, restServiceChannel)
-}
-
 func GetServiceRegistry() ServiceRegistry {
     once.Do(func() {
         registry = NewServiceRegistry(bus.GetBus())
@@ -46,10 +40,13 @@ func GetServiceRegistry() ServiceRegistry {
 }
 
 func NewServiceRegistry(bus bus.EventBus) ServiceRegistry {
-    return &serviceRegistry{
+    registry := &serviceRegistry{
         bus: bus,
         services: make(map[string]*fabricServiceWrapper),
     }
+    // auto-register the restService
+    registry.RegisterService(&restService{}, restServiceChannel)
+    return registry
 }
 
 func (r *serviceRegistry) SetGlobalRestServiceBaseHost(host string) {

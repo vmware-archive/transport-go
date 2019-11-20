@@ -132,8 +132,7 @@ func TestServiceRegistry_UnregisterService(t *testing.T) {
 
 func TestServiceRegistry_SetGlobalRestServiceBaseHost(t *testing.T) {
     registry := newTestServiceRegistry()
-    rs := &restService{}
-    registry.RegisterService(rs, restServiceChannel)
     registry.SetGlobalRestServiceBaseHost("localhost:9999")
-    assert.Equal(t, rs.baseHost, "localhost:9999")
+    assert.Equal(t, "localhost:9999",
+            registry.services[restServiceChannel].service.(*restService).baseHost)
 }
