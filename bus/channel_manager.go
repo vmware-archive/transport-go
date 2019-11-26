@@ -5,7 +5,6 @@ package bus
 import (
     "go-bifrost/bridge"
     "go-bifrost/model"
-    "go-bifrost/util"
     "errors"
     "fmt"
     "github.com/google/uuid"
@@ -30,14 +29,12 @@ func NewBusChannelManager(bus EventBus) ChannelManager {
     manager := new(busChannelManager)
     manager.Channels = make(map[string]*Channel)
     manager.bus = bus.(*bifrostEventBus)
-    manager.monitor = util.GetMonitor()
     return manager
 }
 
 type busChannelManager struct {
     Channels        map[string]*Channel
     bus             *bifrostEventBus
-    monitor         *util.MonitorStream
     lock sync.RWMutex
 }
 
@@ -46,14 +43,13 @@ func (manager *busChannelManager) CreateChannel(channelName string) *Channel {
     manager.lock.Lock()
     defer manager.lock.Unlock()
 
-    manager.monitor.SendMonitorEvent(util.ChannelCreatedEvt, channelName)
-
     channel, ok := manager.Channels[channelName]
     if ok {
         return channel
     }
 
     manager.Channels[channelName] = NewChannel(channelName)
+    go manager.bus.SendMonitorEvent(ChannelCreatedEvt, channelName, nil)
     return manager.Channels[channelName]
 }
 
@@ -62,8 +58,8 @@ func (manager *busChannelManager) DestroyChannel(channelName string) {
     manager.lock.Lock()
     defer manager.lock.Unlock()
 
-    manager.monitor.SendMonitorEvent(util.ChannelDestroyedEvt, channelName)
     delete(manager.Channels, channelName)
+    go manager.bus.SendMonitorEvent(ChannelDestroyedEvt, channelName, nil)
 }
 
 // Get a pointer to a Channel by name. Returns points, or error if no Channel is found.
@@ -100,7 +96,7 @@ func (manager *busChannelManager) SubscribeChannelHandler(channelName string, fn
     }
     id := uuid.New()
     channel.subscribeHandler(&channelEventHandler{callBackFunction: fn, runOnce: runOnce, uuid: &id})
-    manager.monitor.SendMonitorEvent(util.ChannelSubscriberJoinedEvt, channelName)
+    manager.bus.SendMonitorEvent(ChannelSubscriberJoinedEvt, channelName, nil)
     return &id, nil
 }
 
@@ -114,7 +110,7 @@ func (manager *busChannelManager) UnsubscribeChannelHandler(channelName string, 
     if !found {
         return fmt.Errorf("no handler in Channel '%s' for uuid [%s]", channelName, uuid)
     }
-    manager.monitor.SendMonitorEvent(util.ChannelSubscriberLeftEvt, channelName)
+    manager.bus.SendMonitorEvent(ChannelSubscriberLeftEvt, channelName, nil)
     return nil
 }
 
@@ -179,7 +175,7 @@ func (manager *busChannelManager) handleGalacticChannelEvent(channelName string,
 
             m := model.GenerateResponse(&model.MessageConfig{Payload: ge.dest}) // set the mapped destination as the payload
             ch.addBrokerSubscription(ge.conn, sub)
-            manager.monitor.SendMonitorEventData(util.BrokerSubscribedEvt, channelName, m)
+            manager.bus.SendMonitorEvent(BrokerSubscribedEvt, channelName, m)
             select {
             case ch.brokerMappedEvent <- true: // let channel watcher know, the channel is mapped
             default: // if no-one is listening, drop.
@@ -195,7 +191,7 @@ func (manager *busChannelManager) handleLocalChannelEvent(channelName string) {
         if e := s.s.Unsubscribe(); e == nil {
             ch.removeBrokerSubscription(s.s)
             m := model.GenerateResponse(&model.MessageConfig{Payload: s.s.GetDestination()}) // set the unmapped destination as the payload
-            manager.monitor.SendMonitorEventData(util.BrokerUnsubscribedEvt, channelName, m)
+            manager.bus.SendMonitorEvent(BrokerUnsubscribedEvt, channelName, m)
             select {
             case ch.brokerMappedEvent <- false: // let channel watcher know, the channel is un-mapped
             default: // if no-one is listening, drop.

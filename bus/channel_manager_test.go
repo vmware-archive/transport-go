@@ -4,15 +4,15 @@ package bus
 
 import (
     "go-bifrost/model"
-    "go-bifrost/util"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
     "testing"
     "time"
+    "sync"
 )
 
 var testChannelManager ChannelManager
-var testChannelManagerChannelName string = "melody"
+var testChannelManagerChannelName = "melody"
 
 func createManager() (ChannelManager, EventBus) {
     b := newTestEventBus()
@@ -26,9 +26,23 @@ func TestChannelManager_Boot(t *testing.T) {
 }
 
 func TestChannelManager_CreateChannel(t *testing.T) {
-    testChannelManager, _ = createManager()
+    var bus EventBus
+    testChannelManager, bus = createManager()
+
+    wg := sync.WaitGroup{}
+    wg.Add(1)
+    bus.AddMonitorEventListener(
+        func(monitorEvt *MonitorEvent) {
+            if monitorEvt.EntityName == testChannelManagerChannelName {
+                assert.Equal(t, monitorEvt.EventType, ChannelCreatedEvt)
+                wg.Done()
+            }
+        })
 
     testChannelManager.CreateChannel(testChannelManagerChannelName)
+
+    wg.Wait()
+
     assert.Len(t, testChannelManager.GetAllChannels(), 1)
 
     fetchedChannel, _ := testChannelManager.GetChannel(testChannelManagerChannelName)
@@ -155,18 +169,15 @@ func TestChannelManager_TestGalacticChannelOpenError(t *testing.T) {
     // channel is not open / does not exist, so this should fail.
     e := testChannelManager.MarkChannelAsGalactic(evtbusTestChannelName, "/topic/testy-test", nil)
     assert.Error(t, e)
-    util.ResetMonitor()
 }
 
 func TestChannelManager_TestGalacticChannelCloseError(t *testing.T) {
     // channel is not open / does not exist, so this should fail.
     e := testChannelManager.MarkChannelAsLocal(evtbusTestChannelName)
     assert.Error(t, e)
-    util.ResetMonitor()
 }
 
 func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
-    util.ResetMonitor()
     myChan := "mychan"
 
     b := newTestEventBus()
@@ -256,7 +267,6 @@ func TestChannelManager_TestListenToMonitorGalactic(t *testing.T) {
 // then it will unsubscribe and check that the unsubscription went through ok.
 func TestChannelManager_TestListenToMonitorLocal(t *testing.T) {
 
-    util.ResetMonitor()
     myChan := "mychan-local"
 
     b := newTestEventBus()

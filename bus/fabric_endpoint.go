@@ -49,8 +49,9 @@ type FabricEndpoint interface {
 }
 
 type channelMapping struct {
-    subs map[string]bool
-    handler MessageHandler
+    subs        map[string]bool
+    handler     MessageHandler
+    autoCreated bool
 }
 
 type fabricEndpoint struct {
@@ -118,9 +119,15 @@ func (fe *fabricEndpoint) addSubscription(
     chanMap, ok := fe.chanMappings[channelName]
     if !ok {
         messageHandler, err := fe.bus.ListenStream(channelName)
+        var autoCreated = false
         if messageHandler == nil || err != nil {
-            log.Warn("Trying to subscribe to non-existing channel %s", destination)
-            return
+            fe.bus.GetChannelManager().CreateChannel(channelName)
+            messageHandler, err = fe.bus.ListenStream(channelName)
+            if messageHandler == nil || err != nil {
+                log.Warn("Unable to auto-create channel for destination: %s", destination)
+                return
+            }
+            autoCreated = true
         }
         messageHandler.Handle(
             func(message *model.Message) {
@@ -144,11 +151,13 @@ func (fe *fabricEndpoint) addSubscription(
         chanMap = &channelMapping{
             subs:    make(map[string]bool),
             handler: messageHandler,
+            autoCreated: autoCreated,
         }
 
         fe.chanMappings[channelName] = chanMap
     }
     chanMap.subs[conId + "#" + subId] = true
+    fe.bus.SendMonitorEvent(FabricEndpointSubscribeEvt, channelName, nil)
 }
 
 func convertPayloadToResponseObj(message *model.Message) (*model.Response, bool) {
@@ -203,13 +212,16 @@ func (fe *fabricEndpoint) removeSubscription(conId string, subId string, destina
                 // close the message handler and remove the channel mapping
                 chanMap.handler.Close()
                 delete(fe.chanMappings, channelName)
+                if chanMap.autoCreated {
+                    fe.bus.GetChannelManager().DestroyChannel(channelName)
+                }
             }
+            fe.bus.SendMonitorEvent(FabricEndpointUnsubscribeEvt, channelName, nil)
         }
     }
 }
 
 func (fe *fabricEndpoint) bridgeMessage(destination string, message []byte, connectionId string) {
-
     var channelName string
     isPrivateRequest := false
 
@@ -236,7 +248,7 @@ func (fe *fabricEndpoint) bridgeMessage(destination string, message []byte, conn
         }
     }
 
-    fe.bus.SendRequestMessage(channelName, req, nil)
+    fe.bus.SendRequestMessage(channelName, &req, nil)
 }
 
 func (fe *fabricEndpoint) getChannelNameFromSubscription(destination string) (channelName string, ok bool) {

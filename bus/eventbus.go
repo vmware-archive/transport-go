@@ -5,7 +5,6 @@ package bus
 import (
     "go-bifrost/bridge"
     "go-bifrost/model"
-    "go-bifrost/util"
     "fmt"
     "github.com/google/uuid"
     "sync"
@@ -40,6 +39,9 @@ type EventBus interface {
     GetStoreManager() StoreManager
     CreateSyncTransaction() BusTransaction
     CreateAsyncTransaction() BusTransaction
+    AddMonitorEventListener(listener MonitorEventHandler, eventTypes... MonitorEventType) MonitorEventListenerId
+    RemoveMonitorEventListener(listenerId MonitorEventListenerId)
+    SendMonitorEvent(evtType MonitorEventType, entityName string, data interface{})
 }
 
 var once sync.Once
@@ -63,10 +65,72 @@ type bifrostEventBus struct {
     ChannelManager    ChannelManager
     storeManager      StoreManager
     Id                uuid.UUID
-    monitor           *util.MonitorStream
     brokerConnections map[*uuid.UUID]bridge.Connection
     bc                bridge.BrokerConnector
     fabEndpoint       FabricEndpoint
+    initStoreSync     sync.Once
+    storeSyncService  *storeSyncService
+    monitor           *bifrostMonitor
+}
+
+type MonitorEventListenerId int
+
+type bifrostMonitor struct {
+    lock                  sync.RWMutex
+    listenersByType       map[MonitorEventType] map[MonitorEventListenerId]MonitorEventHandler
+    listenersForAllEvents map[MonitorEventListenerId]MonitorEventHandler
+    subId                 MonitorEventListenerId
+}
+
+func newMonitor() *bifrostMonitor {
+    return &bifrostMonitor{
+        listenersByType: make(map[MonitorEventType] map[MonitorEventListenerId]MonitorEventHandler),
+        listenersForAllEvents: make(map[MonitorEventListenerId]MonitorEventHandler),
+    }
+}
+
+func (m *bifrostMonitor) addListener(listener MonitorEventHandler, eventTypes []MonitorEventType) MonitorEventListenerId {
+    m.lock.Lock()
+    defer m.lock.Unlock()
+
+    m.subId++
+    if len(eventTypes) == 0  {
+        m.listenersForAllEvents[m.subId] = listener
+    } else {
+        for _, eventType := range eventTypes {
+            listeners, ok := m.listenersByType[eventType]
+            if !ok {
+                listeners = make(map[MonitorEventListenerId]MonitorEventHandler)
+                m.listenersByType[eventType] = listeners
+            }
+            listeners[m.subId] = listener
+        }
+    }
+
+    return m.subId
+}
+
+func (m *bifrostMonitor) removeListener(listenerId MonitorEventListenerId) {
+    m.lock.Lock()
+    defer m.lock.Unlock()
+
+    delete(m.listenersForAllEvents, listenerId)
+    for _, listeners := range m.listenersByType {
+        delete(listeners, listenerId)
+    }
+}
+
+func (m *bifrostMonitor) sendEvent(event *MonitorEvent) {
+    m.lock.RLock()
+    defer m.lock.RUnlock()
+
+    for _, l := range m.listenersForAllEvents {
+        l(event)
+    }
+
+    for _, l := range m.listenersByType[event.EventType] {
+        l(event)
+    }
 }
 
 func (bus *bifrostEventBus) GetId() *uuid.UUID {
@@ -77,9 +141,9 @@ func (bus *bifrostEventBus) init() {
     bus.Id = uuid.New()
     bus.storeManager = newStoreManager(bus)
     bus.ChannelManager = NewBusChannelManager(bus)
-    bus.monitor = util.GetMonitor()
     bus.brokerConnections = make(map[*uuid.UUID]bridge.Connection)
     bus.bc = bridge.NewBrokerConnector()
+    bus.monitor = newMonitor()
     fmt.Printf("🌈 Bifröst booted with Id [%s]\n", bus.Id.String())
 }
 
@@ -144,6 +208,20 @@ func (bus *bifrostEventBus) ListenStream(channelName string) (MessageHandler, er
     }
     messageHandler := bus.wrapMessageHandler(channel, model.ResponseDir, true, false, nil, false)
     return messageHandler, nil
+}
+
+// Adds new monitor event listener for the a given set of event types.
+// If eventTypes param is not provided, the listener will be called for all events.
+// Returns the id of the newly added event listener.
+func (bus *bifrostEventBus) AddMonitorEventListener(
+        listener MonitorEventHandler, eventTypes... MonitorEventType) MonitorEventListenerId {
+
+    return bus.monitor.addListener(listener, eventTypes)
+}
+
+// Removes a given event listener
+func (bus *bifrostEventBus) RemoveMonitorEventListener(listenerId  MonitorEventListenerId) {
+    bus.monitor.removeListener(listenerId)
 }
 
 // Listen to stream of ResponseDir (inbound) messages on Channel for a specific DestinationId.
@@ -354,6 +432,12 @@ func (bus *bifrostEventBus) StartFabricEndpoint(
         return configErr
     }
 
+    // start the store sync service the first time a fabric endpoint
+    // is started.
+    bus.initStoreSync.Do(func() {
+        bus.storeSyncService = newStoreSyncService(bus)
+    })
+
     bus.fabEndpoint = newFabricEndpoint(bus, connectionListener, config)
     bus.fabEndpoint.Start()
     return nil
@@ -375,6 +459,12 @@ func (bus *bifrostEventBus) CreateAsyncTransaction() BusTransaction {
 
 func (bus *bifrostEventBus) CreateSyncTransaction() BusTransaction {
     return newBusTransaction(bus, syncTransaction)
+}
+
+func (bus *bifrostEventBus) SendMonitorEvent(
+        evtType MonitorEventType, entityName string, payload interface{})  {
+
+    bus.monitor.sendEvent(NewMonitorEvent(evtType, entityName, payload))
 }
 
 func (bus *bifrostEventBus) wrapMessageHandler(
@@ -460,11 +550,6 @@ func checkForSuppliedId(id *uuid.UUID) *uuid.UUID {
 }
 
 func sendMessageToChannel(channelObject *Channel, message *model.Message) {
-    if message.Error != nil {
-        defer util.GetMonitor().SendMonitorEventData(util.ChannelErrorEvt, channelObject.Name, message)
-    } else {
-        defer util.GetMonitor().SendMonitorEventData(util.ChannelMessageEvt, channelObject.Name, message)
-    }
     channelObject.Send(message)
 }
 
@@ -497,4 +582,3 @@ func createMessageHandler(channel *Channel, destinationId *uuid.UUID, channelMgr
     messageHandler.channelManager = channelMgr
     return messageHandler
 }
-
