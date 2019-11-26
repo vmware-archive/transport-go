@@ -6,7 +6,7 @@ type StoreContentResponse struct {
     Items        map[string]interface{} `json:"items"`
     ResponseType string                 `json:"responseType"` // should be "storeContentResponse"
     StoreId      string                 `json:"storeId"`
-    StoreVersion int64                    `json:"storeVersion"`
+    StoreVersion int64                  `json:"storeVersion"`
 }
 
 func NewStoreContentResponse(
@@ -25,7 +25,7 @@ type UpdateStoreResponse struct {
     NewItemValue interface{} `json:"newItemValue"`
     ResponseType string      `json:"responseType"` // should be "updateStoreResponse"
     StoreId      string      `json:"storeId"`
-    StoreVersion int64         `json:"storeVersion"`
+    StoreVersion int64       `json:"storeVersion"`
 }
 
 func NewUpdateStoreResponse(
