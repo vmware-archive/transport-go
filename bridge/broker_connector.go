@@ -2,7 +2,6 @@
 package bridge
 
 import (
-    "go-bifrost/util"
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/google/uuid"
@@ -19,7 +18,6 @@ type brokerConnector struct {
     c         Connection
     config    *BrokerConnectorConfig
     connected bool
-    //bus           bus.EventBus
 }
 
 // Create a new broker connector
@@ -71,7 +69,6 @@ func (bc *brokerConnector) connectTCP(config *BrokerConnectorConfig, err error) 
     if err != nil {
         return nil, err
     }
-    defer util.GetMonitor().SendMonitorEvent(util.BrokerConnectedEvtTcp, "no-channel")
     id := uuid.New()
     bcConn := &connection{
         id:             &id,
@@ -94,7 +91,6 @@ func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (Connection,
     if err != nil {
         return nil, fmt.Errorf("cannot connect to host '%s' via path '%s', stopping", config.ServerAddr, config.WSPath)
     }
-    defer util.GetMonitor().SendMonitorEvent(util.BrokerConnectedEvtWs, "no-channel")
     id := uuid.New()
     bcConn := &connection{
         id:             &id,

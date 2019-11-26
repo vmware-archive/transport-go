@@ -4,7 +4,6 @@ package bus
 import (
     "go-bifrost/bridge"
     "go-bifrost/model"
-    "go-bifrost/util"
     "errors"
     "fmt"
     "github.com/google/uuid"
@@ -63,7 +62,6 @@ func inc(counter *int32) {
 
 func destroyTestChannel() {
     evtbusTestManager.DestroyChannel(evtbusTestChannelName)
-    util.ResetMonitor()
 }
 
 func TestEventBus_Boot(t *testing.T) {
@@ -678,4 +676,61 @@ func TestBifrostEventBus_StartFabricEndpoint(t *testing.T) {
     assert.True(t, connListener.stopped)
 
     assert.EqualError(t, bus.StopFabricEndpoint(), "unable to stop: fabric endpoint is not running")
+}
+
+func TestBifrostEventBus_AddMonitorEventListener(t *testing.T) {
+
+    bus := newTestEventBus()
+
+    listener1Count := 0
+    listener1 := bus.AddMonitorEventListener(func(event *MonitorEvent) {
+        listener1Count++
+    }, ChannelCreatedEvt)
+
+    listener2Count := 0
+    listener2 := bus.AddMonitorEventListener(func(event *MonitorEvent) {
+        listener2Count++
+    }, ChannelCreatedEvt, ChannelDestroyedEvt)
+
+    listener3Count := 0
+    listener3 := bus.AddMonitorEventListener(func(event *MonitorEvent) {
+        listener3Count++
+    })
+
+    assert.NotEqual(t, listener1, listener2)
+    assert.NotEqual(t, listener1, listener3)
+    assert.NotEqual(t, listener2, listener3)
+
+    bus.SendMonitorEvent(ChannelCreatedEvt, "test-channel", nil)
+    assert.Equal(t, listener1Count, 1)
+    assert.Equal(t, listener2Count, 1)
+    assert.Equal(t, listener3Count, 1)
+
+    bus.SendMonitorEvent(ChannelDestroyedEvt, "test-channel", nil)
+    assert.Equal(t, listener1Count, 1)
+    assert.Equal(t, listener2Count, 2)
+    assert.Equal(t, listener3Count, 2)
+
+    bus.SendMonitorEvent(StoreInitializedEvt, "store1", nil)
+    assert.Equal(t, listener1Count, 1)
+    assert.Equal(t, listener2Count, 2)
+    assert.Equal(t, listener3Count, 3)
+
+    bus.RemoveMonitorEventListener(listener2)
+
+    bus.SendMonitorEvent(ChannelCreatedEvt, "test-channel", nil)
+    assert.Equal(t, listener1Count, 2)
+    assert.Equal(t, listener2Count, 2)
+    assert.Equal(t, listener3Count, 4)
+
+    bus.SendMonitorEvent(ChannelDestroyedEvt, "test-channel", nil)
+    assert.Equal(t, listener1Count, 2)
+    assert.Equal(t, listener2Count, 2)
+    assert.Equal(t, listener3Count, 5)
+
+    bus.RemoveMonitorEventListener(listener3)
+    bus.SendMonitorEvent(ChannelCreatedEvt, "test-channel", nil)
+    assert.Equal(t, listener1Count, 3)
+    assert.Equal(t, listener2Count, 2)
+    assert.Equal(t, listener3Count, 5)
 }

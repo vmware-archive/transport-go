@@ -68,8 +68,14 @@ func main() {
             Name: "store",
             Usage: "Open galactic store from appfabric.vmware.com",
             Action: func(c *cli.Context) error {
-                runDemoStore()
+                runDemoStore(c)
                 return nil
+            },
+            Flags: []cli.Flag{
+                &cli.BoolFlag{
+                    Name:  "localhost",
+                    Usage: "Connect to localhost:8090 instead of appfabric.vmware.com",
+                },
             },
         },
         {
@@ -187,9 +193,14 @@ func (mi SampleMessageItem) print() {
     fmt.Println("Message:", mi.Message)
 }
 
-func runDemoStore() {
+func runDemoStore(ctx *cli.Context) {
     // get a pointer to the bus.
     b := bus.GetBus()
+
+    var addr = "appfabric.vmware.com"
+    if ctx.Bool("localhost") {
+        addr = "localhost:8090"
+    }
 
     // create a broker connector config, in this case, we will connect to the application fabric demo endpoint.
     config := &bridge.BrokerConnectorConfig{
@@ -197,7 +208,7 @@ func runDemoStore() {
         Password:   "guest",
         UseWS: true,
         WSPath: "/fabric",
-        ServerAddr: "appfabric.vmware.com" }
+        ServerAddr: addr }
 
     // connect to broker.
     c, err := b.ConnectBroker(config)
@@ -591,6 +602,15 @@ func runLocalFabricBroker(c *cli.Context) {
     fmt.Println("Service Starting...")
 
     service.GetServiceRegistry().RegisterService(&pingService{}, "ping-service")
+
+    store := bus.GetBus().GetStoreManager().CreateStoreWithType(
+            "messageOfTheDayStore", reflect.TypeOf(&SampleMessageItem{}))
+    store.Populate(map[string]interface{} {
+        "messageOfTheDay": &SampleMessageItem{
+            From:    "golang message broker",
+            Message: "default message",
+        },
+    })
 
     var err error
     var connectionListener stompserver.RawConnectionListener

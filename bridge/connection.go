@@ -4,7 +4,6 @@ package bridge
 
 import (
     "go-bifrost/model"
-    "go-bifrost/util"
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/google/uuid"
@@ -63,13 +62,11 @@ func (c *connection) Disconnect() (err error) {
     }
     if c.useWs {
         if c.wsConn != nil && c.wsConn.connected {
-            defer util.GetMonitor().SendMonitorEvent(util.BrokerDisconnectedWs, "no-channel")
             defer c.cleanUpConnection()
             err = c.wsConn.Disconnect()
         }
     } else {
         if c.conn != nil {
-            defer util.GetMonitor().SendMonitorEvent(util.BrokerDisconnectedTcp, "no-channel")
             defer c.cleanUpConnection()
             err = c.conn.Disconnect()
         }

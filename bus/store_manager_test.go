@@ -183,6 +183,11 @@ func TestStoreManager_OpenGalacticStoreWithType(t *testing.T) {
 
     store,_ := m.OpenGalacticStoreWithItemType("galacticStore", con, reflect.TypeOf(MockStoreItem{}))
 
+    store2 ,err := m.OpenGalacticStoreWithItemType("galacticStore", con, reflect.TypeOf(MockStoreItem{}))
+
+    assert.Equal(t, store, store2)
+    assert.Nil(t, err)
+
     assert.True(t, store.IsGalactic())
 
     wg := sync.WaitGroup{}
@@ -212,4 +217,26 @@ func TestStoreManager_OpenGalacticStoreWithType(t *testing.T) {
 
     storeManagerImpl.eventBus.SendResponseMessage(conf.syncChannelName, jsonBlob, nil)
     wg.Wait()
+}
+
+func TestStoreManager_OpenGalacticStoreWithLocalStoreId(t *testing.T) {
+
+    m := createTestStoreManager()
+    id := uuid.New()
+    con := &MockBridgeConnection{Id: &id}
+    subId := uuid.New()
+    sub := &MockBridgeSubscription{
+        Id: &subId,
+    }
+    con.On("Subscribe", mock.Anything).Return(sub, nil)
+    con.On("SendMessage", mock.Anything, mock.Anything).Return(nil)
+    m.ConfigureStoreSyncChannel(con, "/topic-prefix", "/pub-prefix")
+
+
+    localStore := m.CreateStore("localStore")
+
+    store, err := m.OpenGalacticStoreWithItemType("localStore", con, reflect.TypeOf(MockStoreItem{}))
+
+    assert.EqualError(t, err, "cannot open galactic store: there is a local store with the same name")
+    assert.Equal(t, store, localStore)
 }

@@ -18,7 +18,7 @@ type testItem struct {
 }
 
 func testStore() BusStore {
-    store := newBusStore("testStore", nil, nil)
+    store := newBusStore("testStore", newTestEventBus(), nil, nil)
     store.Initialize()
     return store
 }
@@ -46,7 +46,7 @@ func (con *mockGalacticStoreConnection) lastTopic() string {
     return con.topics[n-1]
 }
 
-func testGalacticStore(itemType reflect.Type)  (BusStore, *mockGalacticStoreConnection, EventBus) {
+func testGalacticStore(itemType reflect.Type) (BusStore, *mockGalacticStoreConnection, EventBus) {
 
     bus := newTestEventBus()
     bus.GetChannelManager().CreateChannel("sync-channel")
@@ -62,10 +62,9 @@ func testGalacticStore(itemType reflect.Type)  (BusStore, *mockGalacticStoreConn
             conn: conn,
             pubPrefix: "/pub/",
         },
-        itemType: itemType,
     }
 
-    store := newBusStore("testStore", bus, conf)
+    store := newBusStore("testStore", bus, itemType, conf)
     return store, conn, bus
 }
 
@@ -157,6 +156,10 @@ func TestBusStore_AllValuesAndAllValuesAsMap(t *testing.T) {
     assert.Equal(t, allItemsAsMap["id1"], testItem { name: "item1", nameIndex: 1})
     assert.Equal(t, allItemsAsMap["id2"], testItem { name: "item2", nameIndex: 2})
     assert.Equal(t, allItemsAsMap["id3"], testItem { name: "item3", nameIndex: 3})
+
+    allItemsAsMapWithVer, version := store.AllValuesAndVersion()
+    assert.Equal(t, allItemsAsMap, allItemsAsMapWithVer)
+    assert.Equal(t, version, int64(4))
 }
 
 func TestBusStore_OnChange(t *testing.T) {
@@ -286,7 +289,7 @@ func TestBusStore_OnAllChanges(t *testing.T) {
 }
 
 func TestBusStore_WhenReady(t *testing.T) {
-    store := newBusStore("testStore", nil, nil)
+    store := newBusStore("testStore", newTestEventBus(), nil, nil)
 
     wg := sync.WaitGroup{}
     var counter int32 = 0
@@ -316,7 +319,7 @@ func TestBusStore_WhenReady(t *testing.T) {
 }
 
 func TestBusStore_Populate(t *testing.T) {
-    store := newBusStore("testStore", nil, nil)
+    store := newBusStore("testStore", newTestEventBus(), nil, nil)
 
     wg := sync.WaitGroup{}
     counter := 0
@@ -356,7 +359,7 @@ func TestBusStore_Populate(t *testing.T) {
 }
 
 func TestBusStore_Reset(t *testing.T) {
-    store := newBusStore("testStore", nil, nil)
+    store := newBusStore("testStore", newTestEventBus(), nil, nil)
     wg := sync.WaitGroup{}
     counter := 0
 
@@ -536,10 +539,20 @@ func TestBusStore_InitGalacticStore(t *testing.T) {
     assert.Equal(t, rq["itemId"], "id3")
     assert.Equal(t, rq["newItemValue"], nil)
     assert.Equal(t, rq["clientStoreVersion"], float64(12))
+
+    store.Reset()
+    assert.Equal(t, len(conn.messages), 4)
+    assert.Equal(t, conn.lastTopic(), "/pub/sync-channel")
+    assert.Equal(t, conn.lastMessage()["request"], "openStore")
+
+    store.(*busStore).OnDestroy()
+    assert.Equal(t, len(conn.messages), 5)
+    assert.Equal(t, conn.lastTopic(), "/pub/sync-channel")
+    assert.Equal(t, conn.lastMessage()["request"], "closeStore")
 }
 
 func TestBusStore_GalacticStoreUpdates(t *testing.T) {
-    store, _, bus := testGalacticStore(nil)
+    store, _, bus := testGalacticStore(reflect.TypeOf(MockStoreItem{}))
 
     wg := sync.WaitGroup{}
     wg.Add(1)
@@ -555,10 +568,20 @@ func TestBusStore_GalacticStoreUpdates(t *testing.T) {
         "storeId": "testStore",
         "responseType": "updateStoreResponse",
         "itemId": "id1",
-        "newItemValue": "value1",
+        "newItemValue": { "from": "admin", "message": "value1"},
         "storeVersion": 54
     }`)
     bus.SendResponseMessage("sync-channel", jsonBlob, nil)
+
+    bus.SendResponseMessage("sync-channel", []byte("invalid-json}"), nil)
+
+    bus.SendResponseMessage("sync-channel", []byte(`{
+        "storeId": "testStore2",
+        "responseType": "updateStoreResponse",
+        "itemId": "id1",
+        "newItemValue": "value4",
+        "storeVersion": 55
+    }`), nil)
 
     wg.Wait()
 
@@ -566,8 +589,8 @@ func TestBusStore_GalacticStoreUpdates(t *testing.T) {
     assert.NotNil(t, lastStoreChange)
 
     assert.Equal(t, lastStoreChange.Id, "id1")
-    assert.Equal(t, lastStoreChange.Value, "value1")
-    assert.Equal(t, store.GetValue("id1"), "value1")
+    assert.Equal(t, lastStoreChange.Value, MockStoreItem{From: "admin", Message:"value1"})
+    assert.Equal(t, store.GetValue("id1"), MockStoreItem{From: "admin", Message:"value1"})
 
     wg.Add(1)
     jsonBlob = []byte(`{
@@ -578,9 +601,49 @@ func TestBusStore_GalacticStoreUpdates(t *testing.T) {
     }`)
     bus.SendResponseMessage("sync-channel", jsonBlob, nil)
 
+    bus.SendResponseMessage("sync-channel", []byte(`{
+        "storeId": "testStore",
+        "responseType": "updateStoreResponse",
+        "itemId": "id1",
+        "newItemValue": "invalid-obj",
+        "storeVersion": 55
+    }`), nil)
+
     wg.Wait()
+
     assert.Equal(t, lastStoreChange.Id, "id1")
-    assert.Equal(t, lastStoreChange.Value, "value1")
+    assert.Equal(t, lastStoreChange.Value, MockStoreItem{From: "admin", Message:"value1"})
     assert.Equal(t, lastStoreChange.IsDeleteChange, true)
     assert.Nil(t, store.GetValue("id1"))
+}
+
+func TestBusStore_GalacticStoreContent(t *testing.T) {
+    store, _, bus := testGalacticStore(reflect.TypeOf(MockStoreItem{}))
+
+    wg := sync.WaitGroup{}
+    wg.Add(1)
+
+    store.WhenReady(func() {
+        wg.Done()
+    })
+
+    var jsonBlob = []byte(`{
+        "storeId": "testStore",
+        "responseType": "storeContentResponse",
+        "items": {
+            "id1": { "from": "admin", "message": "value1"},
+            "id2": { "from": "admin", "message": "value2"},
+            "id3": "invalid-obj"
+        },
+        "storeVersion": 12
+    }`)
+    bus.SendResponseMessage("sync-channel", jsonBlob, nil)
+
+    wg.Wait()
+
+    allValues, version := store.AllValuesAndVersion()
+    assert.Equal(t, version, int64(12))
+    assert.Equal(t, len(allValues), 2)
+    assert.Equal(t, allValues["id1"], MockStoreItem{From: "admin", Message:"value1"})
+    assert.Equal(t, allValues["id2"], MockStoreItem{From: "admin", Message:"value2"})
 }

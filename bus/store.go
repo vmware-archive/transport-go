@@ -40,6 +40,8 @@ type BusStore interface {
     AllValues() []interface{}
     // Return a map with all items from the store.
     AllValuesAsMap() map[string]interface{}
+    // Return a map with all items from the store with the current store version.
+    AllValuesAndVersion() (map[string]interface{}, int64)
     // Subscribe to state changes for a specific object.
     OnChange(id string, state ...interface{}) StoreStream
     // Subscribe to state changes for all objects
@@ -59,6 +61,9 @@ type BusStore interface {
     Reset()
     // Returns true if this is galactic store.
     IsGalactic() bool
+    // Get the item type if such is specified during the creation of the
+    // store
+    GetItemType() reflect.Type
 }
 
 // Internal BusStore implementation
@@ -82,14 +87,14 @@ type busStore struct {
 
 type galacticStoreConfig struct {
     syncChannelConfig   *storeSyncChannelConfig
-    itemType            reflect.Type
 }
 
-func newBusStore(name string, bus EventBus, galacticConf *galacticStoreConfig) BusStore {
+func newBusStore(name string, bus EventBus, itemType reflect.Type, galacticConf *galacticStoreConfig) BusStore {
 
     store := new(busStore)
     store.name = name
     store.bus = bus
+    store.itemType = itemType
     store.galacticConf = galacticConf
 
     initStore(store)
@@ -199,33 +204,7 @@ func (store *busStore) updateVersionFromResponse(storeResponse map[string]interf
 }
 
 func (store *busStore) deserializeRawValue(rawValue interface{}) (interface{}, error) {
-
-    if store.galacticConf.itemType != nil {
-        itemType := store.galacticConf.itemType
-        var usePointerItems bool
-
-        if itemType.Kind() == reflect.Ptr {
-            usePointerItems = true
-            itemType = itemType.Elem()
-        }
-
-        decodedValuePtr := reflect.New(itemType).Interface()
-
-        marshaledValue, _ := json.Marshal(rawValue.(map[string]interface{}))
-        decodeErr := json.Unmarshal(marshaledValue, decodedValuePtr)
-
-        if decodeErr != nil {
-            return  nil, decodeErr
-        }
-
-        if usePointerItems {
-            return decodedValuePtr, nil
-        } else {
-            return reflect.ValueOf(decodedValuePtr).Elem().Interface(), nil
-        }
-    }
-
-    return rawValue, nil
+    return deserializeRawValue(store.itemType, rawValue)
 }
 
 func (store *busStore) sendOpenStoreRequest() {
@@ -270,6 +249,10 @@ func (store *busStore) OnDestroy() {
 
 func (store *busStore) IsGalactic() bool {
     return store.isGalactic
+}
+
+func (store *busStore) GetItemType() reflect.Type {
+    return store.itemType
 }
 
 func (store *busStore) GetName() string {
@@ -428,6 +411,19 @@ func (store *busStore) AllValuesAsMap() map[string]interface{} {
     return values
 }
 
+func (store *busStore) AllValuesAndVersion() (map[string]interface{}, int64) {
+    store.itemsLock.RLock()
+    defer store.itemsLock.RUnlock()
+
+    values := make(map[string] interface{})
+
+    for key, value := range store.items {
+        values[key] = value
+    }
+
+    return values, store.storeVersion
+}
+
 func (store *busStore) OnMutationRequest(requestType ...interface{}) MutationStoreStream {
     return newMutationStoreStream(store, &mutationStreamFilter{
         requestTypes: requestType,
@@ -462,6 +458,7 @@ func(store *busStore) onStoreChange(change *StoreChange) {
 func (store *busStore) Initialize() {
     store.initializer.Do(func() {
         close(store.readyC)
+        store.bus.SendMonitorEvent(StoreInitializedEvt, store.name, nil)
     })
 }
 
@@ -553,4 +550,34 @@ func (store *busStore) onMutationStreamUnsubscribe(stream *mutationStoreStream) 
         store.mutationStreams[i] = store.mutationStreams[n-1]
         store.mutationStreams = store.mutationStreams[:n-1]
     }
+}
+
+func deserializeRawValue(expectedItemType reflect.Type, rawValue interface{}) (interface{}, error) {
+
+    if expectedItemType != nil {
+        itemType := expectedItemType
+        var usePointerItems bool
+
+        if itemType.Kind() == reflect.Ptr {
+            usePointerItems = true
+            itemType = itemType.Elem()
+        }
+
+        decodedValuePtr := reflect.New(itemType).Interface()
+
+        marshaledValue, _ := json.Marshal(rawValue)
+        decodeErr := json.Unmarshal(marshaledValue, decodedValuePtr)
+
+        if decodeErr != nil {
+            return  nil, decodeErr
+        }
+
+        if usePointerItems {
+            return decodedValuePtr, nil
+        } else {
+            return reflect.ValueOf(decodedValuePtr).Elem().Interface(), nil
+        }
+    }
+
+    return rawValue, nil
 }

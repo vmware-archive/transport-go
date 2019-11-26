@@ -15,6 +15,10 @@ import (
 type StoreManager interface {
     // Create a new Store, if the store already exists, then it will be returned.
     CreateStore(name string) BusStore
+    // Create a new Store and use the itemType to deserialize item values when handling
+    // incoming UpdateStoreRequest. If the store already exists, the method will return
+    // the existing store instance.
+    CreateStoreWithType(name string, itemType reflect.Type) BusStore
     // Get a reference to the existing store. Returns nil if the store doesn't exist.
     GetStore(name string) BusStore
     // Deletes a store.
@@ -59,6 +63,10 @@ func newStoreManager(eventBus EventBus) StoreManager {
 }
 
 func (m *storeManager) CreateStore(name string) BusStore {
+    return m.CreateStoreWithType(name, nil)
+}
+
+func (m *storeManager) CreateStoreWithType(name string, itemType reflect.Type) BusStore {
     m.storesLock.Lock()
     defer m.storesLock.Unlock()
 
@@ -68,7 +76,8 @@ func (m *storeManager) CreateStore(name string) BusStore {
         return store
     }
 
-    m.stores[name] = newBusStore(name, m.eventBus, nil)
+    m.stores[name] = newBusStore(name, m.eventBus, itemType, nil)
+    go m.eventBus.SendMonitorEvent(StoreCreatedEvt, name, nil)
     return m.stores[name]
 }
 
@@ -86,8 +95,9 @@ func (m *storeManager) DestroyStore(name string) bool {
     store, ok := m.stores[name]
     if ok {
         store.(*busStore).OnDestroy()
-
         delete(m.stores, name)
+
+        go m.eventBus.SendMonitorEvent(StoreDestroyedEvt, name, nil)
     }
     return ok
 }
@@ -150,13 +160,13 @@ func (m *storeManager) OpenGalacticStoreWithItemType(
         if store.IsGalactic() {
             return store, nil
         } else {
-            return store, fmt.Errorf("there is a local store with the same name")
+            return store, fmt.Errorf("cannot open galactic store: there is a local store with the same name")
         }
     }
 
-    m.stores[name] = newBusStore(name, m.eventBus, &galacticStoreConfig{
+    m.stores[name] = newBusStore(name, m.eventBus, itemType, &galacticStoreConfig{
         syncChannelConfig: chanConf,
-        itemType: itemType,
     })
+    go m.eventBus.SendMonitorEvent(StoreCreatedEvt, name, nil)
     return m.stores[name], nil
 }

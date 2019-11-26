@@ -113,11 +113,14 @@ func TestFabricEndpoint_SubscribeEvent(t *testing.T) {
     fe, mockServer := newTestFabricEndpoint(bus,
         EndpointConfig{TopicPrefix: "/topic", UserQueuePrefix:"/user/queue"})
 
-    // subscribe to non-existing channel
-    mockServer.subscribeHandlerFunction("con1", "sub1", "/topic/test-service", nil)
-    assert.Equal(t, len(fe.chanMappings), 0)
-
     bus.GetChannelManager().CreateChannel("test-service")
+
+    monitorWg := sync.WaitGroup{}
+    var monitorEvents []*MonitorEvent
+    bus.AddMonitorEventListener(func(monitorEvt *MonitorEvent) {
+        monitorEvents = append(monitorEvents, monitorEvt)
+        monitorWg.Done()
+    }, FabricEndpointSubscribeEvt)
 
     // subscribe to invalid topic
     mockServer.subscribeHandlerFunction("con1", "sub1", "/topic2/test-service", nil)
@@ -127,19 +130,38 @@ func TestFabricEndpoint_SubscribeEvent(t *testing.T) {
     assert.Equal(t, len(mockServer.sentMessages), 0)
 
     // subscribe to valid channel
+    monitorWg.Add(1)
     mockServer.subscribeHandlerFunction("con1", "sub1", "/topic/test-service", nil)
+    monitorWg.Wait()
+    assert.Equal(t, len(monitorEvents), 1)
+    assert.Equal(t, monitorEvents[0].EventType, FabricEndpointSubscribeEvt)
+    assert.Equal(t, monitorEvents[0].EntityName, "test-service")
+
     assert.Equal(t, len(fe.chanMappings), 1)
     assert.Equal(t, len(fe.chanMappings["test-service"].subs), 1)
     assert.Equal(t, fe.chanMappings["test-service"].subs["con1#sub1"], true)
 
     // subscribe again to the same channel
+    monitorWg.Add(1)
     mockServer.subscribeHandlerFunction("con1", "sub2", "/topic/test-service", nil)
+    monitorWg.Wait()
+
+    assert.Equal(t, len(monitorEvents), 2)
+    assert.Equal(t, monitorEvents[1].EventType, FabricEndpointSubscribeEvt)
+    assert.Equal(t, monitorEvents[1].EntityName, "test-service")
+
     assert.Equal(t, len(fe.chanMappings), 1)
     assert.Equal(t, len(fe.chanMappings["test-service"].subs), 2)
     assert.Equal(t, fe.chanMappings["test-service"].subs["con1#sub2"], true)
 
     // subscribe to queue channel
+    monitorWg.Add(1)
     mockServer.subscribeHandlerFunction("con1", "sub3", "/user/queue/test-service", nil)
+    monitorWg.Wait()
+    assert.Equal(t, len(monitorEvents), 3)
+    assert.Equal(t, monitorEvents[2].EventType, FabricEndpointSubscribeEvt)
+    assert.Equal(t, monitorEvents[2].EntityName, "test-service")
+
     assert.Equal(t, len(fe.chanMappings), 1)
     assert.Equal(t, len(fe.chanMappings["test-service"].subs), 3)
     assert.Equal(t, fe.chanMappings["test-service"].subs["con1#sub3"], true)
@@ -215,6 +237,13 @@ func TestFabricEndpoint_UnsubscribeEvent(t *testing.T) {
 
     bus.GetChannelManager().CreateChannel("test-service")
 
+    monitorWg := sync.WaitGroup{}
+    var monitorEvents []*MonitorEvent
+    bus.AddMonitorEventListener(func(monitorEvt *MonitorEvent) {
+        monitorEvents = append(monitorEvents, monitorEvt)
+        monitorWg.Done()
+    }, FabricEndpointUnsubscribeEvt)
+
     // subscribe to valid channel
     mockServer.subscribeHandlerFunction("con1", "sub1", "/topic/test-service", nil)
     mockServer.subscribeHandlerFunction("con1", "sub2", "/topic/test-service", nil)
@@ -237,7 +266,14 @@ func TestFabricEndpoint_UnsubscribeEvent(t *testing.T) {
     assert.Equal(t, len(fe.chanMappings), 1)
     assert.Equal(t, len(fe.chanMappings["test-service"].subs), 2)
 
+    monitorWg.Add(1)
     mockServer.unsubscribeHandlerFunction("con1", "sub2", "/topic/test-service")
+    monitorWg.Wait()
+
+    assert.Equal(t, len(monitorEvents), 1)
+    assert.Equal(t, monitorEvents[0].EventType, FabricEndpointUnsubscribeEvt)
+    assert.Equal(t, monitorEvents[0].EntityName, "test-service")
+
     assert.Equal(t, len(fe.chanMappings), 1)
     assert.Equal(t, len(fe.chanMappings["test-service"].subs), 1)
 
@@ -247,9 +283,35 @@ func TestFabricEndpoint_UnsubscribeEvent(t *testing.T) {
     mockServer.wg.Wait()
     assert.Equal(t, len(mockServer.sentMessages), 2)
 
+    monitorWg.Add(1)
     mockServer.unsubscribeHandlerFunction("con1", "sub1", "/topic/test-service")
+    monitorWg.Wait()
+
+    assert.Equal(t, len(monitorEvents), 2)
+    assert.Equal(t, monitorEvents[1].EventType, FabricEndpointUnsubscribeEvt)
+    assert.Equal(t, monitorEvents[1].EntityName, "test-service")
+
+
     assert.Equal(t, len(fe.chanMappings), 0)
     bus.SendResponseMessage("test-service", "test-message", nil)
+
+    // subscribe to non-existing channel
+    mockServer.subscribeHandlerFunction("con3", "sub1", "/topic/non-existing-channel", nil)
+    assert.Equal(t, len(fe.chanMappings), 1)
+    assert.Equal(t, len(fe.chanMappings["non-existing-channel"].subs), 1)
+    assert.Equal(t, fe.chanMappings["non-existing-channel"].autoCreated, true)
+    assert.True(t, bus.GetChannelManager().CheckChannelExists("non-existing-channel"))
+
+    monitorWg.Add(1)
+    mockServer.unsubscribeHandlerFunction("con3", "sub1", "/topic/non-existing-channel")
+    monitorWg.Wait()
+
+    assert.Equal(t, len(monitorEvents), 3)
+    assert.Equal(t, monitorEvents[2].EventType, FabricEndpointUnsubscribeEvt)
+    assert.Equal(t, monitorEvents[2].EntityName, "non-existing-channel")
+
+    assert.Equal(t, len(fe.chanMappings), 0)
+    assert.False(t, bus.GetChannelManager().CheckChannelExists("non-existing-channel"))
 }
 
 func TestFabricEndpoint_BridgeMessage(t *testing.T) {
@@ -304,14 +366,14 @@ func TestFabricEndpoint_BridgeMessage(t *testing.T) {
 
     assert.Equal(t, len(messages), 2)
 
-    receivedReq := messages[0].Payload.(model.Request)
+    receivedReq := messages[0].Payload.(*model.Request)
 
     assert.Equal(t, receivedReq.Request, "test-request")
     assert.Equal(t, receivedReq.Payload, "test-rq")
     assert.Equal(t, *receivedReq.Id, id1)
     assert.Nil(t, receivedReq.BrokerDestination)
 
-    receivedReq2 := messages[1].Payload.(model.Request)
+    receivedReq2 := messages[1].Payload.(*model.Request)
 
     assert.Equal(t, receivedReq2.Request, "test-request2")
     assert.Equal(t, receivedReq2.Payload, "test-rq2")

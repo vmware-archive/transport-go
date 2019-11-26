@@ -239,7 +239,7 @@ func (s *stompServer) handleConnectionEvent(e *connEvent) {
                 delete(connSubscriptions, e.conn.GetId())
                 for _, sub := range conSub.subscriptions {
                     for _, callback := range s.unsubscribeCallbacks {
-                        go callback(e.conn.GetId(), sub.id, sub.destination)
+                        callback(e.conn.GetId(), sub.id, sub.destination)
                     }
                 }
             }
@@ -261,7 +261,7 @@ func (s *stompServer) handleConnectionEvent(e *connEvent) {
 
         // notify listeners
         for _, callback := range s.subscribeCallbacks {
-            go callback(e.conn.GetId(), e.sub.id, e.destination, e.frame)
+            callback(e.conn.GetId(), e.sub.id, e.destination, e.frame)
         }
 
     case unsubscribeFromTopic:
@@ -275,7 +275,7 @@ func (s *stompServer) handleConnectionEvent(e *connEvent) {
                     delete(conSub.subscriptions, e.sub.id)
                     // notify listeners
                     for _, callback := range s.unsubscribeCallbacks {
-                        go callback(e.conn.GetId(), e.sub.id, e.destination)
+                        callback(e.conn.GetId(), e.sub.id, e.destination)
                     }
                 }
             }
@@ -287,7 +287,7 @@ func (s *stompServer) handleConnectionEvent(e *connEvent) {
         if s.config.IsAppRequestDestination(e.destination) && e.conn != nil {
             // notify app listeners
             for _, callback := range s.applicationRequestCallbacks {
-                go callback(e.destination, e.frame.Body, e.conn.GetId())
+                callback(e.destination, e.frame.Body, e.conn.GetId())
             }
         }
     }
