@@ -3,13 +3,13 @@
 package bus
 
 import (
-    "sync"
-    "fmt"
-    "go-bifrost/model"
-    "github.com/google/uuid"
     "encoding/json"
+    "fmt"
+    "github.com/google/uuid"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/log"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "reflect"
-    "go-bifrost/log"
+    "sync"
 )
 
 // Describes a single store item change

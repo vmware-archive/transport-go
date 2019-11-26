@@ -3,12 +3,12 @@
 package bus
 
 import (
-    "go-bifrost/bridge"
-    "go-bifrost/model"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
-    "testing"
     "github.com/stretchr/testify/mock"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "testing"
 )
 
 var testChannelName string = "testing"

@@ -3,13 +3,13 @@
 package stompserver
 
 import (
-    "net/http"
-    "github.com/gorilla/websocket"
-    "time"
     "github.com/go-stomp/stomp/frame"
+    "github.com/gorilla/websocket"
     "net"
+    "net/http"
     "net/url"
     "strings"
+    "time"
 )
 
 type webSocketStompConnection struct {

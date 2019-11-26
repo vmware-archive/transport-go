@@ -3,13 +3,13 @@
 package bus
 
 import (
-    "testing"
-    "github.com/stretchr/testify/assert"
-    "go-bifrost/model"
-    "sync"
     "github.com/google/uuid"
+    "github.com/stretchr/testify/assert"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "reflect"
     "strings"
+    "sync"
+    "testing"
 )
 
 func testStoreSyncService() (*storeSyncService, EventBus) {

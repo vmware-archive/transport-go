@@ -3,13 +3,13 @@
 package service
 
 import (
-    "testing"
-    "github.com/stretchr/testify/assert"
-    "go-bifrost/model"
-    "go-bifrost/bus"
-    "sync"
-    "github.com/google/uuid"
     "errors"
+    "github.com/google/uuid"
+    "github.com/stretchr/testify/assert"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bus"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "sync"
+    "testing"
 )
 
 func newTestServiceRegistry() *serviceRegistry {

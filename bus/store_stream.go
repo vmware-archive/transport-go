@@ -3,8 +3,8 @@
 package bus
 
 import (
-    "sync"
     "fmt"
+    "sync"
 )
 
 type StoreChangeHandlerFunction func(change *StoreChange)

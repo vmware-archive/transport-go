@@ -3,11 +3,11 @@
 package bus
 
 import (
-    "go-bifrost/bridge"
-    "go-bifrost/model"
+    "github.com/google/uuid"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "sync"
     "sync/atomic"
-    "github.com/google/uuid"
 )
 
 // Channel represents the stream and the subscribed event handlers waiting for ticks on the stream

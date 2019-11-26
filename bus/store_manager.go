@@ -3,12 +3,12 @@
 package bus
 
 import (
-    "sync"
-    "go-bifrost/bridge"
-    "github.com/google/uuid"
     "fmt"
-    "strings"
+    "github.com/google/uuid"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
     "reflect"
+    "strings"
+    "sync"
 )
 
 // StoreManager interface controls all access to BusStores

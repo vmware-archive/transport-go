@@ -3,11 +3,11 @@
 package bus
 
 import (
-    "go-bifrost/bridge"
-    "go-bifrost/model"
     "errors"
     "fmt"
     "github.com/google/uuid"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "sync"
 )
 

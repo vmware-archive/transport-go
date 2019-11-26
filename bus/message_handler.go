@@ -2,9 +2,9 @@
 package bus
 
 import (
-    "go-bifrost/model"
     "fmt"
     "github.com/google/uuid"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "sync"
 )
 

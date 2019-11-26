@@ -3,13 +3,13 @@
 package bus
 
 import (
-    "go-bifrost/bridge"
-    "go-bifrost/model"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "fmt"
     "github.com/google/uuid"
     "sync"
     "sync/atomic"
-    "go-bifrost/stompserver"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/stompserver"
 )
 
 // EventBus provides access to ChannelManager, simple message sending and simple API calls for handling

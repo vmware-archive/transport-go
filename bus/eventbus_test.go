@@ -2,17 +2,17 @@
 package bus
 
 import (
-    "go-bifrost/bridge"
-    "go-bifrost/model"
     "errors"
     "fmt"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
-    "testing"
-    "sync/atomic"
     "github.com/stretchr/testify/mock"
-    "go-bifrost/stompserver"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/stompserver"
     "sync"
+    "sync/atomic"
+    "testing"
 )
 
 var evtBusTest *bifrostEventBus

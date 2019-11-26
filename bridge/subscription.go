@@ -3,10 +3,10 @@
 package bridge
 
 import (
-    "go-bifrost/model"
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/google/uuid"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
 )
 
 type Subscription interface {

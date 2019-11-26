@@ -3,14 +3,14 @@
 package bus
 
 import (
-    "testing"
-    "github.com/stretchr/testify/assert"
-    "go-bifrost/stompserver"
-    "sync"
     "encoding/json"
     "errors"
-    "go-bifrost/model"
     "github.com/google/uuid"
+    "github.com/stretchr/testify/assert"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/stompserver"
+    "sync"
+    "testing"
 )
 
 type MockStompServerMessage struct {

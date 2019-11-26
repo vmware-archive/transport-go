@@ -3,13 +3,13 @@
 package service
 
 import (
-    "net/http"
-    "reflect"
-    "go-bifrost/model"
-    "encoding/json"
     "bytes"
+    "encoding/json"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "io"
+    "net/http"
     "net/url"
+    "reflect"
 )
 
 const (

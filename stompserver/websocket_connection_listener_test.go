@@ -3,13 +3,13 @@
 package stompserver
 
 import (
-    "testing"
-    "github.com/stretchr/testify/assert"
-    "github.com/gorilla/websocket"
     "github.com/go-stomp/stomp/frame"
-    "time"
-    "sync"
+    "github.com/gorilla/websocket"
+    "github.com/stretchr/testify/assert"
     "net/http"
+    "sync"
+    "testing"
+    "time"
 )
 
 func TestWebSocketConnectionListener_NewListenerInvalidAddr(t *testing.T) {

@@ -3,10 +3,10 @@
 package bus
 
 import (
-    "go-bifrost/model"
-    "sync"
     "fmt"
     "github.com/google/uuid"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "sync"
 )
 
 type transactionType int

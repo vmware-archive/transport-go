@@ -3,10 +3,10 @@
 package bus
 
 import (
-    "go-bifrost/model"
+    "github.com/google/uuid"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "strings"
     "sync"
-    "github.com/google/uuid"
 )
 
 const (

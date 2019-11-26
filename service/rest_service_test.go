@@ -3,17 +3,17 @@
 package service
 
 import (
-    "testing"
-    "github.com/stretchr/testify/assert"
-    "encoding/json"
-    "net/http"
-    "io/ioutil"
     "bytes"
-    "go-bifrost/model"
-    "reflect"
-    "sync"
+    "encoding/json"
     "errors"
+    "github.com/stretchr/testify/assert"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "io/ioutil"
+    "net/http"
+    "reflect"
     "strings"
+    "sync"
+    "testing"
 )
 
 type testItem struct {

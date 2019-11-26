@@ -4,9 +4,9 @@ package stompserver
 
 import (
     "github.com/go-stomp/stomp/frame"
+    "log"
     "strconv"
     "sync"
-    "log"
 )
 
 type SubscribeHandlerFunction func(conId string, subId string, destination string, frame *frame.Frame)
