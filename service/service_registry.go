@@ -19,6 +19,8 @@ type ServiceRegistry interface {
     RegisterService(service FabricService, serviceChannelName string) error
     // Unregisters the fabric service associated with the given channel.
     UnregisterService(serviceChannelName string) error
+    // Set global base host or host:port to be used by the restService
+    SetGlobalRestServiceBaseHost(host string)
 }
 
 type serviceRegistry struct {
@@ -38,10 +40,17 @@ func GetServiceRegistry() ServiceRegistry {
 }
 
 func NewServiceRegistry(bus bus.EventBus) ServiceRegistry {
-    return &serviceRegistry{
+    registry := &serviceRegistry{
         bus: bus,
         services: make(map[string]*fabricServiceWrapper),
     }
+    // auto-register the restService
+    registry.RegisterService(&restService{}, restServiceChannel)
+    return registry
+}
+
+func (r *serviceRegistry) SetGlobalRestServiceBaseHost(host string) {
+    r.services[restServiceChannel].service.(*restService).setBaseHost(host)
 }
 
 func (r *serviceRegistry) RegisterService(service FabricService, serviceChannelName string) error {

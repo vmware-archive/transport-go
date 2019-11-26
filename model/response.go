@@ -1,7 +1,9 @@
 // Copyright 2019 VMware Inc.
 package model
 
-import "github.com/google/uuid"
+import (
+    "github.com/google/uuid"
+)
 
 // ResponseDir represents a payload sent by a Fabric application.
 type Response struct {
@@ -23,3 +25,5 @@ type BrokerDestinationConfig struct {
     Destination string
     ConnectionId string
 }
+
+type ResponseHandlerFunction func(*Response)
