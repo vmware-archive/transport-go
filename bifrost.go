@@ -26,7 +26,7 @@ func main() {
     app := cli.NewApp()
     app.Name = "Bifrost demo app"
     app.Usage = "Demonstrates different features of the Bifrost bus"
-    app.Commands = []*cli.Command{
+    app.Commands = []cli.Command{
 
         {
             Name: "demo",
