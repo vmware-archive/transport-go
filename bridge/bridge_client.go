@@ -3,7 +3,6 @@
 package bridge
 
 import (
-    "go-bifrost/model"
     "bufio"
     "bytes"
     "errors"
@@ -12,6 +11,7 @@ import (
     "github.com/go-stomp/stomp/frame"
     "github.com/google/uuid"
     "github.com/gorilla/websocket"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "log"
     "net/http"
     "net/url"

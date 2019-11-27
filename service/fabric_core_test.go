@@ -3,13 +3,13 @@
 package service
 
 import (
-    "testing"
-    "go-bifrost/bus"
-    "github.com/stretchr/testify/assert"
-    "go-bifrost/model"
-    "github.com/google/uuid"
-    "sync"
     "errors"
+    "github.com/google/uuid"
+    "github.com/stretchr/testify/assert"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bus"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "sync"
+    "testing"
 )
 
 func newTestFabricCore(channelName string) FabricServiceCore {

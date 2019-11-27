@@ -63,7 +63,7 @@ build() {
 
     # build
     go build -ldflags "-X main.BuildTime=${BUILD_TIME} -X main.Version=${VERSION}-${GIT_HASH}" \
-             -o $OUTPUT_PATH ${GOPATH}/src/go-bifrost/bifrost.go
+             -o $OUTPUT_PATH bifrost.go
     if [ $? -ne 0 ] ; then
         error "Build Failed!"
     fi

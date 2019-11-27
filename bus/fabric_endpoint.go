@@ -3,14 +3,14 @@
 package bus
 
 import (
-    "go-bifrost/stompserver"
-    "go-bifrost/model"
     "encoding/json"
-    "go-bifrost/log"
+    "fmt"
     "github.com/go-stomp/stomp/frame"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/log"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/stompserver"
     "strings"
     "sync"
-    "fmt"
 )
 
 type EndpointConfig struct {

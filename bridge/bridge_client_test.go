@@ -2,9 +2,9 @@
 package bridge
 
 import (
-    "go-bifrost/model"
     "github.com/go-stomp/stomp/frame"
     "github.com/stretchr/testify/assert"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "log"
     "os"
     "sync"

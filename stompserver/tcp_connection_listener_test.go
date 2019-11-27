@@ -3,11 +3,11 @@
 package stompserver
 
 import (
-    "testing"
+    "errors"
+    "github.com/go-stomp/stomp/frame"
     "github.com/stretchr/testify/assert"
     "net"
-    "github.com/go-stomp/stomp/frame"
-    "errors"
+    "testing"
     "time"
 )
 

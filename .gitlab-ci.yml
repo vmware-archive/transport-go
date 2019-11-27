@@ -1,4 +1,4 @@
-image: autogen-docker-local.artifactory.eng.vmware.com/autogen-builder:1.5
+image: autogen-docker-local.artifactory.eng.vmware.com/autogen-builder:1.7
 
 services:
   - name: docker:18-dind
@@ -8,8 +8,6 @@ stages:
   - test
 
 before_script:
-  - mkdir -p $GOPATH/src/go-bifrost
-  - cp -rf . $GOPATH/src/go-bifrost/ && cd $GOPATH/src/go-bifrost
   - go get ./...
   - go get github.com/stretchr/testify/assert
 

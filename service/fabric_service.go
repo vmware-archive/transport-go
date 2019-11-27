@@ -3,7 +3,7 @@
 package service
 
 import (
-    "go-bifrost/model"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
 )
 
 // Interface containing all APIs which should be implemented by Fabric Services.

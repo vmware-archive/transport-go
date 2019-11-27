@@ -3,16 +3,16 @@
 package stompserver
 
 import (
+    "fmt"
     "github.com/go-stomp/stomp"
     "github.com/go-stomp/stomp/frame"
-    "time"
-    "sync/atomic"
-    "fmt"
-    "strings"
-    "log"
     "github.com/google/uuid"
+    "log"
     "strconv"
+    "strings"
     "sync"
+    "sync/atomic"
+    "time"
 )
 
 type subscription struct {

@@ -5,19 +5,19 @@ import (
     "encoding/json"
     "fmt"
     "github.com/google/uuid"
-    "go-bifrost/bridge"
-    "go-bifrost/bus"
-    "go-bifrost/model"
+    "github.com/urfave/cli"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bus"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/service"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/stompserver"
     "log"
     "math/rand"
     "os"
-    "strconv"
-    "time"
-    "sync"
     "reflect"
-    "github.com/urfave/cli"
-    "go-bifrost/service"
-    "go-bifrost/stompserver"
+    "strconv"
+    "sync"
+    "time"
 )
 
 var addr = "localhost:8090"
@@ -26,7 +26,7 @@ func main() {
     app := cli.NewApp()
     app.Name = "Bifrost demo app"
     app.Usage = "Demonstrates different features of the Bifrost bus"
-    app.Commands = []*cli.Command{
+    app.Commands = []cli.Command{
 
         {
             Name: "demo",

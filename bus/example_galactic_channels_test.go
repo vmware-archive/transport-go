@@ -1,11 +1,11 @@
 package bus_test
 
 import (
-    "go-bifrost/bridge"
-    "go-bifrost/bus"
-    "go-bifrost/model"
     "encoding/json"
     "fmt"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bus"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "log"
 )
 

@@ -3,9 +3,9 @@
 package bridge
 
 import (
-    "go-bifrost/model"
     "github.com/go-stomp/stomp/frame"
     "github.com/google/uuid"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "sync"
 )
 

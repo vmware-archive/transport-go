@@ -3,13 +3,13 @@
 package stompserver
 
 import (
-    "testing"
-    "github.com/stretchr/testify/assert"
-    "time"
-    "github.com/go-stomp/stomp/frame"
-    "fmt"
-    "sync"
     "errors"
+    "fmt"
+    "github.com/go-stomp/stomp/frame"
+    "github.com/stretchr/testify/assert"
+    "sync"
+    "testing"
+    "time"
 )
 
 type MockRawConnection struct {

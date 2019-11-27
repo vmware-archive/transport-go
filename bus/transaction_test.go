@@ -3,12 +3,12 @@
 package bus
 
 import (
-    "testing"
-    "go-bifrost/model"
+    "errors"
     "github.com/stretchr/testify/assert"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
     "sync"
     "sync/atomic"
-    "errors"
+    "testing"
 )
 
 func TestBusTransaction_OnCompleteSync(t *testing.T) {

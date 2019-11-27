@@ -3,10 +3,10 @@
 package service
 
 import (
-    "go-bifrost/bus"
-    "go-bifrost/model"
     "fmt"
     "github.com/google/uuid"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/bus"
+    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
 )
 
 // Interface providing base functionality to fabric services.
