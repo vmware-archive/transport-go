@@ -52,7 +52,6 @@ func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
     return f(req)
 }
 
-
 func TestRestService_HandleServiceRequest(t *testing.T) {
     core := newTestFabricCore(restServiceChannel)
 
@@ -67,7 +66,7 @@ func TestRestService_HandleServiceRequest(t *testing.T) {
         }, nil
     })
 
-    var lastResponse model.Response
+    var lastResponse *model.Response
 
     wg := sync.WaitGroup{}
     wg.Add(1)
@@ -75,7 +74,7 @@ func TestRestService_HandleServiceRequest(t *testing.T) {
     mh, _  := core.Bus().ListenStream(restServiceChannel)
     mh.Handle(
         func(message *model.Message) {
-            lastResponse = message.Payload.(model.Response)
+            lastResponse = message.Payload.(*model.Response)
             wg.Done()
         },
         func(e error) {
@@ -176,18 +175,59 @@ func TestRestService_HandleServiceRequest(t *testing.T) {
     assert.Equal(t, lastResponse.Payload, []byte{1,2,3,4,5})
 }
 
+func TestRestService_HandleJavaServiceRequest(t *testing.T) {
+    core := newTestFabricCore(restServiceChannel)
+
+    wg := sync.WaitGroup{}
+
+    restService := &restService{}
+    var lastHttpRequest *http.Request
+    restService.httpClient.Transport = RoundTripFunc(func(req *http.Request) (*http.Response, error) {
+        lastHttpRequest = req
+        defer wg.Done()
+        return &http.Response{
+            StatusCode: 200,
+            Body: ioutil.NopCloser(bytes.NewBufferString("test-response-body")),
+            Header: make(http.Header),
+        }, nil
+    })
+
+
+    wg.Add(1)
+    restService.HandleServiceRequest(&model.Request{
+        Payload: map[string]interface{}  {
+            "uri": "http://localhost:4444/test-url",
+            "headers": map[string]string { "header1": "value1", "header2": "value2"},
+            "method": "UPDATE",
+            "Body": "test-body",
+            "apiClass": "java.lang.String",
+        },
+    }, core)
+
+    wg.Wait()
+
+    assert.NotNil(t, lastHttpRequest)
+    assert.Equal(t, lastHttpRequest.URL.String(), "http://localhost:4444/test-url")
+    assert.Equal(t, lastHttpRequest.Method, "UPDATE")
+    assert.Equal(t, lastHttpRequest.Header.Get("header1"), "value1")
+    assert.Equal(t, lastHttpRequest.Header.Get("header2"), "value2")
+    assert.Equal(t, lastHttpRequest.Header.Get("Content-Type"), "application/merge-patch+json")
+    sentBody, _ := ioutil.ReadAll(lastHttpRequest.Body)
+    assert.Equal(t, sentBody, []byte("test-body"))
+}
+
 func TestRestService_HandleServiceRequest_InvalidInput(t *testing.T) {
     core := newTestFabricCore(restServiceChannel)
 
     restService := &restService{}
-    var lastResponse model.Response
+    var lastResponse *model.Response
 
     wg := sync.WaitGroup{}
     wg.Add(1)
     mh, _  := core.Bus().ListenStream(restServiceChannel)
     mh.Handle(
         func(message *model.Message) {
-            lastResponse = message.Payload.(model.Response)
+            lastResponse = message.Payload.(*model.Response)
             wg.Done()
         },
         func(e error) {
@@ -240,6 +280,7 @@ func TestRestService_HandleServiceRequest_InvalidInput(t *testing.T) {
     restService.httpClient.Transport = RoundTripFunc(func(req *http.Request) (*http.Response, error) {
         return &http.Response{
             StatusCode: 404,
+            Status: "404 Not Found",
             Body: ioutil.NopCloser(bytes.NewBufferString("error-response")),
             Header: make(http.Header),
         }, nil
@@ -255,7 +296,7 @@ func TestRestService_HandleServiceRequest_InvalidInput(t *testing.T) {
 
     assert.True(t, lastResponse.Error)
     assert.Equal(t, lastResponse.ErrorCode, 404)
-    assert.Equal(t, lastResponse.ErrorMessage, "rest-service error, unable to complete request: error-response")
+    assert.Equal(t, lastResponse.ErrorMessage, "rest-service error, unable to complete request: 404 Not Found")
 
     restService.httpClient.Transport = RoundTripFunc(func(req *http.Request) (*http.Response, error) {
         return &http.Response{

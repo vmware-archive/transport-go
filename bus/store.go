@@ -155,7 +155,7 @@ func initGalacticStore(store *busStore) {
                 items := storeResponse["items"].(map[string]interface{})
                 store.items = make(map[string]interface{})
                 for key, val := range items {
-                    deserializedValue, err := store.deserializeRawValue(val)
+                    deserializedValue, err :=  store.deserializeRawValue(val)
                     if err != nil {
                         log.Warn("failed to deserialize store item value %e", err)
                         continue
@@ -204,7 +204,7 @@ func (store *busStore) updateVersionFromResponse(storeResponse map[string]interf
 }
 
 func (store *busStore) deserializeRawValue(rawValue interface{}) (interface{}, error) {
-    return deserializeRawValue(store.itemType, rawValue)
+    return model.ConvertValueToType(rawValue, store.itemType)
 }
 
 func (store *busStore) sendOpenStoreRequest() {
@@ -550,34 +550,4 @@ func (store *busStore) onMutationStreamUnsubscribe(stream *mutationStoreStream) 
         store.mutationStreams[i] = store.mutationStreams[n-1]
         store.mutationStreams = store.mutationStreams[:n-1]
     }
-}
-
-func deserializeRawValue(expectedItemType reflect.Type, rawValue interface{}) (interface{}, error) {
-
-    if expectedItemType != nil {
-        itemType := expectedItemType
-        var usePointerItems bool
-
-        if itemType.Kind() == reflect.Ptr {
-            usePointerItems = true
-            itemType = itemType.Elem()
-        }
-
-        decodedValuePtr := reflect.New(itemType).Interface()
-
-        marshaledValue, _ := json.Marshal(rawValue)
-        decodeErr := json.Unmarshal(marshaledValue, decodedValuePtr)
-
-        if decodeErr != nil {
-            return  nil, decodeErr
-        }
-
-        if usePointerItems {
-            return decodedValuePtr, nil
-        } else {
-            return reflect.ValueOf(decodedValuePtr).Elem().Interface(), nil
-        }
-    }
-
-    return rawValue, nil
 }

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-    restServiceChannel = "rest-service"
+    restServiceChannel = "fabric-rest"
 )
 
 type RestServiceRequest struct {
@@ -33,6 +33,15 @@ type RestServiceRequest struct {
     // the ResponseType to string or []byte otherwise you might get deserialization error
     // or empty result.
     ResponseType reflect.Type
+}
+
+// com.vmware.bifrost.core.model.RestServiceRequest
+type javaRestServiceRequest struct {
+    Uri string `json:"uri"`
+    Method string `json:"method"`
+    Body interface{} `json:"body"`
+    ApiClass string `json:"apiClass"`
+    Headers map[string]string `json:"headers"`
 }
 
 func (request *RestServiceRequest) marshalBody() ([]byte, error) {
@@ -60,7 +69,7 @@ func (rs *restService) setBaseHost(host string) {
 
 func (rs *restService) HandleServiceRequest(request *model.Request, core FabricServiceCore) {
 
-    restReq, ok := request.Payload.(*RestServiceRequest)
+    restReq, ok := rs.getRestServiceRequest(request)
     if !ok {
         core.SendErrorResponse(request, 500, "invalid RestServiceRequest payload")
         return
@@ -98,12 +107,12 @@ func (rs *restService) HandleServiceRequest(request *model.Request, core FabricS
     defer httpResp.Body.Close()
 
     if httpResp.StatusCode >= 300 {
-        // error/redirect
-        buf := new(bytes.Buffer)
-        buf.ReadFrom(httpResp.Body)
-        errStr := buf.String()
-        core.SendErrorResponse(request, httpResp.StatusCode,
-                "rest-service error, unable to complete request: " + errStr)
+        core.SendErrorResponseWithPayload(request, httpResp.StatusCode,
+                "rest-service error, unable to complete request: " + httpResp.Status,
+                map[string]interface{} {
+                    "errorCode": httpResp.StatusCode,
+                    "message": "rest-service error, unable to complete request: " + httpResp.Status,
+                })
         return
     }
 
@@ -113,6 +122,36 @@ func (rs *restService) HandleServiceRequest(request *model.Request, core FabricS
     } else {
         core.SendResponse(request, result)
     }
+}
+
+func (rs *restService) getRestServiceRequest(request *model.Request) (*RestServiceRequest, bool) {
+    restReq, ok := request.Payload.(*RestServiceRequest)
+    if ok {
+        return restReq, true
+    }
+
+    // check if the request.Paylood is a valid javaRestServiceRequest and convert it to RestServiceRequest
+    // This is needed to handle requests coming from Typescript Bifrost clients.
+    javaReqAsMap, ok := request.Payload.(map[string]interface{})
+    if ok {
+        javaReq, err := model.ConvertValueToType(javaReqAsMap, reflect.TypeOf(&javaRestServiceRequest{}))
+        if err == nil && javaReq != nil {
+            javaRestReq := javaReq.(*javaRestServiceRequest)
+            var responseType reflect.Type = nil
+            if javaRestReq.ApiClass == "java.lang.String" {
+                responseType = reflect.TypeOf("")
+            }
+            return &RestServiceRequest{
+                Url:          javaRestReq.Uri,
+                HttpMethod:   javaRestReq.Method,
+                Body:         javaRestReq.Body,
+                Headers:      javaRestReq.Headers,
+                ResponseType: responseType,
+            }, true
+        }
+    }
+
+    return nil, false
 }
 
 func (rs *restService) getRequestUrl(address string, core FabricServiceCore) string {

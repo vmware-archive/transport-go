@@ -59,7 +59,7 @@ func TestFabricCore_SendMethods(t *testing.T) {
 
     assert.Equal(t, count, 1)
 
-    response, ok := lastMessage.Payload.(model.Response)
+    response, ok := lastMessage.Payload.(*model.Response)
     assert.True(t, ok)
     assert.Equal(t, response.Id, req.Id)
     assert.Equal(t, response.Payload, "test-response")
@@ -71,7 +71,7 @@ func TestFabricCore_SendMethods(t *testing.T) {
     wg.Wait()
 
     assert.Equal(t, count, 2)
-    response = lastMessage.Payload.(model.Response)
+    response = lastMessage.Payload.(*model.Response)
 
     assert.Equal(t, response.Id, req.Id)
     assert.Nil(t, response.Payload)
@@ -84,13 +84,12 @@ func TestFabricCore_SendMethods(t *testing.T) {
     wg.Wait()
 
     assert.Equal(t, count, 3)
-    response = lastMessage.Payload.(model.Response)
+    response = lastMessage.Payload.(*model.Response)
 
     assert.Equal(t, response.Id, req.Id)
-    assert.Nil(t, response.Payload)
-    assert.True(t, response.Error)
-    assert.Equal(t, response.ErrorCode, 1)
-    assert.Equal(t, response.ErrorMessage, "unsupported request: " + req.Request)
+    assert.False(t, response.Error)
+    assert.Equal(t, response.ErrorCode, 0)
+    assert.Equal(t, response.Payload, "unsupported request for \"test-channel\": " + req.Request)
 }
 
 func TestFabricCore_RestServiceRequest(t *testing.T) {
@@ -130,7 +129,7 @@ func TestFabricCore_RestServiceRequest(t *testing.T) {
     wg.Wait()
 
     wg.Add(1)
-    core.Bus().SendResponseMessage(restServiceChannel, model.Response{
+    core.Bus().SendResponseMessage(restServiceChannel, &model.Response{
         Payload: "test",
     }, lastRequest.Id)
     wg.Wait()
@@ -159,7 +158,7 @@ func TestFabricCore_RestServiceRequest(t *testing.T) {
     wg.Wait()
 
     wg.Add(1)
-    core.Bus().SendResponseMessage(restServiceChannel, model.Response{
+    core.Bus().SendResponseMessage(restServiceChannel, &model.Response{
         ErrorMessage: "error",
         Error: true,
         ErrorCode: 1,

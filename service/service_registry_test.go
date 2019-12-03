@@ -83,8 +83,19 @@ func TestServiceRegistry_RegisterService(t *testing.T) {
     mockService.wg.Wait()
 
     assert.Equal(t, len(mockService.processedRequests), 2)
-    assert.Equal(t, mockService.processedRequests[0], &req)
+    assert.Equal(t, mockService.processedRequests[1], &req)
     assert.NotNil(t, mockService.core)
+
+    mockService.wg.Add(1)
+    uuid := uuid.New()
+    registry.bus.SendRequestMessage("test-channel", model.Request{
+        Request: "test-request-2",
+        Payload: "request-payload",
+    }, &uuid)
+    mockService.wg.Wait()
+
+    assert.Equal(t, len(mockService.processedRequests), 3)
+    assert.Equal(t, mockService.processedRequests[2].Id, &uuid)
 
     assert.EqualError(t, registry.RegisterService(&mockFabricService{}, "test-channel"),
         "unable to register service: service channel name is already used: test-channel")

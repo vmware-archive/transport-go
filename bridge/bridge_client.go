@@ -166,7 +166,6 @@ func (ws *BridgeClient) listenSocket() {
             break // socket can't be read anymore, exit.
         }
         if f != nil {
-            ws.logger.Printf("Received STOMP Frame: %s\n", f.Command)
             ws.inboundChan <- f
         }
     }
@@ -186,8 +185,6 @@ func (ws *BridgeClient) handleIncomingSTOMPFrames() {
                 ws.ConnectedChan <- true
 
             case frame.MESSAGE:
-                ws.logger.Printf("STOMP Message received")
-
                 for _, sub := range ws.Subscriptions {
                     if sub.Destination == f.Header.Get(frame.Destination) {
                         c := &model.MessageConfig{Payload: f.Body, Destination: sub.Destination}
