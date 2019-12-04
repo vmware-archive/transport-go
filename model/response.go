@@ -8,7 +8,7 @@ import (
 // ResponseDir represents a payload sent by a Fabric application.
 type Response struct {
     Id                *uuid.UUID               `json:"id"`
-    Created           int64                    `json:"created"`
+    Created           string                   `json:"created"`
     Version           int                      `json:"version"`
     Destination       string                   `json:"channel"`
     Payload           interface{}              `json:"payload"`
