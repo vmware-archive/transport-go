@@ -113,7 +113,7 @@ func TestFabricCore_RestServiceRequest(t *testing.T) {
     var lastSuccess, lastError *model.Response
 
     restRequest := &RestServiceRequest{
-        Url: "test",
+        Uri:     "test",
         Headers: map[string]string {"h1": "value1"},
     }
 

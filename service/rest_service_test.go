@@ -83,10 +83,10 @@ func TestRestService_HandleServiceRequest(t *testing.T) {
 
     restService.HandleServiceRequest(&model.Request{
         Payload: &RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
-            Headers: map[string]string{ "header1": "value1", "header2": "value2"},
-            HttpMethod: "UPDATE",
-            Body: "test-body",
+            Uri:          "http://localhost:4444/test-url",
+            Headers:      map[string]string{ "header1": "value1", "header2": "value2"},
+            Method:       "UPDATE",
+            Body:         "test-body",
             ResponseType: reflect.TypeOf(""),
         },
     }, core)
@@ -118,8 +118,8 @@ func TestRestService_HandleServiceRequest(t *testing.T) {
     wg.Add(1)
     restService.HandleServiceRequest(&model.Request{
         Payload: &RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
-            Headers: map[string]string {"Content-Type": "json"},
+            Uri:          "http://localhost:4444/test-url",
+            Headers:      map[string]string {"Content-Type": "json"},
             ResponseType: reflect.TypeOf(testItem{}),
         },
     }, core)
@@ -132,7 +132,7 @@ func TestRestService_HandleServiceRequest(t *testing.T) {
     wg.Add(1)
     restService.HandleServiceRequest(&model.Request{
         Payload: &RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
+            Uri:          "http://localhost:4444/test-url",
             ResponseType: reflect.TypeOf(&testItem{}),
         },
     }, core)
@@ -144,7 +144,7 @@ func TestRestService_HandleServiceRequest(t *testing.T) {
     wg.Add(1)
     restService.HandleServiceRequest(&model.Request{
         Payload: &RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
+            Uri: "http://localhost:4444/test-url",
         },
     }, core)
 
@@ -165,7 +165,7 @@ func TestRestService_HandleServiceRequest(t *testing.T) {
     wg.Add(1)
     restService.HandleServiceRequest(&model.Request{
         Payload: &RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
+            Uri:          "http://localhost:4444/test-url",
             ResponseType: reflect.TypeOf([]byte{}),
         },
     }, core)
@@ -236,8 +236,8 @@ func TestRestService_HandleServiceRequest_InvalidInput(t *testing.T) {
 
     restService.HandleServiceRequest(&model.Request{
         Payload: RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
-            HttpMethod: "UPDATE",
+            Uri:    "http://localhost:4444/test-url",
+            Method: "UPDATE",
         },
     }, core)
 
@@ -252,8 +252,8 @@ func TestRestService_HandleServiceRequest_InvalidInput(t *testing.T) {
 
     restService.HandleServiceRequest(&model.Request{
         Payload: &RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
-            HttpMethod: "@!#$%^&**()",
+            Uri:    "http://localhost:4444/test-url",
+            Method: "@!#$%^&**()",
         },
     }, core)
 
@@ -268,7 +268,7 @@ func TestRestService_HandleServiceRequest_InvalidInput(t *testing.T) {
     wg.Add(1)
     restService.HandleServiceRequest(&model.Request{
         Payload: &RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
+            Uri: "http://localhost:4444/test-url",
         },
     }, core)
     wg.Wait()
@@ -289,7 +289,7 @@ func TestRestService_HandleServiceRequest_InvalidInput(t *testing.T) {
     wg.Add(1)
     restService.HandleServiceRequest(&model.Request{
         Payload: &RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
+            Uri: "http://localhost:4444/test-url",
         },
     }, core)
     wg.Wait()
@@ -309,7 +309,7 @@ func TestRestService_HandleServiceRequest_InvalidInput(t *testing.T) {
     wg.Add(1)
     restService.HandleServiceRequest(&model.Request{
         Payload: &RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
+            Uri:          "http://localhost:4444/test-url",
             ResponseType: reflect.TypeOf(&testItem{}),
         },
     }, core)
@@ -343,7 +343,7 @@ func TestRestService_setBaseHost(t *testing.T) {
     wg.Add(1)
     restService.HandleServiceRequest(&model.Request{
         Payload: &RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
+            Uri: "http://localhost:4444/test-url",
         },
     }, core)
 
@@ -357,7 +357,7 @@ func TestRestService_setBaseHost(t *testing.T) {
     wg.Add(1)
     restService.HandleServiceRequest(&model.Request{
         Payload: &RestServiceRequest{
-            Url: "http://localhost:4444/test-url",
+            Uri: "http://localhost:4444/test-url",
         },
     }, core)
     wg.Wait()

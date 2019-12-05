@@ -116,8 +116,8 @@ func (s *servbotService) HandleServiceRequest(
     switch request.Request {
     case "Joke":
         core.RestServiceRequest(&service.RestServiceRequest{
-            Url:          "https://icanhazdadjoke.com",
-            HttpMethod:   "GET",
+            Uri:          "https://icanhazdadjoke.com",
+            Method:       "GET",
             ResponseType: reflect.TypeOf(&Joke{}),
         }, func(response *model.Response) {
             core.SendResponse(request, []string {response.Payload.(*Joke).Joke})
@@ -135,8 +135,8 @@ func (s *vmwCloudServiceService) HandleServiceRequest(
         request *model.Request, core service.FabricServiceCore) {
 
     core.RestServiceRequest(&service.RestServiceRequest{
-        Url:          "https://status.vmware-services.io/api/v2/status.json",
-        HttpMethod:   "GET",
+        Uri:    "https://status.vmware-services.io/api/v2/status.json",
+        Method: "GET",
     }, func(response *model.Response) {
         core.SendResponse(request, response.Payload)
     }, func(response *model.Response) {

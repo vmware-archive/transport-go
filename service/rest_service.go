@@ -18,14 +18,14 @@ const (
 
 type RestServiceRequest struct {
     // The destination URL of the request.
-    Url string
+    Uri string `json:"uri"`
     // HTTP Method to use, e.g. GET, POST, PATCH etc.
-    HttpMethod string
+    Method string `json:"method"`
     // The body of the request. String and []byte payloads will be sent as is,
     // all other payloads will be serialized as json.
-    Body interface{}
+    Body interface{} `json:"body"`
     //  HTTP headers of the request.
-    Headers map[string]string
+    Headers map[string]string `json:"headers"`
     // Optional type of the response body. If provided the service will try to deserialize
     // the response to this type.
     // If omitted the response body will be deserialized as map[string]interface{}
@@ -33,15 +33,9 @@ type RestServiceRequest struct {
     // the ResponseType to string or []byte otherwise you might get deserialization error
     // or empty result.
     ResponseType reflect.Type
-}
-
-// com.vmware.bifrost.core.model.RestServiceRequest
-type javaRestServiceRequest struct {
-    Uri string `json:"uri"`
-    Method string `json:"method"`
-    Body interface{} `json:"body"`
+    // Shouldn't be populated directly, the field is used to deserialize
+    // com.vmware.bifrost.core.model.RestServiceRequest Java/Typescript requests
     ApiClass string `json:"apiClass"`
-    Headers map[string]string `json:"headers"`
 }
 
 func (request *RestServiceRequest) marshalBody() ([]byte, error) {
@@ -81,8 +75,8 @@ func (rs *restService) HandleServiceRequest(request *model.Request, core FabricS
         return
     }
 
-    httpReq, err := http.NewRequest(restReq.HttpMethod,
-            rs.getRequestUrl(restReq.Url, core), bytes.NewBuffer(body))
+    httpReq, err := http.NewRequest(restReq.Method,
+            rs.getRequestUrl(restReq.Uri, core), bytes.NewBuffer(body))
 
     if err != nil {
         core.SendErrorResponse(request, 500, err.Error())
@@ -130,24 +124,17 @@ func (rs *restService) getRestServiceRequest(request *model.Request) (*RestServi
         return restReq, true
     }
 
-    // check if the request.Paylood is a valid javaRestServiceRequest and convert it to RestServiceRequest
-    // This is needed to handle requests coming from Typescript Bifrost clients.
-    javaReqAsMap, ok := request.Payload.(map[string]interface{})
+    // check if the request.Payload is map[string]interface{} and convert it to RestServiceRequest
+    // This is needed to handle requests coming from Java/Typescript Bifrost clients.
+    reqAsMap, ok := request.Payload.(map[string]interface{})
     if ok {
-        javaReq, err := model.ConvertValueToType(javaReqAsMap, reflect.TypeOf(&javaRestServiceRequest{}))
-        if err == nil && javaReq != nil {
-            javaRestReq := javaReq.(*javaRestServiceRequest)
-            var responseType reflect.Type = nil
-            if javaRestReq.ApiClass == "java.lang.String" {
-                responseType = reflect.TypeOf("")
+        restServReqInt, err := model.ConvertValueToType(reqAsMap, reflect.TypeOf(&RestServiceRequest{}))
+        if err == nil && restServReqInt != nil {
+            restServReq := restServReqInt.(*RestServiceRequest)
+            if restServReq.ApiClass == "java.lang.String" {
+                restServReq.ResponseType = reflect.TypeOf("")
             }
-            return &RestServiceRequest{
-                Url:          javaRestReq.Uri,
-                HttpMethod:   javaRestReq.Method,
-                Body:         javaRestReq.Body,
-                Headers:      javaRestReq.Headers,
-                ResponseType: responseType,
-            }, true
+            return restServReq, true
         }
     }
 
@@ -175,7 +162,10 @@ func (rs *restService) deserializeResponse(
         // check for string responseType
         if responseType.Kind() == reflect.String {
             buf := new(bytes.Buffer)
-            buf.ReadFrom(body)
+            _, err := buf.ReadFrom(body)
+            if err != nil {
+                return nil, err
+            }
             return buf.String(), nil
         }
 
@@ -183,7 +173,10 @@ func (rs *restService) deserializeResponse(
         if responseType.Kind() == reflect.Slice &&
                 responseType == reflect.TypeOf([]byte{}) {
             buf := new(bytes.Buffer)
-            buf.ReadFrom(body)
+            _, err := buf.ReadFrom(body)
+            if err != nil {
+                return nil, err
+            }
             return buf.Bytes(), nil
         }
 
