@@ -19,6 +19,7 @@ type FabricServiceCore interface {
     // Builds an error model.Response object and sends it on the service channel as
     // response to the "request" param.
     SendErrorResponse(request *model.Request, responseErrorCode int, responseErrorMessage string)
+    SendErrorResponseWithPayload(request *model.Request, responseErrorCode int, responseErrorMessage string, payload interface{})
     // Handles unknown/unsupported request.
     HandleUnknownRequest(request *model.Request)
     // Make a new RestService call.
@@ -41,7 +42,7 @@ func (core *fabricCore) Bus() bus.EventBus {
 }
 
 func (core *fabricCore) SendResponse(request *model.Request, responsePayload interface{}) {
-    response := model.Response{
+    response := &model.Response{
         Id:                request.Id,
         Destination:       core.channelName,
         Payload:           responsePayload,
@@ -52,10 +53,17 @@ func (core *fabricCore) SendResponse(request *model.Request, responsePayload int
 
 func (core *fabricCore) SendErrorResponse(
         request *model.Request, responseErrorCode int, responseErrorMessage string) {
+    core.SendErrorResponseWithPayload(request, responseErrorCode, responseErrorMessage, nil)
+}
 
-    response := model.Response{
+func (core *fabricCore) SendErrorResponseWithPayload(
+        request *model.Request,
+        responseErrorCode int, responseErrorMessage string, payload interface{}) {
+
+    response := &model.Response{
         Id:                request.Id,
         Destination:       core.channelName,
+        Payload:           payload,
         Error:             true,
         ErrorCode:         responseErrorCode,
         ErrorMessage:      responseErrorMessage,
@@ -65,7 +73,8 @@ func (core *fabricCore) SendErrorResponse(
 }
 
 func (core *fabricCore) HandleUnknownRequest(request *model.Request) {
-    core.SendErrorResponse(request, 1, fmt.Sprintf("unsupported request: %s", request.Request))
+    errorMsg := fmt.Sprintf("unsupported request for \"%s\": %s", core.channelName, request.Request)
+    core.SendResponse(request, errorMsg)
 }
 
 func (core *fabricCore) SetHeaders(headers map[string]string) {
@@ -93,11 +102,11 @@ func (core *fabricCore) RestServiceRequest(restRequest *RestServiceRequest,
     }
     mh, _ := core.bus.ListenOnceForDestination(restServiceChannel, request.Id)
     mh.Handle(func(message *model.Message) {
-        response := message.Payload.(model.Response)
+        response := message.Payload.(*model.Response)
         if response.Error {
-            errorHandler(&response)
+            errorHandler(response)
         } else {
-            successHandler(&response)
+            successHandler(response)
         }
     }, func(e error) {
         errorHandler(&model.Response{

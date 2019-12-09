@@ -134,6 +134,10 @@ func (sw *fabricServiceWrapper) init() error {
                 requestPtr = &request
             }
 
+            if message.DestinationId != nil {
+                requestPtr.Id = message.DestinationId
+            }
+
             sw.service.HandleServiceRequest(requestPtr, sw.fabricCore)
         },
         func(e error) {})

@@ -51,6 +51,20 @@ func main() {
             },
         },
         {
+            Name: "vm-service",
+            Usage: "Call VmService to create and Power on a new VM on appfabric.vmware.com",
+            Action: func(c *cli.Context) error {
+                runDemoVmService(c)
+                return nil
+            },
+            Flags: []cli.Flag{
+                &cli.BoolFlag{
+                    Name:  "localhost",
+                    Usage: "Connect to localhost:8090 instead of appfabric.vmware.com",
+                },
+            },
+        },
+        {
             Name: "service",
             Usage: "Run Service - Run local service",
             Flags: []cli.Flag{
@@ -191,6 +205,126 @@ type SampleMessageItem struct {
 func (mi SampleMessageItem) print() {
     fmt.Println("FROM:", mi.From)
     fmt.Println("Message:", mi.Message)
+}
+
+func runDemoVmService(ctx *cli.Context) {
+    b := bus.GetBus()
+    cm := b.GetChannelManager()
+    channel := "vm-service"
+    cm.CreateChannel(channel)
+    // create done signal
+    var done = make(chan bool)
+    // listen to stream RESPONSE messages coming in.
+    h, err := b.ListenStream(channel)
+    var lastResponse *model.Response
+    // handle response from vm-service.
+    h.Handle(
+        func(msg *model.Message) {
+            // unmarshal the payload into a Response object (used by fabric services)
+            r := &model.Response{}
+            d := msg.Payload.([]byte)
+            json.Unmarshal(d, &r)
+            lastResponse = r
+
+            if r.Payload != nil && r.Payload.(map[string]interface{})["error"] == true {
+                fmt.Println("Request failed: ", r.Payload.(map[string]interface{})["errorMessage"])
+            }
+
+            done <- true
+        },
+        func(err error) {
+            log.Panicf("error received on channel %e", err)
+        })
+
+    var addr = "appfabric.vmware.com"
+    if ctx.Bool("localhost") {
+        addr = "localhost:8090"
+    }
+
+    // create a broker connector config, in this case, we will connect to the application fabric demo endpoint.
+    config := &bridge.BrokerConnectorConfig{
+        Username:   "guest",
+        Password:   "guest",
+        UseWS: true,
+        WSPath: "/fabric",
+        ServerAddr: addr }
+
+    // connect to broker.
+    c, err := b.ConnectBroker(config)
+    if err != nil {
+        log.Panicf("unable to connect to fabric broker, error: %e", err)
+    }
+    fmt.Println("Connected to fabric broker!")
+    err = cm.MarkChannelAsGalactic(channel, "/topic/" + channel, c)
+    if err != nil {
+        log.Panicf("unable to map local channel to broker destination: %e", err)
+    }
+
+    // helper function that sends requests to VmService
+    makeVmRequest := func(request string, payload interface{}) {
+        id := uuid.New();
+        r := &model.Request{
+            Id: &id,
+            Request: request,
+            Payload: payload,
+        }
+        m, _ := json.Marshal(r)
+        c.SendMessage("/pub/" + channel, m)
+
+        // wait for done signal
+        <-done
+    }
+
+    // Create New VM request
+    fmt.Println("Creating VM without name...")
+    makeVmRequest("createVm", &VmCreateRequest{})
+
+    // Create New VM request
+    fmt.Println("Creating 'test-vm' VM...")
+    makeVmRequest("createVm", &VmCreateRequest{
+        Name: "test-vm",
+        VirtualHardware: &VirtualHardware{
+            MemoryMB: 1024,
+            NumCPU:   2,
+            Devices:  []interface{}{
+                VirtualDisk{
+                    Key:        1,
+                    DeviceType: "VirtualDisk",
+                    DeviceName: "virtualDisk-1",
+                    CapacityMB: 200,
+                    DiskFormat: "emulated_512",
+                },
+            },
+        },
+    })
+
+    resp, _ := model.ConvertValueToType(lastResponse.Payload, reflect.TypeOf(VmCreateResponse{}))
+    vm := resp.(VmCreateResponse).Vm
+    fmt.Println("VM created successfully with id:", vm.VmRef.VmId, "on host " + vm.RuntimeInfo.Host)
+
+    // change power state of the vm
+    fmt.Println("Power on 'test-vm'")
+    makeVmRequest("changeVmPowerState", &VmPowerOperationRequest{
+        VmRefs:         []VmRef {vm.VmRef},
+        PowerOperation: powerOperation_powerOn,
+    })
+
+    // List all VMs
+    fmt.Println("Requesting all VMs")
+    makeVmRequest("listVms", nil)
+
+    resp, _ = model.ConvertValueToType(lastResponse.Payload, reflect.TypeOf(VmListResponse{}))
+    allVms := resp.(VmListResponse)
+    fmt.Printf("Received %d VMs:\n", len(allVms.VirtualMachines))
+    for _, vm := range allVms.VirtualMachines {
+        fmt.Printf("VM: %s (%s)\n", vm.Name, vm.RuntimeInfo.PowerState)
+    }
+
+    // Delete the newly created VM
+    fmt.Println("Deleting 'test-vm'")
+    makeVmRequest("deleteVm", &VmDeleteRequest{ Vm: vm.VmRef })
+
+    fmt.Printf("\nDone.\n\n")
 }
 
 func runDemoStore(ctx *cli.Context) {
@@ -368,7 +502,7 @@ func runDemoApp(ctx *cli.Context) {
 
     // mark our local channel as galactic and map it to our connection and the /topic/ping-service
     // running locally
-    err = cm.MarkChannelAsGalactic(channel, "/topic/ping-service", c)
+    err = cm.MarkChannelAsGalactic(channel, "/topic/" + PongServiceChan, c)
     if err != nil {
         log.Panicf("unable to map local channel to broker destination: %e", err)
     }
@@ -377,9 +511,9 @@ func runDemoApp(ctx *cli.Context) {
     time.Sleep(1 * time.Second)
     for i := 0; i < 5; i++ {
         pl := "ping--" + strconv.Itoa(rand.Intn(10000000))
-        r := &model.Response{Payload: pl}
+        r := &model.Request{Request: "basic",  Payload: pl}
         m, _ := json.Marshal(r)
-        c.SendMessage("/pub/ping-service", m)
+        c.SendMessage("/pub/" + PongServiceChan, m)
         time.Sleep(500 * time.Millisecond)
     }
 
@@ -397,7 +531,7 @@ func runDemoApp(ctx *cli.Context) {
     privateChannel := "my-private-channel"
     cm.CreateChannel(privateChannel)
     // mark the privateChannel channel as galactic and map it to /user/queue/ping-service
-    err = cm.MarkChannelAsGalactic(privateChannel, "/user/queue/ping-service", c)
+    err = cm.MarkChannelAsGalactic(privateChannel, "/user/queue/" + PongServiceChan, c)
     if err != nil {
         log.Panicf("unable to map local channel to broker destination: %e", err)
     }
@@ -431,9 +565,9 @@ func runDemoApp(ctx *cli.Context) {
     for i := 0; i < 5; i++ {
 
         pl := "ping--" + strconv.Itoa(rand.Intn(10000000))
-        r := &model.Response{Payload: pl}
+        r := &model.Request{Request: "full", Payload: pl}
         m, _ := json.Marshal(r)
-        c.SendMessage("/pub/queue/ping-service", m)
+        c.SendMessage("/pub/queue/" + PongServiceChan, m)
         time.Sleep(500 * time.Millisecond)
     }
 
@@ -455,19 +589,30 @@ func runDemoApp(ctx *cli.Context) {
 func runDemoFabricServices(c *cli.Context) {
     b := bus.GetBus()
 
-    fmt.Println("Registering calendar and simple-stream services.")
-    simpleTickerService := &simpleStreamTickerService{ channelName: "simple-stream" }
-    service.GetServiceRegistry().RegisterService(simpleTickerService, simpleTickerService.channelName)
-    service.GetServiceRegistry().RegisterService(&calendarService{}, "calendar-service")
-
-    if c.Bool("localhost") {
-        service.GetServiceRegistry().SetGlobalRestServiceBaseHost("localhost:8090")
-    }
+    fmt.Println("Registering fabric services...")
+    service.GetServiceRegistry().RegisterService(&simpleStreamTickerService{}, SimpleStreamChan)
+    service.GetServiceRegistry().RegisterService(&calendarService{}, CalendarServiceChan)
+    service.GetServiceRegistry().RegisterService(&servbotService{}, ServbotServiceChan)
 
     wg := sync.WaitGroup{}
-    mh,_ := b.ListenStream("calendar-service")
+    wg.Add(1)
+    fmt.Println("Asking for a joke")
+    jh,_ := b.ListenStream(ServbotServiceChan)
+    jh.Handle(func(message *model.Message) {
+        resp := message.Payload.(*model.Response)
+        if resp.Error {
+            fmt.Println("Received error response from servbot:", resp.ErrorMessage)
+        } else {
+            fmt.Println("Received response from servbot service:", resp.Payload.([]string)[0])
+        }
+        wg.Done()
+    }, func(e error) {})
+    b.SendRequestMessage(ServbotServiceChan, model.Request{Request: "Joke"}, nil)
+    wg.Wait()
+
+    mh,_ := b.ListenStream(CalendarServiceChan)
     mh.Handle(func(message *model.Message) {
-        resp := message.Payload.(model.Response)
+        resp := message.Payload.(*model.Response)
         if resp.Error {
             fmt.Println("Received error response from calendar-service:", resp.ErrorMessage)
         } else {
@@ -477,33 +622,24 @@ func runDemoFabricServices(c *cli.Context) {
     }, func(e error) {})
 
     wg.Add(1)
-    if c.Bool("localhost") {
-        fmt.Println("Sending REST request to the http://localhost:8090/rest/samples/calendar/time")
-    } else {
-        fmt.Println("Sending REST request to the http://appfabric.vmware.com/rest/samples/calendar/time")
-    }
-    b.SendRequestMessage("calendar-service", model.Request{Request: "rest-time"}, nil)
-    wg.Wait()
-
-    wg.Add(1)
     fmt.Println("Sending \"time\" request to the calendar service")
-    b.SendRequestMessage("calendar-service", model.Request{Request: "time"}, nil)
+    b.SendRequestMessage(CalendarServiceChan, model.Request{Request: "time"}, nil)
     wg.Wait()
     wg.Add(1)
     fmt.Println("Sending \"date\" request to the calendar service")
-    b.SendRequestMessage("calendar-service", model.Request{Request: "date"}, nil)
+    b.SendRequestMessage(CalendarServiceChan, model.Request{Request: "date"}, nil)
     wg.Wait()
     wg.Add(1)
     fmt.Println("Sending invalid request to the calendar service")
-    b.SendRequestMessage("calendar-service", model.Request{Request: "invalid-request"}, nil)
+    b.SendRequestMessage(CalendarServiceChan, model.Request{Request: "invalid-request"}, nil)
     wg.Wait()
 
     counter := 0
     wg.Add(10)
     fmt.Println("Subscribing to the simple-stream channel and waiting for 10 messages...")
-    tickerMh, _ := b.ListenStream(simpleTickerService.channelName)
+    tickerMh, _ := b.ListenStream(SimpleStreamChan)
     tickerMh.Handle(func(message *model.Message) {
-        resp := message.Payload.(model.Response)
+        resp := message.Payload.(*model.Response)
         if resp.Error {
             fmt.Println("Received error response from simple-stream:", resp.ErrorMessage)
         } else {
@@ -513,11 +649,11 @@ func runDemoFabricServices(c *cli.Context) {
 
         counter++
         if counter == 5 {
-            b.SendRequestMessage(simpleTickerService.channelName, model.Request{Request: "offline"}, nil)
+            b.SendRequestMessage(SimpleStreamChan, model.Request{Request: "offline"}, nil)
             fmt.Println("Temporary stopping the simple-stream service for 3 seconds...")
             time.Sleep(3 * time.Second)
             fmt.Println("Resuming the simple-stream...")
-            b.SendRequestMessage(simpleTickerService.channelName, model.Request{Request: "online"}, nil)
+            b.SendRequestMessage(SimpleStreamChan, model.Request{Request: "online"}, nil)
         }
 
     }, func(e error) {})
@@ -525,83 +661,15 @@ func runDemoFabricServices(c *cli.Context) {
     wg.Wait()
 }
 
-type simpleStreamTickerService struct {
-    online bool
-    channelName string
-}
-
-func (fs *simpleStreamTickerService) HandleServiceRequest(request *model.Request, core service.FabricServiceCore) {
-    switch request.Request {
-    case "online":
-        fs.online = true
-    case "offline":
-        fs.online = false
-    default:
-        core.HandleUnknownRequest(request)
-    }
-}
-
-func (fs *simpleStreamTickerService) Init(core service.FabricServiceCore) error {
-    fs.online = true
-    ticker := time.NewTicker(500 * time.Millisecond)
-    go func() {
-        for {
-            <-ticker.C
-            if fs.online {
-                now := time.Now()
-                id := uuid.New()
-                response := model.Response{
-                    Payload: fmt.Sprintf("ping-%d", now.Nanosecond() + now.Second()),
-                    Id: &id,
-                }
-                core.Bus().SendResponseMessage(fs.channelName, response, nil)
-            }
-        }
-    }()
-    return nil
-}
-
-type calendarService struct {}
-
-func (cs *calendarService) HandleServiceRequest(
-        request *model.Request, core service.FabricServiceCore) {
-
-    switch request.Request {
-    case "time":
-        core.SendResponse(request, time.Now().Format("03:04:05.000 AM (-0700)"))
-    case "date":
-        core.SendResponse(request, time.Now().Format("Mon, 02 Jan 2006"))
-    case "rest-time":
-        core.RestServiceRequest(&service.RestServiceRequest{
-            Url: "http://appfabric.vmware.com/rest/samples/calendar/time",
-            HttpMethod: "POST",
-            Body: model.Request{
-                Request: "time",
-            },
-            ResponseType: reflect.TypeOf(model.Response{}),
-        }, func(response *model.Response) {
-            core.SendResponse(request, response.Payload.(model.Response).Payload)
-        }, func(response *model.Response) {
-            core.SendErrorResponse(request, response.ErrorCode, response.ErrorMessage)
-        })
-    default:
-        core.HandleUnknownRequest(request)
-    }
-}
-
-type pingService struct {}
-
-func (cs *pingService) HandleServiceRequest(
-        request *model.Request, core service.FabricServiceCore) {
-
-    requestMessage := request.Payload.(string)
-    core.SendResponse(request, requestMessage + "-pong")
-}
-
 func runLocalFabricBroker(c *cli.Context) {
     fmt.Println("Service Starting...")
 
-    service.GetServiceRegistry().RegisterService(&pingService{}, "ping-service")
+    service.GetServiceRegistry().RegisterService(&pongService{}, PongServiceChan)
+    service.GetServiceRegistry().RegisterService(&calendarService{}, CalendarServiceChan)
+    service.GetServiceRegistry().RegisterService(&simpleStreamTickerService{}, SimpleStreamChan)
+    service.GetServiceRegistry().RegisterService(&servbotService{}, ServbotServiceChan)
+    service.GetServiceRegistry().RegisterService(&vmService{}, VmServiceChan)
+    service.GetServiceRegistry().RegisterService(&vmwCloudServiceService{}, VMWCloudServiceChan)
 
     store := bus.GetBus().GetStoreManager().CreateStoreWithType(
             "messageOfTheDayStore", reflect.TypeOf(&SampleMessageItem{}))

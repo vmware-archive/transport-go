@@ -216,7 +216,7 @@ func (syncService *storeSyncService) updateStore(
     if rawValue == nil {
         store.Remove(itemId, galacticStoreSyncRemove)
     } else {
-        deserializedValue, err := deserializeRawValue(store.GetItemType(), rawValue)
+        deserializedValue, err := model.ConvertValueToType(rawValue, store.GetItemType())
         if err != nil || deserializedValue == nil {
             errMsg :=  "Cannot deserialize UpdateStoreRequest item value"
             if err != nil {
