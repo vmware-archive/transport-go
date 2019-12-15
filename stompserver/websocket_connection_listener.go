@@ -4,6 +4,7 @@ package stompserver
 
 import (
     "github.com/go-stomp/stomp/frame"
+    "github.com/gorilla/mux"
     "github.com/gorilla/websocket"
     "net"
     "net/http"
@@ -59,6 +60,39 @@ type webSocketConnectionListener struct {
 type rawConnResult struct {
     conn RawConnection
     err error
+}
+
+func NewWebSocketConnectionFromExistingHttpServer(httpServer *http.Server, handler *mux.Router,
+    endpoint string, allowedOrigins []string) (RawConnectionListener, error) {
+    l := &webSocketConnectionListener{
+        httpServer: httpServer,
+        connectionsChannel: make(chan rawConnResult),
+        allowedOrigins: allowedOrigins,
+    }
+
+    var upgrader = websocket.Upgrader{
+        ReadBufferSize:  1024,
+        WriteBufferSize: 1024,
+    }
+
+    upgrader.CheckOrigin = l.checkOrigin
+
+    handler.HandleFunc(endpoint, func(writer http.ResponseWriter, request *http.Request) {
+        conn, err := upgrader.Upgrade(writer, request, nil)
+        if err != nil {
+            l.connectionsChannel <- rawConnResult{ err: err}
+
+
+        } else {
+            l.connectionsChannel <- rawConnResult{
+                conn: &webSocketStompConnection{
+                    wsCon: conn,
+                },
+            }
+        }
+    })
+
+    return l, nil
 }
 
 func NewWebSocketConnectionListener(addr string, endpoint string, allowedOrigins []string) (RawConnectionListener, error) {
