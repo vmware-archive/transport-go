@@ -11,7 +11,7 @@ import (
 
 // BrokerConnector is used to connect to a message broker over TCP or WebSocket.
 type BrokerConnector interface {
-    Connect(config *BrokerConnectorConfig) (Connection, error)
+    Connect(config *BrokerConnectorConfig, enableLogging bool) (Connection, error)
 }
 
 type brokerConnector struct {
@@ -42,7 +42,7 @@ func checkConfig(config *BrokerConnectorConfig) error {
 }
 
 // Connect to broker using supplied connector config.
-func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (Connection, error) {
+func (bc *brokerConnector) Connect(config *BrokerConnectorConfig, enableLogging bool) (Connection, error) {
 
     err := checkConfig(config)
     if err != nil {
@@ -51,7 +51,7 @@ func (bc *brokerConnector) Connect(config *BrokerConnectorConfig) (Connection, e
 
     // use different mechanism for WS connections.
     if config.UseWS {
-        return bc.connectWs(config)
+        return bc.connectWs(config, enableLogging)
     }
 
     return bc.connectTCP(config, err)
@@ -83,10 +83,10 @@ func (bc *brokerConnector) connectTCP(config *BrokerConnectorConfig, err error) 
     return bcConn, nil
 }
 
-func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig) (Connection, error) {
+func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig, enableLogging bool) (Connection, error) {
 
     u := url.URL{Scheme: "ws", Host: config.ServerAddr, Path: config.WSPath}
-    c := NewBridgeWsClient()
+    c := NewBridgeWsClient(enableLogging)
     err := c.Connect(&u, nil)
     if err != nil {
         return nil, fmt.Errorf("cannot connect to host '%s' via path '%s', stopping", config.ServerAddr, config.WSPath)

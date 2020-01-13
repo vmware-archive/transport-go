@@ -124,7 +124,7 @@ func TestBrokerConnector_BadConfig(t *testing.T) {
     for _, tc := range tt {
         t.Run(tc.test, func(t *testing.T) {
             bc := NewBrokerConnector()
-            c, err := bc.Connect(tc.config)
+            c, err := bc.Connect(tc.config, true)
             assert.Nil(t, c)
             assert.NotNil(t, err)
             assert.Equal(t, tc.err, err)
@@ -156,7 +156,7 @@ func TestBrokerConnector_ConnectBroker(t *testing.T) {
 
             // connect
             bc := NewBrokerConnector()
-            c, err := bc.Connect(tc.config)
+            c, err := bc.Connect(tc.config, true)
 
             if err != nil {
                 fmt.Printf("unable to connect, error: %e", err)
@@ -203,7 +203,7 @@ func TestBrokerConnector_ConnectBrokerFail(t *testing.T) {
     for _, tc := range tt {
         t.Run(tc.test, func(t *testing.T) {
             bc := NewBrokerConnector()
-            c, err := bc.Connect(tc.config)
+            c, err := bc.Connect(tc.config, true)
             assert.Nil(t, c)
             assert.NotNil(t, err)
         })
@@ -234,7 +234,7 @@ func TestBrokerConnector_Subscribe(t *testing.T) {
 
             // connect
             bc := NewBrokerConnector()
-            c, _ := bc.Connect(tc.config)
+            c, _ := bc.Connect(tc.config, true)
             s, _ := c.Subscribe("/topic/test")
             if !tc.config.UseWS {
                 var ping = func() {
@@ -257,7 +257,7 @@ func TestBrokerConnector_Subscribe(t *testing.T) {
 
 func TestBrokerConnector_SubscribeError(t *testing.T) {
     bc := NewBrokerConnector()
-    c, err := bc.Connect(nil)
+    c, err := bc.Connect(nil, false)
     assert.NotNil(t, err)
     assert.Nil(t, c)
 
@@ -294,7 +294,7 @@ func TestBrokerConnector_SendMessageOnWs(t *testing.T) {
         Username: "guest", Password: "guest", UseWS: true, WSPath: "/", ServerAddr: testHost}
 
     bc := NewBrokerConnector()
-    c, _ := bc.Connect(cf)
+    c, _ := bc.Connect(cf, true)
     assert.NotNil(t, c)
 
     e := c.SendMessage("nowhere", []byte("out-there"))
@@ -305,7 +305,7 @@ func TestBrokerConnector_SendMessageOnWs(t *testing.T) {
         Username: "guest", Password: "guest", ServerAddr: testBrokerAddress}
 
     bc = NewBrokerConnector()
-    c, _ = bc.Connect(cf)
+    c, _ = bc.Connect(cf, true)
     assert.NotNil(t, c)
 
     c.Disconnect()
@@ -339,7 +339,7 @@ func TestBrokerConnector_Unsubscribe(t *testing.T) {
 
             // connect
             bc := NewBrokerConnector()
-            c, _ := bc.Connect(tc.config)
+            c, _ := bc.Connect(tc.config, true)
             s, _ := c.Subscribe("/topic/test")
             if !tc.config.UseWS {
                 var ping = func() {

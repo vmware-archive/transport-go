@@ -23,7 +23,7 @@ type MockBrokerConnector struct {
     mock.Mock
 }
 
-func (mock *MockBrokerConnector) Connect(config *bridge.BrokerConnectorConfig) (bridge.Connection, error) {
+func (mock *MockBrokerConnector) Connect(config *bridge.BrokerConnectorConfig, enableLogging bool) (bridge.Connection, error) {
     args := mock.MethodCalled("Connect", config)
     if args.Get(0) == nil {
         return nil, args.Error(1)
