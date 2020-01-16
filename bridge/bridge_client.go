@@ -36,12 +36,15 @@ type BridgeClient struct {
 }
 
 // Create a new WebSocket client.
-func NewBridgeWsClient() *BridgeClient {
-    return newBridgeWsClient()
+func NewBridgeWsClient(enableLogging bool) *BridgeClient {
+    return newBridgeWsClient(enableLogging)
 }
 
-func newBridgeWsClient() *BridgeClient {
-    l := log.New(os.Stderr, "WebSocket Client: ", 2)
+func newBridgeWsClient(enableLogging bool) *BridgeClient {
+    var l *log.Logger = nil
+    if enableLogging {
+        l = log.New(os.Stderr, "WebSocket Client: ", 2)
+    }
     return &BridgeClient{
         WSc:              nil,
         TCPc:             nil,
@@ -60,7 +63,9 @@ func newBridgeWsClient() *BridgeClient {
 func (ws *BridgeClient) Connect(url *url.URL, headers http.Header) error {
     ws.lock.Lock()
     defer ws.lock.Unlock()
-    ws.logger.Printf("connecting to fabric endpoint over %s", url.String())
+    if ws.logger != nil {
+        ws.logger.Printf("connecting to fabric endpoint over %s", url.String())
+    }
 
     c, _, err := websocket.DefaultDialer.Dial(url.String(), headers)
     if err != nil {
@@ -179,7 +184,9 @@ func (ws *BridgeClient) handleIncomingSTOMPFrames() {
         case f := <-ws.inboundChan:
             switch f.Command {
             case frame.CONNECTED:
-                ws.logger.Printf("STOMP Client connected")
+                if ws.logger != nil {
+                    ws.logger.Printf("STOMP Client connected")
+                }
                 ws.stompConnected = true
                 ws.connected = true
                 ws.ConnectedChan <- true
@@ -190,14 +197,16 @@ func (ws *BridgeClient) handleIncomingSTOMPFrames() {
                         c := &model.MessageConfig{Payload: f.Body, Destination: sub.Destination}
                         sub.lock.RLock()
                         if sub.subscribed {
-                            sendResponseSafe(sub.C, model.GenerateResponse(c))
+                            ws.sendResponseSafe(sub.C, model.GenerateResponse(c))
                         }
                         sub.lock.RUnlock()
                     }
                 }
 
             case frame.ERROR:
-                ws.logger.Printf("STOMP ErrorDir received")
+                if ws.logger != nil {
+                    ws.logger.Printf("STOMP ErrorDir received")
+                }
 
                 for _, sub := range ws.Subscriptions {
                     if sub.Destination == f.Header.Get(frame.Destination) {
@@ -210,10 +219,12 @@ func (ws *BridgeClient) handleIncomingSTOMPFrames() {
     }
 }
 
-func sendResponseSafe(C chan *model.Message, m *model.Message) {
+func (ws *BridgeClient) sendResponseSafe(C chan *model.Message, m *model.Message) {
     defer func() {
         if r := recover(); r != nil {
-            log.Println("channel is closed, message undeliverable to closed channel.")
+            if ws.logger != nil {
+                ws.logger.Println("channel is closed, message undeliverable to closed channel.")
+            }
         }
     }()
     C <- m

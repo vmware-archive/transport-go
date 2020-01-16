@@ -23,6 +23,7 @@ import (
 var addr = "localhost:8090"
 
 func main() {
+    bus.EnableLogging(true)
     app := cli.NewApp()
     app.Name = "Bifrost demo app"
     app.Usage = "Demonstrates different features of the Bifrost bus"

@@ -44,6 +44,12 @@ type EventBus interface {
     SendMonitorEvent(evtType MonitorEventType, entityName string, data interface{})
 }
 
+var enableLogging bool = false
+
+func EnableLogging(enable bool) {
+    enableLogging = enable
+}
+
 var once sync.Once
 var busInstance EventBus
 
@@ -144,7 +150,9 @@ func (bus *bifrostEventBus) init() {
     bus.brokerConnections = make(map[*uuid.UUID]bridge.Connection)
     bus.bc = bridge.NewBrokerConnector()
     bus.monitor = newMonitor()
-    fmt.Printf("🌈 Bifröst booted with Id [%s]\n", bus.Id.String())
+    if enableLogging {
+        fmt.Printf("🌈 Bifröst booted with Id [%s]\n", bus.Id.String())
+    }
 }
 
 func (bus *bifrostEventBus) GetStoreManager() StoreManager {
@@ -414,7 +422,7 @@ func (bus *bifrostEventBus) RequestStreamForDestination(
 
 // Connect to a message broker. If successful, you get a pointer to a Connection. If not, you will get an error.
 func (bus *bifrostEventBus) ConnectBroker(config *bridge.BrokerConnectorConfig) (conn bridge.Connection, err error) {
-    conn, err = bus.bc.Connect(config)
+    conn, err = bus.bc.Connect(config, enableLogging)
     if conn != nil {
         bus.brokerConnections[conn.GetId()] = conn
     }
