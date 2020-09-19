@@ -88,7 +88,7 @@ func (core *fabricCore) SendErrorResponseWithPayload(
 
 func (core *fabricCore) HandleUnknownRequest(request *model.Request) {
 	errorMsg := fmt.Sprintf("unsupported request for \"%s\": %s", core.channelName, request.Request)
-	core.SendResponse(request, errorMsg)
+	core.SendErrorResponse(request, 403, errorMsg)
 }
 
 func (core *fabricCore) SetHeaders(headers map[string]string) {
