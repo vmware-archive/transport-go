@@ -103,9 +103,9 @@ func TestFabricCore_SendMethods(t *testing.T) {
 	response = lastMessage.Payload.(*model.Response)
 
 	assert.Equal(t, response.Id, req.Id)
-	assert.False(t, response.Error)
-	assert.Equal(t, response.ErrorCode, 0)
-	assert.Equal(t, response.Payload, "unsupported request for \"test-channel\": "+req.Request)
+	assert.True(t, response.Error)
+	assert.Equal(t, 403, response.ErrorCode)
+	assert.Equal(t, nil, response.Payload)
 }
 
 func TestFabricCore_RestServiceRequest(t *testing.T) {
