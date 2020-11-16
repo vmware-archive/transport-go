@@ -2,7 +2,7 @@ image: autogen-docker-local.artifactory.eng.vmware.com/autogen-builder:1.7
 
 services:
   - name: eve-docker-local.artifactory.eng.vmware.com/docker:18-dind
-    name: docker
+    alias: docker
 
 stages:
   - build
