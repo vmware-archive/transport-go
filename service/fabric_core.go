@@ -32,6 +32,9 @@ type FabricServiceCore interface {
 	// The headers will be applied to all requests made by this instance's RestServiceRequest method.
 	// Global header values can be overridden per request via the RestServiceRequest.Headers property.
 	SetHeaders(headers map[string]string)
+
+	// Automatically ready to go map with json headers.
+	GenerateJSONHeaders() map[string]string
 }
 
 type fabricCore struct {
@@ -93,6 +96,12 @@ func (core *fabricCore) HandleUnknownRequest(request *model.Request) {
 
 func (core *fabricCore) SetHeaders(headers map[string]string) {
 	core.headers = headers
+}
+
+func (core *fabricCore) GenerateJSONHeaders() map[string]string {
+	h := make(map[string]string)
+	h["Content-Type"] = "application/json"
+	return h
 }
 
 func (core *fabricCore) RestServiceRequest(restRequest *RestServiceRequest,

@@ -211,3 +211,9 @@ func TestFabricCore_RestServiceRequest(t *testing.T) {
 	assert.Equal(t, lastError.ErrorMessage, "test-error")
 	assert.Equal(t, lastError.ErrorCode, 500)
 }
+
+func TestFabricCore_GenerateJSONHeaders(t *testing.T) {
+	core := newTestFabricCore("test-channel")
+	h := core.GenerateJSONHeaders()
+	assert.EqualValues(t, "application/json", h["Content-Type"])
+}
