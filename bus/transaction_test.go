@@ -6,7 +6,7 @@ package bus
 import (
     "errors"
     "github.com/stretchr/testify/assert"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/model"
     "sync"
     "sync/atomic"
     "testing"

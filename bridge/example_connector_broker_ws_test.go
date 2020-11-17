@@ -6,9 +6,9 @@ package bridge_test
 import (
     "encoding/json"
     "fmt"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/bus"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/bridge"
+    "github.com/vmware/transport-go/bus"
+    "github.com/vmware/transport-go/model"
 )
 
 func Example_connectUsingBrokerViaWebSocket() {

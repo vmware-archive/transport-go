@@ -4,10 +4,10 @@
 package service
 
 import (
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/bus"
+    "github.com/vmware/transport-go/bus"
     "sync"
     "fmt"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/model"
     "log"
 )
 

@@ -7,7 +7,7 @@ import (
     "fmt"
     "github.com/go-stomp/stomp"
     "github.com/google/uuid"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/model"
 )
 
 type Subscription interface {

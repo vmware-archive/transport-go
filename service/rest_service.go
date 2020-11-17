@@ -6,7 +6,7 @@ package service
 import (
 	"bytes"
 	"encoding/json"
-	"gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+	"github.com/vmware/transport-go/model"
 	"io"
 	"net/http"
 	"net/url"

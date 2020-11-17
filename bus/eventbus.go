@@ -6,9 +6,9 @@ package bus
 import (
 	"fmt"
 	"github.com/google/uuid"
-	"gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
-	"gitlab.eng.vmware.com/bifrost/go-bifrost/model"
-	"gitlab.eng.vmware.com/bifrost/go-bifrost/stompserver"
+	"github.com/vmware/transport-go/bridge"
+	"github.com/vmware/transport-go/model"
+	"github.com/vmware/transport-go/stompserver"
 	"sync"
 	"sync/atomic"
 )

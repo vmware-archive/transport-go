@@ -5,8 +5,8 @@ package bridge_test
 
 import (
     "fmt"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/bus"
+    "github.com/vmware/transport-go/bridge"
+    "github.com/vmware/transport-go/bus"
 )
 
 func Example_connectUsingBrokerViaTCP() {

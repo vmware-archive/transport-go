@@ -7,9 +7,9 @@ import (
     "encoding/json"
     "fmt"
     "github.com/go-stomp/stomp/frame"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/log"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/stompserver"
+    "github.com/vmware/transport-go/log"
+    "github.com/vmware/transport-go/model"
+    "github.com/vmware/transport-go/stompserver"
     "strings"
     "sync"
 )

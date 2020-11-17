@@ -6,7 +6,7 @@ package bus
 import (
     "fmt"
     "github.com/google/uuid"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/model"
     "sync"
 )
 

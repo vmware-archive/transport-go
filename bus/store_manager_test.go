@@ -83,7 +83,7 @@ func TestStoreManager_ConfigureStoreSyncChannel(t *testing.T) {
     s := &MockBridgeSubscription{
         Id: &subId,
     }
-    syncChannelDst := "/topic-prefix/fabric-store-sync." + id.String()
+    syncChannelDst := "/topic-prefix/transport-store-sync." + id.String()
     con.On("Subscribe", syncChannelDst).Return(s, nil)
     con.On("SendMessage", syncChannelDst, mock.Anything).Return(nil)
     m.ConfigureStoreSyncChannel(con, "/topic-prefix", "/pub-prefix")

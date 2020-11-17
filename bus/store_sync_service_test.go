@@ -6,7 +6,7 @@ package bus
 import (
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/model"
     "reflect"
     "strings"
     "sync"
@@ -21,11 +21,11 @@ func testStoreSyncService() (*storeSyncService, EventBus) {
 func TestStoreSyncService_NewConnection(t *testing.T) {
     service, bus := testStoreSyncService()
 
-    // verify that the service ignores non fabric-store-sync events
+    // verify that the service ignores non transport-store-sync events
     bus.SendMonitorEvent(FabricEndpointSubscribeEvt, "galactic-channel", nil)
     assert.Equal(t, len(service.syncClients), 0)
 
-    syncChan := "fabric-store-sync.1"
+    syncChan := "transport-store-sync.1"
 
     bus.GetChannelManager().CreateChannel(syncChan)
 
@@ -36,7 +36,7 @@ func TestStoreSyncService_NewConnection(t *testing.T) {
 func TestStoreSyncService_OpenStoreErrors(t *testing.T) {
     _, bus := testStoreSyncService()
 
-    syncChan := "fabric-store-sync.1"
+    syncChan := "transport-store-sync.1"
     bus.GetChannelManager().CreateChannel(syncChan)
 
     mh, _ := bus.ListenStream(syncChan)
@@ -93,7 +93,7 @@ func TestStoreSyncService_OpenStore(t *testing.T) {
         "item2": &MockStoreItem{From:"test2", Message: uuid.New().String()},
     })
 
-    syncChan := "fabric-store-sync.1"
+    syncChan := "transport-store-sync.1"
     bus.GetChannelManager().CreateChannel(syncChan)
 
     bus.SendMonitorEvent(FabricEndpointSubscribeEvt, syncChan, nil)
@@ -143,7 +143,7 @@ func TestStoreSyncService_OpenStore(t *testing.T) {
     assert.Equal(t, len(syncResp), 2)
     assert.Equal(t, syncResp[1].(*model.StoreContentResponse).ResponseType, "storeContentResponse")
 
-    syncChan2 := "fabric-store-sync.2"
+    syncChan2 := "transport-store-sync.2"
     bus.GetChannelManager().CreateChannel(syncChan2)
     bus.SendMonitorEvent(FabricEndpointSubscribeEvt, syncChan2, nil)
 
@@ -200,11 +200,11 @@ func TestStoreSyncService_CloseStore(t *testing.T) {
         "item2": &MockStoreItem{From: "test2", Message: uuid.New().String()},
     })
 
-    syncChan := "fabric-store-sync.1"
+    syncChan := "transport-store-sync.1"
     bus.GetChannelManager().CreateChannel(syncChan)
     bus.SendMonitorEvent(FabricEndpointSubscribeEvt, syncChan, nil)
 
-    syncChan2 := "fabric-store-sync.2"
+    syncChan2 := "transport-store-sync.2"
     bus.GetChannelManager().CreateChannel(syncChan2)
     bus.SendMonitorEvent(FabricEndpointSubscribeEvt, syncChan2, nil)
 
@@ -304,7 +304,7 @@ func TestStoreSyncService_CloseStore(t *testing.T) {
 func TestStoreSyncService_UpdateStoreErrors(t *testing.T) {
     _, bus := testStoreSyncService()
 
-    syncChan := "fabric-store-sync.1"
+    syncChan := "transport-store-sync.1"
     bus.GetChannelManager().CreateChannel(syncChan)
     bus.SendMonitorEvent(FabricEndpointSubscribeEvt, syncChan, nil)
 
@@ -362,11 +362,11 @@ func TestStoreSyncService_UpdateStore(t *testing.T) {
         "item2": &MockStoreItem{From: "test2", Message: uuid.New().String()},
     })
 
-    syncChan := "fabric-store-sync.1"
+    syncChan := "transport-store-sync.1"
     bus.GetChannelManager().CreateChannel(syncChan)
     bus.SendMonitorEvent(FabricEndpointSubscribeEvt, syncChan, nil)
 
-    syncChan2 := "fabric-store-sync.2"
+    syncChan2 := "transport-store-sync.2"
     bus.GetChannelManager().CreateChannel(syncChan2)
     bus.SendMonitorEvent(FabricEndpointSubscribeEvt, syncChan2, nil)
 

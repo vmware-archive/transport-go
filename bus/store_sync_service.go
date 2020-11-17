@@ -5,7 +5,7 @@ package bus
 
 import (
     "github.com/google/uuid"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/model"
     "strings"
     "sync"
 )
@@ -51,7 +51,7 @@ func newStoreSyncService(bus EventBus) *storeSyncService {
 func (syncService *storeSyncService) init() {
     syncService.bus.AddMonitorEventListener(
         func(monitorEvt *MonitorEvent) {
-            if !strings.HasPrefix(monitorEvt.EntityName, "fabric-store-sync.") {
+            if !strings.HasPrefix(monitorEvt.EntityName, "transport-store-sync.") {
                 // not a store sync channel, ignore the message
                 return
             }
