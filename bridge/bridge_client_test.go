@@ -6,7 +6,7 @@ package bridge
 import (
     "github.com/go-stomp/stomp/frame"
     "github.com/stretchr/testify/assert"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/model"
     "log"
     "os"
     "sync"

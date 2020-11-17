@@ -12,7 +12,7 @@ import (
     "github.com/go-stomp/stomp/frame"
     "github.com/google/uuid"
     "github.com/gorilla/websocket"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/model"
     "log"
     "net/http"
     "net/url"

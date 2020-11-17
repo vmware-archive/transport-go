@@ -7,8 +7,8 @@ import (
     "encoding/json"
     "fmt"
     "github.com/google/uuid"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/log"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/log"
+    "github.com/vmware/transport-go/model"
     "reflect"
     "sync"
 )

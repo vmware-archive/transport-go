@@ -7,8 +7,8 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"gitlab.eng.vmware.com/bifrost/go-bifrost/bus"
-	"gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+	"github.com/vmware/transport-go/bus"
+	"github.com/vmware/transport-go/model"
 	"sync"
 	"testing"
 )

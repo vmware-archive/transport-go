@@ -6,8 +6,8 @@ package service
 import (
 	"fmt"
 	"github.com/google/uuid"
-	"gitlab.eng.vmware.com/bifrost/go-bifrost/bus"
-	"gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+	"github.com/vmware/transport-go/bus"
+	"github.com/vmware/transport-go/model"
 )
 
 // Interface providing base functionality to fabric services.

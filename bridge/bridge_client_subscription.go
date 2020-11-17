@@ -6,7 +6,7 @@ package bridge
 import (
     "github.com/go-stomp/stomp/frame"
     "github.com/google/uuid"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/model"
     "sync"
 )
 

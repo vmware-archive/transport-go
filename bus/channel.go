@@ -5,8 +5,8 @@ package bus
 
 import (
     "github.com/google/uuid"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
+    "github.com/vmware/transport-go/bridge"
+    "github.com/vmware/transport-go/model"
     "sync"
     "sync/atomic"
 )

@@ -6,8 +6,8 @@ package main
 import (
     "fmt"
     "github.com/google/uuid"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/model"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/service"
+    "github.com/vmware/transport-go/model"
+    "github.com/vmware/transport-go/service"
     "reflect"
     "time"
 )

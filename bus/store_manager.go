@@ -6,7 +6,7 @@ package bus
 import (
     "fmt"
     "github.com/google/uuid"
-    "gitlab.eng.vmware.com/bifrost/go-bifrost/bridge"
+    "github.com/vmware/transport-go/bridge"
     "reflect"
     "strings"
     "sync"
@@ -121,7 +121,7 @@ func (m *storeManager) ConfigureStoreSyncChannel(
         pubPrefix += "/"
     }
 
-    syncChannel := "fabric-store-sync." + conn.GetId().String()
+    syncChannel := "transport-store-sync." + conn.GetId().String()
 
     storeSyncChannelConfig := &storeSyncChannelConfig{
         topicPrefix:     topicPrefix,

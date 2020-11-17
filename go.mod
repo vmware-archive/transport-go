@@ -1,4 +1,4 @@
-module gitlab.eng.vmware.com/bifrost/go-bifrost
+module github.com/vmware/transport-go
 
 go 1.13
 
