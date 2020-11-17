@@ -1,6 +1,8 @@
 #!/bin/bash
+# Copyright 2019-2020 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
 #
-# This script will build bindings for OSX and Linux
+# This script will build the binary sample application for transport, requires docker.
 #
 COLOR_RESET="\033[0m"
 COLOR_RED="\033[38;5;9m"
@@ -40,7 +42,7 @@ _trap() {
 
 check_prerequisites() {
     if [ "${LOCAL_BUILD}" = "1" ] ; then
-        # we're inside the bifrost container. no need to check docker daemon
+        # we're inside the transport container. no need to check docker daemon
         return
     fi
     docker ps >/dev/null 2>&1
@@ -68,15 +70,7 @@ build() {
     fi
 
     chmod +x ${OUTPUT_PATH}
-#
-#    # call the binary only if target OS and current OS match
-#    if [[ "$(uname -s)" = "Darwin" && $TARGET_OS = "darwin" ]] ; then
-#        $OUT_DIR/$CMD --version
-#    fi
-#
-#    if [[ "$(uname -s)" = "Linux" && $TARGET_OS = "linux" ]] ; then
-#        $OUT_DIR/$CMD --version
-#    fi
+
 }
 
 trap '_trap' SIGINT SIGTERM
