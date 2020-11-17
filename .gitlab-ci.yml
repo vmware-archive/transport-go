@@ -18,7 +18,7 @@ build-app:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_DRIVER: overlay2
   script:
-    - ./build-bifrost.sh -a amd64 -o linux
+    - ./build-transport.sh -a amd64 -o linux
 
 
 test-app:

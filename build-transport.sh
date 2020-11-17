@@ -1,14 +1,13 @@
 #!/bin/bash
 #
-# This script will build bindings for OSX and Linux and check it into the public repo
-# (You still have to merge it)
+# This script will build bindings for OSX and Linux
 #
 COLOR_RESET="\033[0m"
 COLOR_RED="\033[38;5;9m"
 COLOR_LIGHTCYAN="\033[1;36m"
 COLOR_LIGHTGREEN="\033[1;32m"
 
-COMMANDS=(bifrost)
+COMMANDS=(transport)
 OUT_DIR=${OUT_DIR:-./}
 BUILD_TIME=`date | sed -e 's/ /_/g'`
 TARGET_OS=${TARGET_OS:-darwin}
@@ -63,7 +62,7 @@ build() {
 
     # build
     go build -ldflags "-X main.BuildTime=${BUILD_TIME} -X main.Version=${VERSION}-${GIT_HASH}" \
-             -o $OUTPUT_PATH bifrost.go sample_services.go sample_vm_service.go
+             -o $OUTPUT_PATH transport.go sample_services.go sample_vm_service.go
     if [ $? -ne 0 ] ; then
         error "Build Failed!"
     fi

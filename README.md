@@ -1,9 +1,8 @@
-# Bifröst for Go
+# Transport for Go
 
-[![pipeline status](https://gitlab.eng.vmware.com/bifrost/golang/badges/master/pipeline.svg)](https://gitlab.eng.vmware.com/bifrost/golang/commits/master)
-[![coverage report](https://gitlab.eng.vmware.com/bifrost/golang/badges/master/coverage.svg)](https://gitlab.eng.vmware.com/bifrost/golang/commits/master)
+badges to be added in.
 
-## Using the Bifröst
+## Using the Transport
 
 To create an instance of the bus
 
@@ -111,7 +110,7 @@ responseHandler.Fire()
 This will output: 
 
 ```text
-🌈 Bifröst booted with id [e495e5d5-2b72-46dd-8013-d49049bd4800]
+🌈 Transport booted with id [e495e5d5-2b72-46dd-8013-d49049bd4800]
 Ping: Woo!
 Pong: Woo!
 ```
