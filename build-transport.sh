@@ -2,14 +2,14 @@
 # Copyright 2019-2020 VMware, Inc.
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# This script will build the binary sample application for transport, requires docker.
+# This script will build the binary sample application for transport
 #
 COLOR_RESET="\033[0m"
 COLOR_RED="\033[38;5;9m"
 COLOR_LIGHTCYAN="\033[1;36m"
 COLOR_LIGHTGREEN="\033[1;32m"
 
-COMMANDS=(transport)
+COMMANDS=(transport-go)
 OUT_DIR=${OUT_DIR:-./}
 BUILD_TIME=`date | sed -e 's/ /_/g'`
 TARGET_OS=${TARGET_OS:-darwin}
@@ -38,17 +38,6 @@ success() {
 _trap() {
   echo interrupted >&2
   exit 1
-}
-
-check_prerequisites() {
-    if [ "${LOCAL_BUILD}" = "1" ] ; then
-        # we're inside the transport container. no need to check docker daemon
-        return
-    fi
-    docker ps >/dev/null 2>&1
-    if [ $? -gt 0 ] ; then
-        error "Docker failed to respond! Please check if Docker Engine is running"
-    fi
 }
 
 build() {
@@ -93,7 +82,6 @@ done
 # ensure output dir exist
 mkdir -p ${OUT_DIR}
 
-check_prerequisites
 for CMD in ${COMMANDS[@]} ; do
     GOOS=${TARGET_OS} GOARCH=${TARGET_ARCH} build $CMD
 done
