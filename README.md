@@ -1,5 +1,8 @@
 # Transport - Golang
 
+![Transport Post-merge pipeline](https://github.com/vmware/transport-go/workflows/Transport%20Post-merge%20pipeline/badge.svg)
+[![codecov](https://codecov.io/gh/vmware/transport-go/branch/main/graph/badge.svg?token=BgZhsCCZ0k)](https://codecov.io/gh/vmware/transport-go)
+
 Transport is a full stack, simple, fast, expandable application event bus for your applications.
 
 ### What does that mean?
