@@ -1,7 +1,9 @@
-name: Transport Pre-merge pipeline
+name: Transport Post-merge pipeline
 
 on:
-  pull_request:
+  push:
+    branches:
+      - master
 
 jobs:
   test:
