@@ -3,7 +3,7 @@ name: Transport Post-merge pipeline
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   test:
