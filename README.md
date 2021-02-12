@@ -124,7 +124,7 @@ responseHandler.Handle(
 responseHandler.Fire()
 ```
 
-This will output: 
+This will output:
 
 ```text
 🌈 Transport booted with id [e495e5d5-2b72-46dd-8013-d49049bd4800]
@@ -229,7 +229,7 @@ func usingGalacticChannels() {
 
 ## Contributing
 
-The transport-typescript project team welcomes contributions from the community. Before you start working with transport-typescript, please
+The transport-go project team welcomes contributions from the community. Before you start working with transport-go, please
 read our [Developer Certificate of Origin](https://cla.vmware.com/dco). All contributions to this repository must be
 signed as described on that page. Your signature certifies that you wrote the patch or have the right to pass it on
 as an open-source patch. For more detailed information, refer to [CONTRIBUTING.md](CONTRIBUTING.md).
