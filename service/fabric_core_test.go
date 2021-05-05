@@ -97,10 +97,44 @@ func TestFabricCore_SendMethods(t *testing.T) {
 	assert.Equal(t, response.ErrorMessage, "test-error")
 
 	wg.Add(1)
-	core.HandleUnknownRequest(&req)
+
+	h = make(map[string]string)
+	h["chicken"] = "nugget"
+	core.SendErrorResponseWithHeaders(&req, 422, "test-header-error", h)
 	wg.Wait()
 
 	assert.Equal(t, count, 4)
+	response = lastMessage.Payload.(*model.Response)
+
+	assert.Equal(t, response.Id, req.Id)
+	assert.Equal(t, response.Headers["chicken"], "nugget")
+	assert.Nil(t, response.Payload)
+	assert.True(t, response.Error)
+	assert.Equal(t, response.ErrorCode, 422)
+	assert.Equal(t, response.ErrorMessage, "test-header-error")
+
+	wg.Add(1)
+
+	h = make(map[string]string)
+	h["potato"] = "dog"
+	core.SendErrorResponseWithHeadersAndPayload(&req, 500, "test-header-payload-error", "oh my!", h)
+	wg.Wait()
+
+	assert.Equal(t, count, 5)
+	response = lastMessage.Payload.(*model.Response)
+
+	assert.Equal(t, response.Id, req.Id)
+	assert.Equal(t, "dog", response.Headers["potato"])
+	assert.Equal(t, "oh my!", response.Payload.(string))
+	assert.True(t, response.Error)
+	assert.Equal(t, response.ErrorCode, 500)
+	assert.Equal(t, response.ErrorMessage, "test-header-payload-error")
+
+	wg.Add(1)
+	core.HandleUnknownRequest(&req)
+	wg.Wait()
+
+	assert.Equal(t, count, 6)
 	response = lastMessage.Payload.(*model.Response)
 
 	assert.Equal(t, response.Id, req.Id)

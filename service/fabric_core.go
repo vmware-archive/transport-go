@@ -1,4 +1,4 @@
-// Copyright 2019-2020 VMware, Inc.
+// Copyright 2019-2021 VMware, Inc.
 // SPDX-License-Identifier: BSD-2-Clause
 
 package service
@@ -10,31 +10,44 @@ import (
 	"github.com/vmware/transport-go/model"
 )
 
-// Interface providing base functionality to fabric services.
+// FabricServiceCore is the interface providing base functionality to fabric services.
 type FabricServiceCore interface {
-	// Returns the EventBus instance.
+	// Bus Returns the EventBus instance.
 	Bus() bus.EventBus
-	// Uses the "responsePayload" and "request" params to build and send model.Response object
+
+	// SendResponse Uses the "responsePayload" and "request" params to build and send model.Response object
 	// on the service channel.
 	SendResponse(request *model.Request, responsePayload interface{})
-	// Same as SendResponse, but include headers. Useful for HTTP REST interfaces - these headers will be
+
+	// SendResponseWithHeaders is the same as SendResponse, but include headers. Useful for HTTP REST interfaces - these headers will be
 	// set as HTTP response headers. Great for custom mime-types, binary stuff and more.
 	SendResponseWithHeaders(request *model.Request, responsePayload interface{}, headers map[string]string)
-	// Builds an error model.Response object and sends it on the service channel as
-	// response to the "request" param.
+
+	// SendErrorResponse builds an error model.Response object and sends it on the service channel as response to the "request" param.
 	SendErrorResponse(request *model.Request, responseErrorCode int, responseErrorMessage string)
+
+	// SendErrorResponseWithPayload is the same as SendErrorResponse, but adds a payload
 	SendErrorResponseWithPayload(request *model.Request, responseErrorCode int, responseErrorMessage string, payload interface{})
-	// Handles unknown/unsupported request.
+
+	// SendErrorResponseWithHeaders is the same as SendErrorResponse, but adds headers as well.
+	SendErrorResponseWithHeaders(request *model.Request, responseErrorCode int, responseErrorMessage string, headers map[string]string)
+
+	// SendErrorResponseWithHeadersAndPayload is the same as SendErrorResponseWithPayload, but adds headers as well.
+	SendErrorResponseWithHeadersAndPayload(request *model.Request, responseErrorCode int, responseErrorMessage string, payload interface{}, headers map[string]string)
+
+	// HandleUnknownRequest handles unknown/unsupported/un-implemented requests,
 	HandleUnknownRequest(request *model.Request)
-	// Make a new RestService call.
+
+	// RestServiceRequest will make a new RestService call.
 	RestServiceRequest(restRequest *RestServiceRequest,
 		successHandler model.ResponseHandlerFunction, errorHandler model.ResponseHandlerFunction)
-	// Set global headers for a given fabric service (each service has its own set of global headers).
+
+	// SetHeaders Set global headers for a given fabric service (each service has its own set of global headers).
 	// The headers will be applied to all requests made by this instance's RestServiceRequest method.
 	// Global header values can be overridden per request via the RestServiceRequest.Headers property.
 	SetHeaders(headers map[string]string)
 
-	// Automatically ready to go map with json headers.
+	// GenerateJSONHeaders Automatically ready to go map with json headers.
 	GenerateJSONHeaders() map[string]string
 }
 
@@ -82,6 +95,39 @@ func (core *fabricCore) SendErrorResponseWithPayload(
 		Id:                request.Id,
 		Destination:       core.channelName,
 		Payload:           payload,
+		Error:             true,
+		ErrorCode:         responseErrorCode,
+		ErrorMessage:      responseErrorMessage,
+		BrokerDestination: request.BrokerDestination,
+	}
+	core.bus.SendResponseMessage(core.channelName, response, request.Id)
+}
+
+func (core *fabricCore) SendErrorResponseWithHeaders(
+	request *model.Request,
+	responseErrorCode int, responseErrorMessage string, headers map[string]string) {
+
+	response := &model.Response{
+		Id:                request.Id,
+		Destination:       core.channelName,
+		Headers:           headers,
+		Error:             true,
+		ErrorCode:         responseErrorCode,
+		ErrorMessage:      responseErrorMessage,
+		BrokerDestination: request.BrokerDestination,
+	}
+	core.bus.SendResponseMessage(core.channelName, response, request.Id)
+}
+
+func (core *fabricCore) SendErrorResponseWithHeadersAndPayload(
+	request *model.Request,
+	responseErrorCode int, responseErrorMessage string, payload interface{}, headers map[string]string) {
+
+	response := &model.Response{
+		Id:                request.Id,
+		Destination:       core.channelName,
+		Payload:           payload,
+		Headers:           headers,
 		Error:             true,
 		ErrorCode:         responseErrorCode,
 		ErrorMessage:      responseErrorMessage,
