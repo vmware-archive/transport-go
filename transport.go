@@ -1,4 +1,4 @@
-// Copyright 2019-2020 VMware, Inc.
+// Copyright 2019-2021 VMware, Inc.
 // SPDX-License-Identifier: BSD-2-Clause
 
 package main
@@ -45,28 +45,28 @@ func main() {
 				return nil
 			},
 		},
-		{
-			Name:  "cal",
-			Usage: "Call Calendar service for the time on appfabric.vmware.com",
-			Action: func(c *cli.Context) error {
-				runDemoCal()
-				return nil
-			},
-		},
-		{
-			Name:  "vm-service",
-			Usage: "Call VmService to create and Power on a new VM on appfabric.vmware.com",
-			Action: func(c *cli.Context) error {
-				runDemoVmService(c)
-				return nil
-			},
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:  "localhost",
-					Usage: "Connect to localhost:8090 instead of appfabric.vmware.com",
-				},
-			},
-		},
+		//{
+		//	Name:  "cal",
+		//	Usage: "Call Calendar service for the time on appfabric.vmware.com",
+		//	Action: func(c *cli.Context) error {
+		//		runDemoCal()
+		//		return nil
+		//	},
+		//},
+		//{
+		//	Name:  "vm-service",
+		//	Usage: "Call VmService to create and Power on a new VM on appfabric.vmware.com",
+		//	Action: func(c *cli.Context) error {
+		//		runDemoVmService(c)
+		//		return nil
+		//	},
+		//	Flags: []cli.Flag{
+		//		&cli.BoolFlag{
+		//			Name:  "localhost",
+		//			Usage: "Connect to localhost:8090 instead of appfabric.vmware.com",
+		//		},
+		//	},
+		//},
 		{
 			Name:  "service",
 			Usage: "Run Service - Run local service",
@@ -81,27 +81,27 @@ func main() {
 				return nil
 			},
 		},
-		{
-			Name:  "store",
-			Usage: "Open galactic store from appfabric.vmware.com",
-			Action: func(c *cli.Context) error {
-				runDemoStore(c)
-				return nil
-			},
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:  "localhost",
-					Usage: "Connect to localhost:8090 instead of appfabric.vmware.com",
-				},
-			},
-		},
+		//{
+		//	Name:  "store",
+		//	Usage: "Open galactic store from appfabric.vmware.com",
+		//	Action: func(c *cli.Context) error {
+		//		runDemoStore(c)
+		//		return nil
+		//	},
+		//	Flags: []cli.Flag{
+		//		&cli.BoolFlag{
+		//			Name:  "localhost",
+		//			Usage: "Connect to localhost:8090 instead of appfabric.vmware.com",
+		//		},
+		//	},
+		//},
 		{
 			Name:  "fabric-services",
 			Usage: "Starts a couple of demo fabric services locally",
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
 					Name:  "localhost",
-					Usage: "Use localhost Bifrost broker",
+					Usage: "Use localhost transport broker",
 				},
 			},
 			Action: func(c *cli.Context) error {
