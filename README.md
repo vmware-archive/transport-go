@@ -132,96 +132,105 @@ Ping: Woo!
 Pong: Woo!
 ```
 
-## Example connecting to message broker and using galactic channels
+## Example connecting to a message broker and using galactic channels
 
-If you would like to connect the bus to a broker and start streaming stuff, it's quite simple. Here is an example
-that connects to `appfabric.vmware.com` and starts streaming over a local channel that is mapped to the live
-sample service that it broadcasting every few hundred milliseconds on `/topic/simple-stream`
+If you would like to connect the bus to a broker and start streaming stuff, you can run the local demo broker
+by first building using `./build-transport.sh` and then starting the local broker (and a bunch of demo services) via `
+./transport-go service`
+
+Once running, this example will connect to the broker and starts streaming over a local channel that is mapped to the live
+sample service that is broadcasting every few hundred milliseconds on `/topic/simple-stream`
 
 ```go
+package main
+
 import (
-    "bifrost/bridge"
-    "bifrost/bus"
-    "bifrost/model"
-    "encoding/json"
-    "fmt"
-    "log"
+   "encoding/json"
+   "fmt"
+   "github.com/vmware/transport-go/bridge"
+   "github.com/vmware/transport-go/bus"
+   "github.com/vmware/transport-go/model"
+   "log"
 )
+
+func main() {
+   usingGalacticChannels()
+}
 
 func usingGalacticChannels() {
 
-    // get a pointer to the bus.
-    b := bus.GetBus()
+   // get a pointer to the bus.
+   b := bus.GetBus()
 
-    // get a pointer to the channel manager
-    cm := b.GetChannelManager()
+   // get a pointer to the channel manager
+   cm := b.GetChannelManager()
 
-    channel := "my-stream"
-    cm.CreateChannel(channel)
+   channel := "my-stream"
+   cm.CreateChannel(channel)
 
-    // create done signal
-    var done = make(chan bool)
+   // create done signal
+   var done = make(chan bool)
 
-    // listen to stream of messages coming in on channel.
-    h, err := b.ListenStream(channel)
+   // listen to stream of messages coming in on channel.
+   h, err := b.ListenStream(channel)
 
-    if err != nil {
-        log.Panicf("unable to listen to channel stream, error: %e", err)
-    }
+   if err != nil {
+      log.Panicf("unable to listen to channel stream, error: %e", err)
+   }
 
-    count := 0
+   count := 0
 
-    // listen for five messages and then exit, send a completed signal on channel.
-    h.Handle(
-        func(msg *model.Message) {
+   // listen for ten messages and then exit, send a completed signal on channel.
+   h.Handle(
+      func(msg *model.Message) {
 
-            // unmarshal the payload into a Response object (used by fabric services)
-            r := &model.Response{}
-            d := msg.Payload.([]byte)
-            json.Unmarshal(d, &r)
-            fmt.Printf("Stream Ticked: %s\n", r.Payload.(string))
-            count++
-            if count >=5 {
-                done <- true
-            }
-        },
-        func(err error) {
-            log.Panicf("error received on channel %e", err)
-        })
+         // unmarshal the payload into a Response object (used by fabric services)
+         r := &model.Response{}
+         d := msg.Payload.([]byte)
+         json.Unmarshal(d, &r)
+         fmt.Printf("Stream Ticked: %s\n", r.Payload.(string))
+         count++
+         if count >=10 {
+            done <- true
+         }
+      },
+      func(err error) {
+         log.Panicf("error received on channel %e", err)
+      })
 
-    // create a broker connector config, in this case, we will connect to the application fabric demo endpoint.
-    config := &bridge.BrokerConnectorConfig{
-        Username:   "guest",
-        Password:   "guest",
-        ServerAddr: "appfabric.vmware.com",
-        WSPath:     "/fabric",
-        UseWS:      true}
+   // create a broker connector config, in this case, we will connect to the demo endpoint.
+   config := &bridge.BrokerConnectorConfig{
+      Username:   "guest",
+      Password:   "guest",
+      ServerAddr: "localhost:8090",
+      WSPath:     "/fabric",
+      UseWS:      true}
 
-    // connect to broker.
-    c, err := b.ConnectBroker(config)
-    if err != nil {
-        log.Panicf("unable to connect to fabric, error: %e", err)
-    }
+   // connect to broker.
+   c, err := b.ConnectBroker(config)
+   if err != nil {
+      log.Panicf("unable to connect to fabric, error: %e", err)
+   }
 
-    // mark our local channel as galactic and map it to our connection and the /topic/simple-stream service
-    // running on appfabric.vmware.com
-    err = cm.MarkChannelAsGalactic(channel, "/topic/simple-stream", c)
-    if err != nil {
-        log.Panicf("unable to map local channel to broker destination: %e", err)
-    }
+   // mark our local channel as galactic and map it to our connection and the /topic/simple-stream service
+   // running on localhost:8090
+   err = cm.MarkChannelAsGalactic(channel, "/topic/simple-stream", c)
+   if err != nil {
+      log.Panicf("unable to map local channel to broker destination: %e", err)
+   }
 
-    // wait for done signal
-    <-done
+   // wait for done signal
+   <-done
 
-    // mark channel as local (unsubscribe from all mappings)
-    err = cm.MarkChannelAsLocal(channel)
-    if err != nil {
-        log.Panicf("unable to unsubscribe, error: %e", err)
-    }
-    err = c.Disconnect()
-    if err != nil {
-        log.Panicf("unable to disconnect, error: %e", err)
-    }
+   // mark channel as local (unsubscribe from all mappings)
+   err = cm.MarkChannelAsLocal(channel)
+   if err != nil {
+      log.Panicf("unable to unsubscribe, error: %e", err)
+   }
+   err = c.Disconnect()
+   if err != nil {
+      log.Panicf("unable to disconnect, error: %e", err)
+   }
 }
 ```
 
