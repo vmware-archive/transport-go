@@ -28,9 +28,11 @@ type ServiceLifecycleHookEnabled interface {
 }
 
 type RESTBridgeConfig struct {
-	ServiceChannel string
-	Uri string
-	Method string
+	ServiceChannel       string
+	Uri                  string
+	Method               string
+	AllowHead            bool
+	AllowOptions         bool
 	FabricRequestBuilder func(w http.ResponseWriter, r *http.Request) model.Request
 }
 
