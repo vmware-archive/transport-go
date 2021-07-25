@@ -6,6 +6,7 @@ package bridge
 import (
     "fmt"
     "github.com/go-stomp/stomp"
+    "github.com/go-stomp/stomp/frame"
     "github.com/google/uuid"
     "github.com/vmware/transport-go/model"
     "log"
@@ -16,7 +17,8 @@ type Connection interface {
     GetId() *uuid.UUID
     Subscribe(destination string) (Subscription, error)
     Disconnect() (err error)
-    SendMessage(destination string, payload []byte) error
+    SendJSONMessage(destination string, payload []byte, opts ...func(*frame.Frame) error) error
+    SendMessage(destination, contentType string, payload []byte, opts ...func(*frame.Frame) error) error
 }
 
 // Connection represents a Connection to a message broker.
@@ -135,16 +137,21 @@ func (c *connection) listenTCPFrames(src chan *stomp.Message, dst chan *model.Me
     }
 }
 
+// SendJSONMessage sends a []byte payload carrying JSON data to a destination.
+func (c *connection) SendJSONMessage(destination string, payload []byte, opts ...func(*frame.Frame) error) error {
+    return c.SendMessage(destination, "application/json", payload, opts...)
+}
+
 // Send a []byte payload to a destination.
-func (c *connection) SendMessage(destination string, payload []byte) error {
+func (c *connection) SendMessage(destination string, contentType string, payload []byte, opts ...func(*frame.Frame) error) error {
     c.connLock.Lock()
     defer c.connLock.Unlock()
     if c != nil && !c.useWs && c.conn != nil {
-        c.conn.Send(destination, "application/json", payload, nil)
+        c.conn.Send(destination, contentType, payload, opts...)
         return nil
     }
     if c != nil && c.useWs && c.wsConn != nil {
-        c.wsConn.Send(destination, payload)
+        c.wsConn.Send(destination, contentType, payload, opts...)
         return nil
     }
     return fmt.Errorf("cannot send message, no connection")

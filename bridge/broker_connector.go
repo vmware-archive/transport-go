@@ -66,7 +66,15 @@ func (bc *brokerConnector) connectTCP(config *BrokerConnectorConfig, err error) 
     var options = []func(*stomp.Conn) error{
         stomp.ConnOpt.Login(config.Username, config.Password),
         stomp.ConnOpt.Host(config.HostHeader),
+        stomp.ConnOpt.HeartBeat(config.HeartBeatOut, config.HeartBeatIn),
     }
+
+    if config.STOMPHeader != nil {
+        for key, value := range config.STOMPHeader {
+            options = append(options, stomp.ConnOpt.Header(key, value))
+        }
+    }
+
     conn, err := stomp.Dial("tcp", config.ServerAddr, options...)
     if err != nil {
         return nil, err
@@ -89,7 +97,7 @@ func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig, enableLoggin
 
     u := url.URL{Scheme: "ws", Host: config.ServerAddr, Path: config.WSPath}
     c := NewBridgeWsClient(enableLogging)
-    err := c.Connect(&u, nil)
+    err := c.Connect(&u, config)
     if err != nil {
         return nil, fmt.Errorf("cannot connect to host '%s' via path '%s', stopping", config.ServerAddr, config.WSPath)
     }

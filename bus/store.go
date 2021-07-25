@@ -229,6 +229,7 @@ func (store *busStore) sendGalacticRequest(requestCmd string, requestPayload int
     // send request.
     syncChannelConfig.conn.SendMessage(
         syncChannelConfig.pubPrefix + syncChannelConfig.syncChannelName,
+        "application/json",
         jsonReq)
 }
 

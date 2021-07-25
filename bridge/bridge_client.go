@@ -14,7 +14,6 @@ import (
     "github.com/gorilla/websocket"
     "github.com/vmware/transport-go/model"
     "log"
-    "net/http"
     "net/url"
     "os"
     "strconv"
@@ -61,14 +60,14 @@ func newBridgeWsClient(enableLogging bool) *BridgeClient {
 }
 
 // Connect to broker endpoint.
-func (ws *BridgeClient) Connect(url *url.URL, headers http.Header) error {
+func (ws *BridgeClient) Connect(url *url.URL, config *BrokerConnectorConfig) error {
     ws.lock.Lock()
     defer ws.lock.Unlock()
     if ws.logger != nil {
         ws.logger.Printf("connecting to fabric endpoint over %s", url.String())
     }
 
-    c, _, err := websocket.DefaultDialer.Dial(url.String(), headers)
+    c, _, err := websocket.DefaultDialer.Dial(url.String(), config.HttpHeader)
     if err != nil {
         return err
     }
@@ -80,8 +79,21 @@ func (ws *BridgeClient) Connect(url *url.URL, headers http.Header) error {
     // go listen to the websocket
     go ws.listenSocket()
 
+    stompHeaders := []string{
+        frame.AcceptVersion,
+        string(stomp.V12),
+        frame.Login,
+        config.Username,
+        frame.Passcode,
+        config.Password,
+        frame.HeartBeat,
+        fmt.Sprintf("%d,%d", config.HeartBeatOut.Milliseconds(), config.HeartBeatIn.Milliseconds())}
+    for key, value := range config.STOMPHeader {
+        stompHeaders = append(stompHeaders, key, value)
+    }
+
     // send connect frame.
-    ws.SendFrame(frame.New(frame.CONNECT, frame.AcceptVersion, string(stomp.V12)))
+    ws.SendFrame(frame.New(frame.CONNECT, stompHeaders...))
 
     // wait to be connected
     <-ws.ConnectedChan
@@ -125,7 +137,7 @@ func (ws *BridgeClient) Subscribe(destination string) *BridgeClientSub {
 }
 
 // send a payload to a destination
-func (ws *BridgeClient) Send(destination string, payload []byte) {
+func (ws *BridgeClient) Send(destination, contentType string, payload []byte, opts ...func(fr *frame.Frame) error) {
     ws.lock.Lock()
     defer ws.lock.Unlock()
 
@@ -133,8 +145,12 @@ func (ws *BridgeClient) Send(destination string, payload []byte) {
     sendFrame := frame.New(frame.SEND,
         frame.Destination, destination,
         frame.ContentLength, strconv.Itoa(len(payload)),
-        frame.ContentType, "application/json")
+        frame.ContentType, contentType)
 
+    // apply extra frame options such as adding extra headers
+    for _, frameOpt := range opts {
+        _ = frameOpt(sendFrame)
+    }
     // add payload
     sendFrame.Body = payload
 

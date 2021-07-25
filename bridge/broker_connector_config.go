@@ -3,6 +3,11 @@
 
 package bridge
 
+import (
+    "net/http"
+    "time"
+)
+
 // BrokerConnectorConfig is a configuration used when connecting to a message broker
 type BrokerConnectorConfig struct {
     Username        string
@@ -11,4 +16,8 @@ type BrokerConnectorConfig struct {
     WSPath          string  // if UseWS is true, set this to your websocket path (e.g. '/fabric')
     UseWS           bool    // use WebSocket instead of TCP
     HostHeader      string
+    HeartBeatOut    time.Duration
+    HeartBeatIn     time.Duration
+    STOMPHeader     map[string]string
+    HttpHeader      http.Header
 }

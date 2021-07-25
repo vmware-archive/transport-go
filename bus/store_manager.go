@@ -36,7 +36,7 @@ type StoreManager interface {
 // Interface which is a subset of the bridge.Connection methods.
 // Used to mock connection objects during unit testing.
 type galacticStoreConnection interface {
-    SendMessage(destination string, payload []byte) error
+    SendMessage(destination, contentTYpe string, payload []byte) error
 }
 
 type storeSyncChannelConfig struct {
