@@ -67,7 +67,18 @@ func (ws *BridgeClient) Connect(url *url.URL, config *BrokerConnectorConfig) err
         ws.logger.Printf("connecting to fabric endpoint over %s", url.String())
     }
 
-    c, _, err := websocket.DefaultDialer.Dial(url.String(), config.HttpHeader)
+    // set TLS config if broker connector config demands that TLS be used
+    dialer := websocket.DefaultDialer
+    if config.WebSocketConfig.UseTLS {
+        if err := config.WebSocketConfig.LoadX509KeyPairFromFiles(
+            config.WebSocketConfig.CertFile,
+            config.WebSocketConfig.KeyFile); err != nil {
+            return err
+        }
+        dialer.TLSClientConfig = config.WebSocketConfig.TLSConfig
+    }
+
+    c, _, err := dialer.Dial(url.String(), config.HttpHeader)
     if err != nil {
         return err
     }
