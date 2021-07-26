@@ -182,7 +182,7 @@ func runDemoCal() {
 	fmt.Println("Requesting time from calendar service")
 
 	// send request.
-	c.SendMessage("/pub/"+channel, m)
+	c.SendJSONMessage("/pub/"+channel, m)
 
 	// wait for done signal
 	<-done
@@ -272,7 +272,7 @@ func runDemoVmService(ctx *cli.Context) {
 			Payload: payload,
 		}
 		m, _ := json.Marshal(r)
-		c.SendMessage("/pub/"+channel, m)
+		c.SendJSONMessage("/pub/"+channel, m)
 
 		// wait for done signal
 		<-done
@@ -516,7 +516,7 @@ func runDemoApp(ctx *cli.Context) {
 		pl := "ping--" + strconv.Itoa(rand.Intn(10000000))
 		r := &model.Request{Request: "basic", Payload: pl}
 		m, _ := json.Marshal(r)
-		c.SendMessage("/pub/"+PongServiceChan, m)
+		c.SendJSONMessage("/pub/"+PongServiceChan, m)
 		time.Sleep(500 * time.Millisecond)
 	}
 
@@ -570,7 +570,7 @@ func runDemoApp(ctx *cli.Context) {
 		pl := "ping--" + strconv.Itoa(rand.Intn(10000000))
 		r := &model.Request{Request: "full", Payload: pl}
 		m, _ := json.Marshal(r)
-		c.SendMessage("/pub/queue/"+PongServiceChan, m)
+		c.SendJSONMessage("/pub/queue/"+PongServiceChan, m)
 		time.Sleep(500 * time.Millisecond)
 	}
 
