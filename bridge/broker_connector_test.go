@@ -17,6 +17,7 @@ import (
     "net/http/httptest"
     "net/url"
     "testing"
+    "time"
 )
 
 var upgrader = websocket.Upgrader{}
@@ -149,11 +150,27 @@ func TestBrokerConnector_ConnectBroker(t *testing.T) {
                 Password: "guest",
                 WebSocketConfig: &WebSocketConfig{WSPath: "/"},
                 UseWS: true,
-                ServerAddr: testHost}},
+                ServerAddr: testHost,
+                HttpHeader: map[string][]string{
+                    "Sec-Websocket-Protocol": {"v12.stomp, access-token.something"},
+                },
+                STOMPHeader: map[string]string{
+                    "access-token": "token",
+                },
+            },
+        },
         {
             "Connect via TCP",
             &BrokerConnectorConfig{
-                Username: "guest", Password: "guest", ServerAddr: testBrokerAddress}},
+                Username: "guest",
+                Password: "guest",
+                ServerAddr: testBrokerAddress,
+                HeartBeatOut: 30*time.Second,
+                HeartBeatIn: 30*time.Second,
+                STOMPHeader: map[string]string{
+                    "access-token": "token",
+                },
+            }},
     }
 
     for _, tc := range tt {

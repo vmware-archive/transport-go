@@ -22,7 +22,11 @@ func Example_connectUsingBrokerViaWebSocket() {
         Password:   "guest",
         ServerAddr: "appfabric.vmware.com",
         WebSocketConfig: &bridge.WebSocketConfig{WSPath: "/fabric"},
-        UseWS:      true}
+        UseWS:      true,
+        STOMPHeader: map[string]string{
+            "access-token": "test",
+        },
+    }
 
     // connect to broker.
     c, err := b.ConnectBroker(config)
