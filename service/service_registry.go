@@ -63,6 +63,8 @@ func NewServiceRegistry(bus bus.EventBus) ServiceRegistry {
 	return registry
 }
 
+// GetService returns the FabricService instance registered at the provided service channel name.
+// if no service is found at the service channel it returns an error.
 func (r *serviceRegistry) GetService(serviceChannelName string) (FabricService, error) {
 	if serviceWrapper, ok := r.services[serviceChannelName]; ok {
 		return serviceWrapper.service, nil
