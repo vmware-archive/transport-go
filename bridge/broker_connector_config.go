@@ -23,12 +23,12 @@ type BrokerConnectorConfig struct {
 	Password              string
 	ServerAddr            string
 	UseWS                 bool   // use WebSocket instead of TCP
-	WebSocketConfig       *WebSocketConfig
+	WebSocketConfig       *WebSocketConfig // WebSocket configuration for when UseWS is true
 	HostHeader            string
-	HeartBeatOut          time.Duration
-	HeartBeatIn           time.Duration
-	STOMPHeader           map[string]string
-	HttpHeader            http.Header
+	HeartBeatOut          time.Duration // outbound heartbeat interval (from client to server)
+	HeartBeatIn           time.Duration // inbound heartbeat interval (from server to client)
+	STOMPHeader           map[string]string // additional STOMP headers for handshake
+	HttpHeader            http.Header // additional HTTP headers for WebSocket Upgrade
 }
 
 // LoadX509KeyPairFromFiles loads from paths to x509 cert and its matching key files and initializes
