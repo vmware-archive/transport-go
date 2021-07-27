@@ -1,23 +1,14 @@
 package service
 
 import (
-	"fmt"
-	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
 	"net/http"
 )
 
 var svcLifecycleManagerInstance ServiceLifecycleManager
 
-type LifecycleHookNotImplementedError struct {
-}
-
-func (e *LifecycleHookNotImplementedError) Error() string {
-	return fmt.Sprintf("service does not implement lifecycle hook interface")
-}
-
 type ServiceLifecycleManager interface {
-	GetServiceHooks(serviceChannelName string) (ServiceLifecycleHookEnabled, error)
+	GetServiceHooks(serviceChannelName string) ServiceLifecycleHookEnabled
 }
 
 type ServiceLifecycleHookEnabled interface {
@@ -38,32 +29,34 @@ type RESTBridgeConfig struct {
 }
 
 type serviceLifecycleManager struct {
-	busRef             bus.EventBus // transport bus reference
 	serviceRegistryRef ServiceRegistry // service registry reference
 }
 
 // GetServiceHooks looks up the ServiceRegistry by service channel and returns the found service
-// lifecycle hooks implementation. returns an error if no such service channel exists. also return an
-// error if the returned service does not implement the ServiceLifecycleHookEnabled interface.
-func (lm *serviceLifecycleManager) GetServiceHooks(serviceChannelName string) (ServiceLifecycleHookEnabled, error) {
+// lifecycle hooks implementation. returns nil if no such service channel exists.
+func (lm *serviceLifecycleManager) GetServiceHooks(serviceChannelName string) ServiceLifecycleHookEnabled {
 	service, err := lm.serviceRegistryRef.GetService(serviceChannelName)
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
 	if lifecycleHookEnabled, ok := service.(ServiceLifecycleHookEnabled); ok {
-		return lifecycleHookEnabled, nil
+		return lifecycleHookEnabled
 	}
-	return nil, &LifecycleHookNotImplementedError{}
+	return nil
 }
 
 // GetServiceLifecycleManager returns a singleton instance of ServiceLifecycleManager
-func GetServiceLifecycleManager(bus bus.EventBus, serviceRegistry ServiceRegistry) ServiceLifecycleManager {
+func GetServiceLifecycleManager() ServiceLifecycleManager {
 	if svcLifecycleManagerInstance == nil {
 		svcLifecycleManagerInstance = &serviceLifecycleManager{
-			busRef:             bus,
-			serviceRegistryRef: serviceRegistry,
+			serviceRegistryRef: registry,
 		}
 	}
 	return svcLifecycleManagerInstance
+}
+
+// newServiceLifecycleManager returns a new instance of ServiceLifecycleManager
+func newServiceLifecycleManager(reg ServiceRegistry) ServiceLifecycleManager {
+	return &serviceLifecycleManager{serviceRegistryRef: reg}
 }

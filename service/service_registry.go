@@ -11,6 +11,10 @@ import (
 	"sync"
 )
 
+var internalServices = map[string]bool{
+	"fabric-rest": true,
+}
+
 const LifecycleManagerChannelName = "service-lifecycle-manager"
 
 // ServiceRegistry is the registry for  all local fabric services.
@@ -45,12 +49,16 @@ var registry ServiceRegistry
 
 func GetServiceRegistry() ServiceRegistry {
 	once.Do(func() {
-		registry = NewServiceRegistry(bus.GetBus())
+		registry = newServiceRegistry(bus.GetBus())
+
+		// ensure a new service lifecycle manager is initialized as early as possible
+		svcLifecycleManagerInstance = nil
+		GetServiceLifecycleManager()
 	})
 	return registry
 }
 
-func NewServiceRegistry(bus bus.EventBus) ServiceRegistry {
+func newServiceRegistry(bus bus.EventBus) ServiceRegistry {
 	registry := &serviceRegistry{
 		bus:      bus,
 		services: make(map[string]*fabricServiceWrapper),
@@ -76,10 +84,14 @@ func (r *serviceRegistry) SetGlobalRestServiceBaseHost(host string) {
 	r.services[restServiceChannel].service.(*restService).setBaseHost(host)
 }
 
+// GetAllServiceChannels returns the list of service channels that are registered with the registry
 func (r *serviceRegistry) GetAllServiceChannels() []string {
 	services := make([]string, 0)
 	for chanName, _ := range r.services {
-		services = append(services, chanName)
+		// do not return internal services like fabric-rest
+		if isInternal, found := internalServices[chanName]; !isInternal || !found {
+			services = append(services, chanName)
+		}
 	}
 	return services
 }
@@ -104,17 +116,21 @@ func (r *serviceRegistry) RegisterService(service FabricService, serviceChannelN
 
 	r.services[serviceChannelName] = sw
 
-	// see if the service implements ServiceLifecycleHookEnabled interface and set up REST bridges as configured
-	var hooks ServiceLifecycleHookEnabled
-	lcm := GetServiceLifecycleManager(bus.GetBus(), r)
-	if hooks, err = lcm.GetServiceHooks(serviceChannelName); err != nil {
-		return err
+	// if the service is an internal service like fabric-rest don't bother setting up lifecycle hooks
+	if isInternal, _ := internalServices[serviceChannelName]; isInternal {
+		return nil
 	}
 
+	// see if the service implements ServiceLifecycleHookEnabled interface and set up REST bridges as configured
+	var hooks ServiceLifecycleHookEnabled
+	lcm := GetServiceLifecycleManager()
+
 	// hand off registering REST bridges to Plank via bus messages
-	if err = bus.GetBus().SendResponseMessage(
-		LifecycleManagerChannelName, hooks.GetRESTBridgeConfig(), bus.GetBus().GetId()); err != nil {
-		return err
+	if hooks = lcm.GetServiceHooks(serviceChannelName); hooks != nil {
+		if err = bus.GetBus().SendResponseMessage(
+			LifecycleManagerChannelName, hooks.GetRESTBridgeConfig(), bus.GetBus().GetId()); err != nil {
+			return err
+		}
 	}
 
 	return nil
