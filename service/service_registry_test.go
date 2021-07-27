@@ -36,7 +36,7 @@ func (fs *mockFabricService) HandleServiceRequest(request *model.Request, core F
 }
 
 type mockLifecycleHookEnabledService struct {
-    initChan chan struct{}
+    initChan chan bool
     core FabricServiceCore
     shutdown bool
 }
@@ -44,9 +44,9 @@ type mockLifecycleHookEnabledService struct {
 func (s *mockLifecycleHookEnabledService) HandleServiceRequest(request *model.Request, core FabricServiceCore) {
 }
 
-func (s *mockLifecycleHookEnabledService) OnServiceReady() chan struct{} {
-    s.initChan = make(chan struct{}, 1)
-    s.initChan <- struct{}{}
+func (s *mockLifecycleHookEnabledService) OnServiceReady() chan bool {
+    s.initChan = make(chan bool, 1)
+    s.initChan <- true
     return s.initChan
 }
 
@@ -207,8 +207,7 @@ func TestServiceRegistry_RegisterService_LifecycleHookEnabled(t *testing.T) {
     registry := newTestServiceRegistry()
     registry.RegisterService(svc, "another-test-channel")
 
-    <-svc.OnServiceReady()
-    assert.NotNil(t, svc.initChan)
+    assert.True(t, <-svc.OnServiceReady())
 
     svc.OnServerShutdown()
     assert.True(t, svc.shutdown)

@@ -13,7 +13,7 @@ type ServiceLifecycleManager interface {
 }
 
 type ServiceLifecycleHookEnabled interface {
-	OnServiceReady() chan struct{}            // service initialization logic should be implemented here
+	OnServiceReady() chan bool            // service initialization logic should be implemented here
 	OnServerShutdown()                        // teardown logic goes here and will be automatically invoked on graceful server shutdown
 	GetRESTBridgeConfig() []*RESTBridgeConfig // service-to-REST endpoint mappings go here
 }
