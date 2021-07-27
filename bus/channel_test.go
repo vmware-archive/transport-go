@@ -4,6 +4,7 @@
 package bus
 
 import (
+    "github.com/go-stomp/stomp/frame"
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/mock"
@@ -263,8 +264,13 @@ func (c *MockBridgeConnection) Disconnect() (err error) {
     return nil
 }
 
-func (c *MockBridgeConnection) SendMessage(destination string, payload []byte) error {
-    args := c.MethodCalled("SendMessage", destination, payload)
+func (c *MockBridgeConnection) SendJSONMessage(destination string, payload []byte, opts ...func(frame *frame.Frame) error) error {
+    args := c.MethodCalled("SendJSONMessage", destination, payload)
+    return args.Error(0)
+}
+
+func (c *MockBridgeConnection) SendMessage(destination, contentType string, payload []byte, opts ...func(frame *frame.Frame) error) error {
+    args := c.MethodCalled("SendMessage", destination, contentType, payload)
     return args.Error(0)
 }
 

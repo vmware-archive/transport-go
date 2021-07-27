@@ -599,7 +599,9 @@ func TestChannelManager_TestConnectBroker(t *testing.T) {
 		Username:   "test",
 		Password:   "test",
 		UseWS:      true,
-		WSPath:     "/",
+		WebSocketConfig: &bridge.WebSocketConfig{
+			WSPath:     "/",
+		},
 		ServerAddr: "broker-url"}
 
 	id := uuid.New()

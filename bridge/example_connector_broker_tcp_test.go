@@ -59,7 +59,7 @@ func Example_connectUsingBrokerViaTCP() {
     // send messages
     var producer = func() {
         for i := 0; i < 5; i++ {
-            c.SendMessage("/queue/sample", []byte(fmt.Sprintf("message: %d", i)))
+            c.SendMessage("/queue/sample", "text/plain", []byte(fmt.Sprintf("message: %d", i)))
         }
     }
 

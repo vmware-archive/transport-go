@@ -122,7 +122,8 @@ func TestStoreManager_OpenGalacticStore(t *testing.T) {
         Id: &subId,
     }
     con.On("Subscribe", mock.Anything).Return(sub, nil)
-    con.On("SendMessage", mock.Anything, mock.Anything).Return(nil)
+    con.On("SendJSONMessage", mock.Anything, mock.Anything).Return(nil)
+    con.On("SendMessage", mock.Anything, mock.Anything, mock.Anything).Return(nil)
     m.ConfigureStoreSyncChannel(con, "/topic-prefix", "/pub-prefix")
 
     storeManagerImpl := m.(*storeManager)
@@ -174,6 +175,7 @@ func TestStoreManager_OpenGalacticStoreWithType(t *testing.T) {
         Id: &subId,
     }
     con.On("Subscribe", mock.Anything).Return(sub, nil)
+    con.On("SendJSONMessage", mock.Anything, mock.Anything).Return(nil)
     con.On("SendMessage", mock.Anything, mock.Anything).Return(nil)
     m.ConfigureStoreSyncChannel(con, "/topic-prefix", "/pub-prefix")
 

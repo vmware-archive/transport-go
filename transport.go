@@ -157,7 +157,10 @@ func runDemoCal() {
 		Username:   "guest",
 		Password:   "guest",
 		UseWS:      true,
-		WSPath:     "/fabric",
+		WebSocketConfig: &bridge.WebSocketConfig{
+			WSPath:     "/fabric",
+			UseTLS: false,
+		},
 		ServerAddr: "appfabric.vmware.com"}
 
 	// connect to broker.
@@ -249,7 +252,10 @@ func runDemoVmService(ctx *cli.Context) {
 		Username:   "guest",
 		Password:   "guest",
 		UseWS:      true,
-		WSPath:     "/fabric",
+		WebSocketConfig: &bridge.WebSocketConfig{
+			WSPath:    "/fabric",
+			UseTLS:    false,
+		},
 		ServerAddr: addr}
 
 	// connect to broker.
@@ -344,7 +350,10 @@ func runDemoStore(ctx *cli.Context) {
 		Username:   "guest",
 		Password:   "guest",
 		UseWS:      true,
-		WSPath:     "/fabric",
+		WebSocketConfig: &bridge.WebSocketConfig{
+			WSPath:    "/fabric",
+			UseTLS:    false,
+		},
 		ServerAddr: addr}
 
 	// connect to broker.
@@ -492,7 +501,10 @@ func runDemoApp(ctx *cli.Context) {
 			Username:   "guest",
 			Password:   "guest",
 			UseWS:      true,
-			WSPath:     "/fabric",
+			WebSocketConfig: &bridge.WebSocketConfig{
+				WSPath:    "/fabric",
+				UseTLS:    false,
+			},
 			ServerAddr: addr}
 	}
 

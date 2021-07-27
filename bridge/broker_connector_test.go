@@ -145,7 +145,11 @@ func TestBrokerConnector_ConnectBroker(t *testing.T) {
         {
             "Connect via websocket",
             &BrokerConnectorConfig{
-                Username: "guest", Password: "guest", UseWS: true, WSPath: "/", ServerAddr: testHost}},
+                Username: "guest",
+                Password: "guest",
+                WebSocketConfig: &WebSocketConfig{WSPath: "/"},
+                UseWS: true,
+                ServerAddr: testHost}},
         {
             "Connect via TCP",
             &BrokerConnectorConfig{
@@ -194,7 +198,11 @@ func TestBrokerConnector_ConnectBrokerFail(t *testing.T) {
         {
             "Connect via websocket fails with bad address",
             &BrokerConnectorConfig{
-                Username: "guest", Password: "guest", UseWS: true, WSPath: "/", ServerAddr: "nowhere"}},
+                Username: "guest",
+                Password: "guest",
+                UseWS: true,
+                WebSocketConfig: &WebSocketConfig{WSPath: "/"},
+                ServerAddr: "nowhere"}},
         {
             "Connect via TCP fails with bad address",
             &BrokerConnectorConfig{
@@ -223,7 +231,11 @@ func TestBrokerConnector_Subscribe(t *testing.T) {
         {
             "Subscribe via websocket",
             &BrokerConnectorConfig{
-                Username: "guest", Password: "guest", UseWS: true, WSPath: "/", ServerAddr: testHost}},
+                Username: "guest",
+                Password: "guest",
+                UseWS: true,
+                WebSocketConfig: &WebSocketConfig{WSPath: "/"},
+                ServerAddr: testHost}},
         {
             "Subscribe via TCP",
             &BrokerConnectorConfig{
@@ -239,7 +251,7 @@ func TestBrokerConnector_Subscribe(t *testing.T) {
             s, _ := c.Subscribe("/topic/test")
             if !tc.config.UseWS {
                 var ping = func() {
-                    c.SendMessage("/topic/test", []byte(`happy baby melody!`))
+                    c.SendMessage("/topic/test", "text/plain", []byte(`happy baby melody!`))
                 }
                 go ping()
             }
@@ -292,13 +304,17 @@ func TestBrokerConnector_SendMessageOnWs(t *testing.T) {
     testHost := host + ":" + port
 
     cf := &BrokerConnectorConfig{
-        Username: "guest", Password: "guest", UseWS: true, WSPath: "/", ServerAddr: testHost}
+        Username: "guest",
+        Password: "guest",
+        UseWS: true,
+        WebSocketConfig: &WebSocketConfig{WSPath: "/"},
+        ServerAddr: testHost}
 
     bc := NewBrokerConnector()
     c, _ := bc.Connect(cf, true)
     assert.NotNil(t, c)
 
-    e := c.SendMessage("nowhere", []byte("out-there"))
+    e := c.SendMessage("nowhere", "text/plain", []byte("out-there"))
     assert.Nil(t, e)
 
     // try and send a message on a closed connection
@@ -311,7 +327,7 @@ func TestBrokerConnector_SendMessageOnWs(t *testing.T) {
 
     c.Disconnect()
 
-    e = c.SendMessage("nowhere", []byte("out-there"))
+    e = c.SendMessage("nowhere", "text/plain", []byte("out-there"))
     assert.NotNil(t, e)
 }
 
@@ -328,7 +344,11 @@ func TestBrokerConnector_Unsubscribe(t *testing.T) {
         {
            "Unsubscribe via websocket",
            &BrokerConnectorConfig{
-               Username: "guest", Password: "guest", UseWS: true, WSPath: "/", ServerAddr: testHost}},
+               Username: "guest",
+               Password: "guest",
+               UseWS: true,
+               WebSocketConfig: &WebSocketConfig{WSPath: "/"},
+               ServerAddr: testHost}},
         {
            "Unsubscribe via TCP",
            &BrokerConnectorConfig{
@@ -344,7 +364,7 @@ func TestBrokerConnector_Unsubscribe(t *testing.T) {
             s, _ := c.Subscribe("/topic/test")
             if !tc.config.UseWS {
                 var ping = func() {
-                    c.SendMessage("/topic/test", []byte(`my little song`))
+                    c.SendMessage("/topic/test", "text/plain", []byte(`my little song`))
                 }
                 go ping()
             }

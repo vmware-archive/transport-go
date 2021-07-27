@@ -21,7 +21,7 @@ func Example_connectUsingBrokerViaWebSocket() {
         Username:   "guest",
         Password:   "guest",
         ServerAddr: "appfabric.vmware.com",
-        WSPath:     "/fabric",
+        WebSocketConfig: &bridge.WebSocketConfig{WSPath: "/fabric"},
         UseWS:      true}
 
     // connect to broker.
