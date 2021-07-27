@@ -128,7 +128,9 @@ func (r *serviceRegistry) RegisterService(service FabricService, serviceChannelN
 	// hand off registering REST bridges to Plank via bus messages
 	if hooks = lcm.GetServiceHooks(serviceChannelName); hooks != nil {
 		if err = bus.GetBus().SendResponseMessage(
-			LifecycleManagerChannelName, hooks.GetRESTBridgeConfig(), bus.GetBus().GetId()); err != nil {
+			LifecycleManagerChannelName,
+			&SetupRESTBridgeRequest{Config: hooks.GetRESTBridgeConfig()},
+			bus.GetBus().GetId()); err != nil {
 			return err
 		}
 	}

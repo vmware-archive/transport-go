@@ -9,12 +9,19 @@ var svcLifecycleManagerInstance ServiceLifecycleManager
 
 type ServiceLifecycleManager interface {
 	GetServiceHooks(serviceChannelName string) ServiceLifecycleHookEnabled
+	OverrideRESTBridgeConfig(serviceChannelName string, config []*RESTBridgeConfig) error
 }
 
 type ServiceLifecycleHookEnabled interface {
 	OnServiceReady() chan struct{}            // service initialization logic should be implemented here
 	OnServerShutdown()                        // teardown logic goes here and will be automatically invoked on graceful server shutdown
 	GetRESTBridgeConfig() []*RESTBridgeConfig // service-to-REST endpoint mappings go here
+}
+
+type SetupRESTBridgeRequest struct {
+	ServiceChannel string
+	Override bool
+	Config []*RESTBridgeConfig
 }
 
 type RESTBridgeConfig struct {
@@ -42,6 +49,22 @@ func (lm *serviceLifecycleManager) GetServiceHooks(serviceChannelName string) Se
 
 	if lifecycleHookEnabled, ok := service.(ServiceLifecycleHookEnabled); ok {
 		return lifecycleHookEnabled
+	}
+	return nil
+}
+
+// OverrideRESTBridgeConfig overrides the REST bridge configuration currently present with the provided new bridge configs
+func (lm *serviceLifecycleManager) OverrideRESTBridgeConfig(serviceChannelName string, config []*RESTBridgeConfig) error {
+	_, err := lm.serviceRegistryRef.GetService(serviceChannelName)
+	if err != nil {
+		return nil
+	}
+	reg := lm.serviceRegistryRef.(*serviceRegistry)
+	if err = reg.bus.SendResponseMessage(
+		LifecycleManagerChannelName,
+		&SetupRESTBridgeRequest{ServiceChannel: serviceChannelName, Config: config, Override: true},
+		reg.bus.GetId()); err != nil {
+		return err
 	}
 	return nil
 }
