@@ -8,6 +8,7 @@ import (
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
 	"log"
+	"reflect"
 	"sync"
 )
 
@@ -15,7 +16,13 @@ var internalServices = map[string]bool{
 	"fabric-rest": true,
 }
 
-const LifecycleManagerChannelName = "service-lifecycle-manager"
+const (
+	LifecycleManagerChannelName = "service-lifecycle-manager"
+
+	// store constants
+	ServiceReadyStore = "service-ready-notification-store"
+	ServiceInitStateChange = "service-init-state-change"
+)
 
 // ServiceRegistry is the registry for  all local fabric services.
 type ServiceRegistry interface {
@@ -65,6 +72,9 @@ func newServiceRegistry(bus bus.EventBus) ServiceRegistry {
 	}
 	// create a channel for service lifecycle manager
 	_ = bus.GetChannelManager().CreateChannel(LifecycleManagerChannelName)
+
+	// create a bus store for delivering service ready notifications
+	bus.GetStoreManager().CreateStoreWithType(ServiceReadyStore, reflect.TypeOf(true)).Initialize()
 
 	// auto-register the restService
 	registry.RegisterService(&restService{}, restServiceChannel)
@@ -129,7 +139,7 @@ func (r *serviceRegistry) RegisterService(service FabricService, serviceChannelN
 	if hooks = lcm.GetServiceHooks(serviceChannelName); hooks != nil {
 		if err = bus.GetBus().SendResponseMessage(
 			LifecycleManagerChannelName,
-			&SetupRESTBridgeRequest{Config: hooks.GetRESTBridgeConfig()},
+			&SetupRESTBridgeRequest{ServiceChannel: serviceChannelName, Config: hooks.GetRESTBridgeConfig()},
 			bus.GetBus().GetId()); err != nil {
 			return err
 		}
