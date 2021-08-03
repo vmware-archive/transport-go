@@ -1,15 +1,15 @@
-name: Transport Post-merge pipeline
+name: Plank Post-merge pipeline
 
 on:
   push:
-    paths-ignore:
+    paths:
       - plank/**/*
     branches:
       - main
 
 jobs:
   test:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Set up repo
         uses: actions/checkout@v2
@@ -17,18 +17,22 @@ jobs:
         with:
           go-version: '^1.16'
       - run: go get ./...
+        working-directory: plank
       - run: |
           go get github.com/axw/gocov/gocov
           go get github.com/AlekSi/gocov-xml
           go install github.com/axw/gocov/gocov
           go install github.com/AlekSi/gocov-xml
+        working-directory: plank
       - run: |
           go test -v -coverprofile cover.out ./...
           gocov convert cover.out | gocov-xml > coverage.xml
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          flags: unittests
-          fail_ci_if_error: true
-          verbose: true
+        working-directory: plank
+#      - uses: codecov/codecov-action@v1
+#        with:
+#          token: ${{ secrets.CODECOV_TOKEN }}
+#          files: ./coverage.xml
+#          flags: unittests
+#          fail_ci_if_error: true
+#          verbose: true
+#        working-directory: plank

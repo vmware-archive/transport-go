@@ -2,6 +2,8 @@ name: Transport Pre-merge pipeline
 
 on:
   pull_request:
+    paths-ignore:
+      - plank/**/*
 
 jobs:
   test:
