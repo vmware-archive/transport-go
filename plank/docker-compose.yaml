@@ -1,0 +1,42 @@
+# mkdir -p $(pwd)/data/certbot/conf
+# mkdir -p $(pwd)/data/certbot/www
+# docker run -it --rm --name certbot \
+#  -v $(pwd)/data/certbot/conf:/etc/letsencrypt \
+#  -v $(pwd)/data/certbot/conf:/var/lib/letsencrypt \
+#  -v $(pwd)/data/certbot/www:/data/letsencrypt \
+#  --webroot --webroot-path=/data/letsencrypt certbot/certbot certonly
+version: "3.9"
+services:
+  server:
+    build: .
+    command: "--hostname 0.0.0.0 --static .well-known"
+    volumes:
+    - ./data/certbot/conf:/etc/letsencrypt
+    - ./data/certbot/www/.well-known:/opt/eve-platform/.well-known
+    logging:
+      driver: json-file
+    ports:
+    - 30080:30080
+#    depends_on:
+#      - db
+#
+#  db:
+#    build:
+#      context: db
+#    container_name: jooskim_net_db
+#    user: 1000:1000
+#    ports:
+#    - 5432:5432
+#    volumes:
+#    - db_vol:/var/lib/postgresql/data
+#    environment:
+#      DB_USER: jsk9260
+#      DB_PASSWORD: ${DB_PASSWORD}
+#      POSTGRES_DB: jooskim
+#      POSTGRES_PASSWORD: ${DB_PASSWORD}
+#      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+#      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+#
+#volumes:
+#  db_vol:
+#    name: db_vol

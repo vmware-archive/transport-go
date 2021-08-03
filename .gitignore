@@ -2,3 +2,6 @@
 /.idea
 /bus/bus.iml
 /bifrost
+
+**/*.log
+**/cover.out
