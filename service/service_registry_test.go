@@ -9,13 +9,18 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/vmware/transport-go/bus"
     "github.com/vmware/transport-go/model"
+    "net/http"
     "sync"
     "testing"
 )
 
 func newTestServiceRegistry() *serviceRegistry {
     eventBus := bus.NewEventBusInstance()
-    return NewServiceRegistry(eventBus).(*serviceRegistry)
+    return newServiceRegistry(eventBus).(*serviceRegistry)
+}
+
+func newTestServiceLifecycleManager(sr ServiceRegistry) ServiceLifecycleManager {
+    return newServiceLifecycleManager(sr)
 }
 
 type mockFabricService struct {
@@ -28,6 +33,43 @@ func (fs *mockFabricService) HandleServiceRequest(request *model.Request, core F
     fs.processedRequests = append(fs.processedRequests, request)
     fs.core = core
     fs.wg.Done()
+}
+
+type mockLifecycleHookEnabledService struct {
+    initChan chan bool
+    core FabricServiceCore
+    shutdown bool
+}
+
+func (s *mockLifecycleHookEnabledService) HandleServiceRequest(request *model.Request, core FabricServiceCore) {
+}
+
+func (s *mockLifecycleHookEnabledService) OnServiceReady() chan bool {
+    s.initChan = make(chan bool, 1)
+    s.initChan <- true
+    return s.initChan
+}
+
+func (s *mockLifecycleHookEnabledService) OnServerShutdown() {
+    s.shutdown = true
+}
+
+func (s *mockLifecycleHookEnabledService) GetRESTBridgeConfig() []*RESTBridgeConfig {
+    return []*RESTBridgeConfig{
+        {
+            ServiceChannel:       "another-test-channel",
+            Uri:                  "/rest/test",
+            Method:               http.MethodGet,
+            AllowHead:            true,
+            AllowOptions:         true,
+            FabricRequestBuilder: func(w http.ResponseWriter, r *http.Request) model.Request {
+                return model.Request{
+                    Id: &uuid.UUID{},
+                    Payload: "test",
+                }
+            },
+        },
+    }
 }
 
 type mockInitializableService struct {
@@ -147,4 +189,29 @@ func TestServiceRegistry_SetGlobalRestServiceBaseHost(t *testing.T) {
     registry.SetGlobalRestServiceBaseHost("localhost:9999")
     assert.Equal(t, "localhost:9999",
             registry.services[restServiceChannel].service.(*restService).baseHost)
+}
+
+func TestServiceRegistry_GetAllServiceChannels(t *testing.T) {
+    registry := newTestServiceRegistry()
+    mockService := &mockFabricService{}
+
+    registry.RegisterService(mockService, "test-channel")
+    chans := registry.GetAllServiceChannels()
+
+    assert.Len(t, chans, 1)
+    assert.EqualValues(t, "test-channel", chans[0])
+}
+
+func TestServiceRegistry_RegisterService_LifecycleHookEnabled(t *testing.T) {
+    svc := &mockLifecycleHookEnabledService{}
+    registry := newTestServiceRegistry()
+    registry.RegisterService(svc, "another-test-channel")
+
+    assert.True(t, <-svc.OnServiceReady())
+
+    svc.OnServerShutdown()
+    assert.True(t, svc.shutdown)
+
+    restBridgeConfig := svc.GetRESTBridgeConfig()
+    assert.NotNil(t, restBridgeConfig)
 }
