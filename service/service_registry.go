@@ -49,6 +49,7 @@ type serviceRegistry struct {
 	lock     sync.Mutex
 	services map[string]*fabricServiceWrapper
 	bus      bus.EventBus
+	lifecycleManager *serviceLifecycleManager
 }
 
 var once sync.Once
@@ -134,6 +135,15 @@ func (r *serviceRegistry) RegisterService(service FabricService, serviceChannelN
 	// see if the service implements ServiceLifecycleHookEnabled interface and set up REST bridges as configured
 	var hooks ServiceLifecycleHookEnabled
 	lcm := GetServiceLifecycleManager()
+
+	// NOTE: this condition is only to be used when unit testing where each test case
+	// creates a new instance of ServiceRegistry and ServiceLifecycleManager by utility functions.
+	// in such cases GetServiceHooks() is not able to locate the proper test instances of those
+	// structs so manual wiring is needed here. again, this would / should never be used in production
+	// hence a private struct property.
+	if r.lifecycleManager != nil {
+		lcm = r.lifecycleManager
+	}
 
 	// hand off registering REST bridges to Plank via bus messages
 	if hooks = lcm.GetServiceHooks(serviceChannelName); hooks != nil {

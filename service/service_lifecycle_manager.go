@@ -57,7 +57,7 @@ func (lm *serviceLifecycleManager) GetServiceHooks(serviceChannelName string) Se
 func (lm *serviceLifecycleManager) OverrideRESTBridgeConfig(serviceChannelName string, config []*RESTBridgeConfig) error {
 	_, err := lm.serviceRegistryRef.GetService(serviceChannelName)
 	if err != nil {
-		return nil
+		return err
 	}
 	reg := lm.serviceRegistryRef.(*serviceRegistry)
 	if err = reg.bus.SendResponseMessage(
