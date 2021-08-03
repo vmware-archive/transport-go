@@ -19,7 +19,11 @@ func Example_connectUsingBrokerViaTCP() {
     config := &bridge.BrokerConnectorConfig{
         Username:   "guest",
         Password:   "guest",
-        ServerAddr: ":61613"}
+        ServerAddr: ":61613",
+        STOMPHeader: map[string]string{
+            "access-token": "test",
+        },
+    }
 
     // connect to broker.
     c, err := b.ConnectBroker(config)
@@ -59,7 +63,7 @@ func Example_connectUsingBrokerViaTCP() {
     // send messages
     var producer = func() {
         for i := 0; i < 5; i++ {
-            c.SendMessage("/queue/sample", []byte(fmt.Sprintf("message: %d", i)))
+            c.SendMessage("/queue/sample", "text/plain", []byte(fmt.Sprintf("message: %d", i)))
         }
     }
 

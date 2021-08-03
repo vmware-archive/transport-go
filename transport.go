@@ -157,7 +157,10 @@ func runDemoCal() {
 		Username:   "guest",
 		Password:   "guest",
 		UseWS:      true,
-		WSPath:     "/fabric",
+		WebSocketConfig: &bridge.WebSocketConfig{
+			WSPath:     "/fabric",
+			UseTLS: false,
+		},
 		ServerAddr: "appfabric.vmware.com"}
 
 	// connect to broker.
@@ -182,7 +185,7 @@ func runDemoCal() {
 	fmt.Println("Requesting time from calendar service")
 
 	// send request.
-	c.SendMessage("/pub/"+channel, m)
+	c.SendJSONMessage("/pub/"+channel, m)
 
 	// wait for done signal
 	<-done
@@ -249,7 +252,10 @@ func runDemoVmService(ctx *cli.Context) {
 		Username:   "guest",
 		Password:   "guest",
 		UseWS:      true,
-		WSPath:     "/fabric",
+		WebSocketConfig: &bridge.WebSocketConfig{
+			WSPath:    "/fabric",
+			UseTLS:    false,
+		},
 		ServerAddr: addr}
 
 	// connect to broker.
@@ -272,7 +278,7 @@ func runDemoVmService(ctx *cli.Context) {
 			Payload: payload,
 		}
 		m, _ := json.Marshal(r)
-		c.SendMessage("/pub/"+channel, m)
+		c.SendJSONMessage("/pub/"+channel, m)
 
 		// wait for done signal
 		<-done
@@ -344,7 +350,10 @@ func runDemoStore(ctx *cli.Context) {
 		Username:   "guest",
 		Password:   "guest",
 		UseWS:      true,
-		WSPath:     "/fabric",
+		WebSocketConfig: &bridge.WebSocketConfig{
+			WSPath:    "/fabric",
+			UseTLS:    false,
+		},
 		ServerAddr: addr}
 
 	// connect to broker.
@@ -492,7 +501,10 @@ func runDemoApp(ctx *cli.Context) {
 			Username:   "guest",
 			Password:   "guest",
 			UseWS:      true,
-			WSPath:     "/fabric",
+			WebSocketConfig: &bridge.WebSocketConfig{
+				WSPath:    "/fabric",
+				UseTLS:    false,
+			},
 			ServerAddr: addr}
 	}
 
@@ -516,7 +528,7 @@ func runDemoApp(ctx *cli.Context) {
 		pl := "ping--" + strconv.Itoa(rand.Intn(10000000))
 		r := &model.Request{Request: "basic", Payload: pl}
 		m, _ := json.Marshal(r)
-		c.SendMessage("/pub/"+PongServiceChan, m)
+		c.SendJSONMessage("/pub/"+PongServiceChan, m)
 		time.Sleep(500 * time.Millisecond)
 	}
 
@@ -570,7 +582,7 @@ func runDemoApp(ctx *cli.Context) {
 		pl := "ping--" + strconv.Itoa(rand.Intn(10000000))
 		r := &model.Request{Request: "full", Payload: pl}
 		m, _ := json.Marshal(r)
-		c.SendMessage("/pub/queue/"+PongServiceChan, m)
+		c.SendJSONMessage("/pub/queue/"+PongServiceChan, m)
 		time.Sleep(500 * time.Millisecond)
 	}
 

@@ -5,6 +5,7 @@ package bus
 
 import (
     "fmt"
+    "github.com/go-stomp/stomp/frame"
     "github.com/google/uuid"
     "github.com/vmware/transport-go/bridge"
     "reflect"
@@ -36,7 +37,8 @@ type StoreManager interface {
 // Interface which is a subset of the bridge.Connection methods.
 // Used to mock connection objects during unit testing.
 type galacticStoreConnection interface {
-    SendMessage(destination string, payload []byte) error
+    SendJSONMessage(destination string, payload []byte, opts ...func(frame *frame.Frame) error) error
+    SendMessage(destination, contentType string, payload []byte, opts ...func(frame *frame.Frame) error) error
 }
 
 type storeSyncChannelConfig struct {

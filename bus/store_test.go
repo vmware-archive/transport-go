@@ -4,13 +4,14 @@
 package bus
 
 import (
-    "testing"
+    "encoding/json"
+    "fmt"
+    "github.com/go-stomp/stomp/frame"
     "github.com/stretchr/testify/assert"
+    "reflect"
     "sync"
     "sync/atomic"
-    "fmt"
-    "reflect"
-    "encoding/json"
+    "testing"
 )
 
 type testItem struct {
@@ -27,13 +28,19 @@ func testStore() BusStore {
 type mockGalacticStoreConnection struct {
     messages  []map[string]interface{}
     topics []string
+    opts []func(fr *frame.Frame) error
 }
 
-func (con *mockGalacticStoreConnection) SendMessage(destination string, payload []byte) error {
+func (con *mockGalacticStoreConnection) SendJSONMessage(destination string, payload []byte, opts ...func(*frame.Frame) error) error {
+    return con.SendMessage(destination, "application/json", payload, opts...)
+}
+
+func (con *mockGalacticStoreConnection) SendMessage(destination, contentType string, payload []byte, opts ...func(*frame.Frame) error) error {
     var msgPayload map[string]interface{}
     json.Unmarshal(payload, &msgPayload)
     con.messages = append(con.messages, msgPayload)
     con.topics = append(con.topics, destination)
+    con.opts = opts
     return nil
 }
 
@@ -55,6 +62,7 @@ func testGalacticStore(itemType reflect.Type) (BusStore, *mockGalacticStoreConne
     conn := &mockGalacticStoreConnection{
         messages: make([]map[string]interface{}, 0),
         topics: make([]string,0),
+        opts: make([]func(*frame.Frame) error, 0),
     }
 
     conf := &galacticStoreConfig{
