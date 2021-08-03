@@ -3,8 +3,8 @@ package server
 import (
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/jooskim/plank/services"
-	"github.com/jooskim/plank/utils"
+	"github.com/vmware/transport-go/plank/services"
+	"github.com/vmware/transport-go/plank/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/vmware/transport-go/model"
 	"io/ioutil"

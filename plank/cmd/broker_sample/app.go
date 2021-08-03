@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/jooskim/plank/cmd/broker_sample/plank"
-	"github.com/jooskim/plank/cmd/broker_sample/rabbitmq"
-	"github.com/jooskim/plank/utils"
 	"github.com/streadway/amqp"
+	"github.com/vmware/transport-go/plank/cmd/broker_sample/plank"
+	"github.com/vmware/transport-go/plank/cmd/broker_sample/rabbitmq"
+	"github.com/vmware/transport-go/plank/utils"
 	"os"
 	"os/signal"
 	"syscall"

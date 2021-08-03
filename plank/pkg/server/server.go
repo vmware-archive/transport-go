@@ -22,8 +22,8 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/jooskim/plank/pkg/middleware"
-	"github.com/jooskim/plank/utils"
+	"github.com/vmware/transport-go/plank/pkg/middleware"
+	"github.com/vmware/transport-go/plank/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"

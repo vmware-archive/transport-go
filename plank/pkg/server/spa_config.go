@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/jooskim/plank/utils"
+	"github.com/vmware/transport-go/plank/utils"
 )
 
 type SpaConfig struct {

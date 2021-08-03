@@ -3,7 +3,7 @@ package server
 import (
 	"flag"
 	"fmt"
-	"github.com/jooskim/plank/utils"
+	"github.com/vmware/transport-go/plank/utils"
 	"os"
 )
 

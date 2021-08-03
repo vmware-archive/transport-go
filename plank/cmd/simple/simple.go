@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/jooskim/plank/pkg/server"
-	"github.com/jooskim/plank/services"
-	"github.com/jooskim/plank/utils"
+	"github.com/vmware/transport-go/plank/pkg/server"
+	"github.com/vmware/transport-go/plank/services"
+	"github.com/vmware/transport-go/plank/utils"
 	"os"
 )
 

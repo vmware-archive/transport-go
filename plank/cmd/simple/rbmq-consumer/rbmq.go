@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/jooskim/plank/utils"
+	"github.com/vmware/transport-go/plank/utils"
 	"github.com/streadway/amqp"
 )
 

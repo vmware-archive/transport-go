@@ -1,7 +1,7 @@
 package rabbitmq
 
 import (
-	"github.com/jooskim/plank/utils"
+	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/bridge"
 	"github.com/vmware/transport-go/bus"
 	"os"

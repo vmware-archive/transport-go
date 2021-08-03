@@ -3,11 +3,11 @@ package plank
 import (
 	"crypto/tls"
 	"encoding/json"
-	"github.com/jooskim/plank/services"
-	"github.com/jooskim/plank/utils"
 	"github.com/vmware/transport-go/bridge"
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
+	"github.com/vmware/transport-go/plank/services"
+	"github.com/vmware/transport-go/plank/utils"
 	"net/http"
 	"os"
 	"time"

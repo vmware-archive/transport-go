@@ -3,7 +3,7 @@ package middleware
 import (
 	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/jooskim/plank/utils"
+	"github.com/vmware/transport-go/plank/utils"
 	"net/http"
 	"strings"
 	"sync"

@@ -4,7 +4,7 @@
 package server
 
 import (
-	"github.com/jooskim/plank/pkg/middleware"
+	"github.com/vmware/transport-go/plank/pkg/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )

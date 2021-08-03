@@ -1,4 +1,4 @@
-module github.com/jooskim/plank
+module github.com/vmware/transport-go/plank
 
 go 1.16
 
@@ -25,7 +25,4 @@ require (
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	golang.org/x/tools v0.1.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-
 )
-
-replace github.com/vmware/transport-go => /home/kjosh/Documents/github/vmware/transport-go

@@ -3,8 +3,8 @@ package server
 import (
 	"crypto/tls"
 	"github.com/gorilla/mux"
-	"github.com/jooskim/plank/pkg/middleware"
-	"github.com/jooskim/plank/utils"
+	"github.com/vmware/transport-go/plank/pkg/middleware"
+	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/service"

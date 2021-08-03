@@ -4,7 +4,7 @@
 package middleware
 
 import (
-	"github.com/jooskim/plank/pkg/metrics"
+	"github.com/vmware/transport-go/plank/pkg/metrics"
 	"net/http"
 	"strings"
 	"time"
