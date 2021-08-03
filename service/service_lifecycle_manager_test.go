@@ -4,6 +4,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vmware/transport-go/model"
 	"net/http"
+	"sync"
 	"testing"
 )
 
@@ -73,6 +74,7 @@ func TestServiceLifecycleManager_OverrideRESTBridgeConfig_NoSuchService(t *testi
 
 func TestServiceLifecycleManager_OverrideRESTBridgeConfig(t *testing.T) {
 	// arrange
+	wg := sync.WaitGroup{}
 	sr := newTestServiceRegistry()
 	lcm := newTestServiceLifecycleManager(sr)
 	sr.lifecycleManager = lcm.(*serviceLifecycleManager)
@@ -92,6 +94,8 @@ func TestServiceLifecycleManager_OverrideRESTBridgeConfig(t *testing.T) {
 	stream, err := sr.bus.ListenStreamForDestination(LifecycleManagerChannelName, sr.bus.GetId())
 	assert.Nil(t, err)
 	defer stream.Close()
+
+	wg.Add(1)
 	stream.Handle(func(message *model.Message) {
 		req, parsed := message.Payload.(*SetupRESTBridgeRequest)
 		if !parsed {
@@ -100,7 +104,8 @@ func TestServiceLifecycleManager_OverrideRESTBridgeConfig(t *testing.T) {
 		// assert
 		assert.True(t, req.Override)
 		assert.EqualValues(t, "another-test-channel", req.ServiceChannel)
-		assert.EqualValues(t, payload, req)
+		assert.EqualValues(t, payload, req.Config[0])
+		wg.Done()
 	}, func(err error) {
 		assert.Fail(t, "should not have errored", err)
 	})
@@ -108,4 +113,5 @@ func TestServiceLifecycleManager_OverrideRESTBridgeConfig(t *testing.T) {
 	// act
 	err = lcm.OverrideRESTBridgeConfig("another-test-channel", []*RESTBridgeConfig{payload})
 	assert.Nil(t, err)
+	wg.Wait()
 }
