@@ -1,16 +1,15 @@
 package server
 
 import (
-	"fmt"
 	"github.com/google/uuid"
-	"github.com/vmware/transport-go/plank/services"
-	"github.com/vmware/transport-go/plank/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/vmware/transport-go/model"
+	"github.com/vmware/transport-go/plank/services"
+	"github.com/vmware/transport-go/plank/utils"
+	"github.com/vmware/transport-go/service"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 )
@@ -25,6 +24,8 @@ func TestMain(m *testing.M) {
 		Port:    9980,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     "stdout",
+			AccessLog: "stdout",
+			ErrorLog: "stderr",
 			FormatOptions: &utils.LogFormatOption{},
 		},
 	}
@@ -46,11 +47,14 @@ func TestNewPlatformServer_EmptyRootDir(t *testing.T) {
 		Port: 80,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     "stdout",
+			AccessLog: "stdout",
+			ErrorLog: "stderr",
 			FormatOptions: &utils.LogFormatOption{},
 		},
 	}
 	NewPlatformServer(newConfig)
-	assert.Contains(t, newConfig.RootDir, fmt.Sprintf("pkg%cserver", filepath.Separator))
+	wd, _ := os.Getwd()
+	assert.Equal(t, wd, newConfig.RootDir)
 }
 
 func TestNewPlatformServer_FileLog(t *testing.T) {
@@ -63,7 +67,9 @@ func TestNewPlatformServer_FileLog(t *testing.T) {
 		Host:    "localhost",
 		Port:    80,
 		LogConfig: &utils.LogConfig{
-			OutputLog:     "testlog.log",
+			OutputLog:     "/tmp/testlog.log",
+			AccessLog: "stdout",
+			ErrorLog: "stderr",
 			FormatOptions: &utils.LogFormatOption{},
 		},
 	}
@@ -111,12 +117,20 @@ func TestPlatformServer_UnknownRequest(t *testing.T) {
 }
 
 func setupBridge(ps PlatformServer, endpoint, method, channel, request string) {
-	ps.SetHttpChannelBridge(endpoint, method, channel, func(w http.ResponseWriter, r *http.Request) model.Request {
-		q := r.URL.Query()
-		return model.Request{
-			Id:      &uuid.UUID{},
-			Payload: q.Get("msg"),
-			Request: request}
+	bridgeConfig := &service.RESTBridgeConfig{
+		ServiceChannel:       channel,
+		Uri:                  endpoint,
+		Method:               method,
+		AllowHead:            false,
+		AllowOptions:         false,
+		FabricRequestBuilder: func(w http.ResponseWriter, r *http.Request) model.Request {
+			q := r.URL.Query()
+			return model.Request{
+				Id:      &uuid.UUID{},
+				Payload: q.Get("msg"),
+				Request: request}
 
-	})
+		},
+	}
+	ps.SetHttpChannelBridge(bridgeConfig)
 }
