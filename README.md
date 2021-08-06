@@ -203,8 +203,10 @@ func usingGalacticChannels() {
       Username:   "guest",
       Password:   "guest",
       ServerAddr: "localhost:8090",
-      WSPath:     "/fabric",
-      UseWS:      true}
+      UseWS:      true,
+      WebSocketConfig: &bridge.WebSocketConfig{
+         WSPath:    "/fabric",
+      }}
 
    // connect to broker.
    c, err := b.ConnectBroker(config)
