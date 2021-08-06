@@ -363,6 +363,7 @@ github.com/urfave/cli v1.22.5 h1:lNq9sAHXK2qfdI8W+GRItjCEkI+2oR4d+MEHy1CKXoU=
 github.com/urfave/cli v1.22.5/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
 github.com/vmware/transport-go v1.2.0 h1:bLfB3xiyYlGanOQY+wnLc6Ul5GHClyYa0jdEBx6+maU=
 github.com/vmware/transport-go v1.2.0/go.mod h1:yVx33Ih199+jJbOTQRXuyNKm6Hu9nUH9nlM1gbj0buQ=
+github.com/vmware/transport-go/plank v0.0.0-20210816220202-47a1f3e15fb8/go.mod h1:B2cUNq/oeOk+icxcz8JUmkhacHWNM7MWU60JpJ13Hnk=
 github.com/xanzy/ssh-agent v0.3.0 h1:wUMzuKtKilRgBAD1sUb8gOwwRr2FGoBVumcjoOACClI=
 github.com/xanzy/ssh-agent v0.3.0/go.mod h1:3s9xbODqPuuhK9JV1R321M/FlMZSBvE5aY6eAcqrDh0=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
