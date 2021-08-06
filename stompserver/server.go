@@ -200,7 +200,7 @@ func (s *stompServer) waitForConnections() {
          if err != nil {
              log.Println("Failed to establish client connection:", err)
          } else {
-             c := NewStompConn(rawConn, s.config, s.connectionEvents)
+             c := NewStompConn(rawConn, s.config, s.connectionEvents, true)
 
              s.connectionEvents <- &ConnEvent{
                  ConnId:    c.GetId(),

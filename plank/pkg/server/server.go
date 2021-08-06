@@ -334,6 +334,20 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 		bridgeConfig.ServiceChannel, bridgeConfig.Uri, bridgeConfig.Method)
 }
 
+func (ps *platformServer) clearHttpChannelBridgesForService(serviceChannel string) {
+	ps.lock.Lock()
+	defer ps.lock.Unlock()
+
+	// if in override mode delete existing mappings associated with the service
+	existingMappings := ps.serviceChanToBridgeEndpoints[serviceChannel]
+	ps.serviceChanToBridgeEndpoints[serviceChannel] = make([]string, 0)
+	for _, handlerKey := range existingMappings {
+		utils.Log.Infof("Removing existing service - REST mapping '%s' for service '%s'", handlerKey, serviceChannel)
+		ps.router.Get(fmt.Sprintf("bridge-%s", handlerKey)).Handler(http.NotFoundHandler())
+		delete(ps.endpointHandlerMap, handlerKey)
+	}
+}
+
 // GetMiddlewareManager returns the MiddleManager instance
 func (ps *platformServer) GetMiddlewareManager() middleware.MiddlewareManager {
 	return ps.middlewareManager

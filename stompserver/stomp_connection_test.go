@@ -97,7 +97,7 @@ func getTestStompConn(conf StompConfig, events chan *ConnEvent) (*stompConn, *Mo
     }
 
     rawConn := NewMockRawConnection()
-    return NewStompConn(rawConn, conf, events).(*stompConn), rawConn, events
+    return NewStompConn(rawConn, conf, events, true).(*stompConn), rawConn, events
 }
 
 func TestStompConn_Connect(t *testing.T) {

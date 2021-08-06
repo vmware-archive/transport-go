@@ -8,6 +8,7 @@ import (
     "github.com/go-stomp/stomp"
     "github.com/go-stomp/stomp/frame"
     "github.com/google/uuid"
+    "github.com/vmware/transport-go/plank/pkg/server/auth_provider_manager"
     "log"
     "strconv"
     "strings"
@@ -52,9 +53,10 @@ type stompConn struct {
     subscriptions    map[string]*subscription
     currentMessageId uint64
     closeOnce        sync.Once
+    authProviderManager auth_provider_manager.AuthProviderManager
 }
 
-func NewStompConn(rawConnection RawConnection, config StompConfig, events chan *ConnEvent) StompConn {
+func NewStompConn(rawConnection RawConnection, config StompConfig, events chan *ConnEvent, useAuthProvider bool) StompConn {
     conn := &stompConn{
         rawConnection: rawConnection,
         state:         connecting,
@@ -64,6 +66,10 @@ func NewStompConn(rawConnection RawConnection, config StompConfig, events chan *
         id:            uuid.New().String(),
         events:        events,
         subscriptions: make(map[string]*subscription),
+    }
+
+    if useAuthProvider {
+        conn.authProviderManager = auth_provider_manager.GetAuthProviderManager()
     }
 
     go conn.run()
@@ -158,6 +164,18 @@ func (conn *stompConn) run() {
 }
 
 func (conn *stompConn) handleIncomingFrame(f *frame.Frame) error {
+    if conn.authProviderManager != nil {
+        // if a STOMP auth provider was configured try to validate each frame with the rules defined
+        // in the provider. if auth provider is not found let the payload through
+        if provider, _ := conn.authProviderManager.GetSTOMPAuthProvider(); provider != nil {
+            err := provider.Validate(f) // TODO: should we return error through a transport channel?
+            if err != nil {
+                fmt.Println(f.Command, err)
+                return err
+            }
+        }
+    }
+
     switch f.Command {
 
     case frame.CONNECT, frame.STOMP:
