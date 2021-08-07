@@ -17,6 +17,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -40,6 +41,7 @@ func NewPlatformServer(config *PlatformServerConfig) PlatformServer {
 	sanitizeConfigRootPath(config)
 	ps.serverConfig = config
 	ps.serverAvailability = &serverAvailability{}
+	ps.routerConcurrencyProtection = new(int32)
 	ps.initialize()
 
 	return ps
@@ -80,6 +82,7 @@ func NewPlatformServerFromConfig(configPath string) (PlatformServer, error) {
 
 	ps.serverConfig = &config
 	ps.serverAvailability = &serverAvailability{}
+	ps.routerConcurrencyProtection = new(int32)
 	ps.initialize()
 	return ps, nil
 }
@@ -112,13 +115,7 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 	// get http access log and error log file pointers ready
 
 	// finalize handler by setting out writer
-	// TODO: remove cors handler from global handler chain and let user choose it once middle management layer is implemented
-	ps.HttpServer.Handler = handlers.RecoveryHandler()(
-		handlers.CompressHandler(
-			handlers.CORS(
-				handlers.AllowedOrigins([]string{"*"}))(
-				handlers.CombinedLoggingHandler(
-					ps.serverConfig.LogConfig.GetAccessLogFilePointer(), ps.router))))
+	ps.loadGlobalHttpHandler(ps.router)
 
 	// if path for SPA app is provided set it up
 	// NOTE: the reason SPA app route is configured after service & static routes are configured is that sometimes you may want the UI
@@ -304,30 +301,64 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 		permittedMethods = append(permittedMethods, http.MethodOptions)
 	}
 
-	// add specific endpoint for specific method.
+	// NOTE: mux.Router does not have mutex or any locking mechanism so it could sometimes lead to concurrency write
+	// panics. following is to ensure the modification to ps.router can happen only once per thread
+	for !atomic.CompareAndSwapInt32(ps.routerConcurrencyProtection, 0, 1) {
+		time.Sleep(1*time.Nanosecond)
+	}
+
 	ps.router.
 		Path(bridgeConfig.Uri).
 		Methods(permittedMethods...).
 		Name(fmt.Sprintf("bridge-%s-%s", bridgeConfig.Uri, bridgeConfig.Method)).
 		Handler(ps.endpointHandlerMap[endpointHandlerKey])
+	if !atomic.CompareAndSwapInt32(ps.routerConcurrencyProtection, 1, 0) {
+		panic("Concurrency write detected!")
+	}
 
 	utils.Log.Infof(
 		"Service channel '%s' is now bridged to a REST endpoint %s (%s)\n",
 		bridgeConfig.ServiceChannel, bridgeConfig.Uri, bridgeConfig.Method)
 }
 
-func (ps *platformServer) clearHttpChannelBridgesForService(serviceChannel string) {
+func (ps *platformServer) clearHttpChannelBridgesForService(serviceChannel string) *mux.Router {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
+
+	// NOTE: gorilla mux doesn't allow us to mutate routes field of the Router struct which is critical in rerouting incoming
+	// requests to the new route. there is not a public API that allows us to do it so we're instead creating a new instance of
+	// Router and assigning the existing config and route
+
+	// walk over existing routes and store them temporarily EXCEPT the ones that are being overwritten which can
+	// be tracked by the service channel
+	newRouter := mux.NewRouter().Schemes("http", "https").Subrouter()
+	lookupMap := make(map[string]bool)
+	for _, key := range ps.serviceChanToBridgeEndpoints[serviceChannel] {
+		lookupMap["bridge-"+key] = true
+	}
+
+	ps.router.Walk(func(r *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		name := r.GetName()
+		path, _ := r.GetPathTemplate()
+		handler := r.GetHandler()
+		methods, _ := r.GetMethods()
+		// do not want to copy over the routes that will be overridden
+		if lookupMap[name] {
+			utils.Log.Debugf("route '%s' will be overridden so not copying over to the new router instance", name)
+		} else {
+			newRouter.Name(name).Path(path).Methods(methods...).Handler(handler)
+		}
+		return nil
+	})
 
 	// if in override mode delete existing mappings associated with the service
 	existingMappings := ps.serviceChanToBridgeEndpoints[serviceChannel]
 	ps.serviceChanToBridgeEndpoints[serviceChannel] = make([]string, 0)
 	for _, handlerKey := range existingMappings {
 		utils.Log.Infof("Removing existing service - REST mapping '%s' for service '%s'", handlerKey, serviceChannel)
-		ps.router.Get(fmt.Sprintf("bridge-%s", handlerKey)).Handler(http.NotFoundHandler())
 		delete(ps.endpointHandlerMap, handlerKey)
 	}
+	return newRouter
 }
 
 // GetMiddlewareManager returns the MiddleManager instance
@@ -349,6 +380,16 @@ func (ps *platformServer) getSubRoute(name string) (*mux.Route, error) {
 		return nil, fmt.Errorf("no route exists under name %s", name)
 	}
 	return route, nil
+}
+
+func (ps *platformServer) loadGlobalHttpHandler(h *mux.Router) {
+	ps.lock.Lock()
+	defer ps.lock.Unlock()
+	ps.router = h
+	ps.HttpServer.Handler = handlers.RecoveryHandler()(
+		handlers.CompressHandler(
+			handlers.CombinedLoggingHandler(
+				ps.serverConfig.LogConfig.GetAccessLogFilePointer(), ps.router)))
 }
 
 func buildEndpointHandler(svcChannel string, reqBuilder func(w http.ResponseWriter, r *http.Request) model.Request) http.HandlerFunc {
@@ -633,14 +674,6 @@ func (ps *platformServer) initialize() {
 			utils.Log.Errorf("failed to set up REST bridge ")
 		}
 
-		if request.Override {
-			ps.clearHttpChannelBridgesForService(request.ServiceChannel)
-		}
-
-		for _, config := range request.Config {
-			ps.SetHttpChannelBridge(config)
-		}
-
 		// REST bridge setup done. now wait for service to be ready
 		fabricSvc, _ := service.GetServiceRegistry().GetService(request.ServiceChannel)
 		lcm := service.GetServiceLifecycleManager()
@@ -652,6 +685,17 @@ func (ps *platformServer) initialize() {
 			svcReadyStore.Put(request.ServiceChannel, <-readyChan, service.ServiceInitStateChange)
 			utils.Log.Infof("Service '%s' initialized successfully", reflect.TypeOf(fabricSvc).String())
 			close(readyChan)
+		}
+
+		if request.Override {
+			// clear old bridges affected by this override. there's a suboptimal workaround for mux.Router not
+			// supporting a way to dynamically remove routers slice. see clearHttpChannelBridgesForService for details
+			newRouter := ps.clearHttpChannelBridgesForService(request.ServiceChannel)
+			ps.loadGlobalHttpHandler(newRouter)
+		}
+
+		for _, config := range request.Config {
+			ps.SetHttpChannelBridge(config)
 		}
 
 	}, func(err error) {

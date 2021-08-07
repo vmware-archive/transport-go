@@ -3,10 +3,10 @@ package server
 import (
 	"crypto/tls"
 	"github.com/gorilla/mux"
-	"github.com/vmware/transport-go/plank/pkg/middleware"
-	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
+	"github.com/vmware/transport-go/plank/pkg/middleware"
+	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/service"
 	"github.com/vmware/transport-go/stompserver"
 	"net/http"
@@ -58,6 +58,7 @@ type platformServer struct {
 	serverConfig                 *PlatformServerConfig
 	middlewareManager            middleware.MiddlewareManager
 	router                       *mux.Router
+	routerConcurrencyProtection  *int32
 	out                          *os.File
 	endpointHandlerMap           map[string]http.HandlerFunc
 	serviceChanToBridgeEndpoints map[string][]string
