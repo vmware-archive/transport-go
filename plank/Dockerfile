@@ -1,6 +1,6 @@
 FROM photon:latest
-COPY build/eve-platform /usr/local/bin/
-RUN mkdir -p /opt/eve-platform
-WORKDIR /opt/eve-platform
+COPY build/plank /usr/local/bin/
+RUN mkdir -p /opt/plank
+WORKDIR /opt/plank
 STOPSIGNAL SIGTERM
-ENTRYPOINT ["eve-platform", "start-server"]
+ENTRYPOINT ["plank", "start-server"]
