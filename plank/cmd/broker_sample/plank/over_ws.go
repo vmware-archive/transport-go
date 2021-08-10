@@ -16,6 +16,10 @@ import (
 	"time"
 )
 
+// ListenViaWS listens to sample channel services.PingPongServiceChan over WebSocket. before running this
+// function make sure you have a Plank instance running in default port (30080). also if you run it with
+// TLS enabled, make sure that your TLS certificate and private key are where the demo app expects them to be
+// (cert/fullchain.pem and cert/server.key) and that these match those used in Plank.
 func ListenViaWS(c chan os.Signal, useTLS bool) {
 	var err error
 	b := bus.GetBus()
@@ -58,6 +62,7 @@ func ListenViaWS(c chan os.Signal, useTLS bool) {
 	<-c
 }
 
+// getBrokerConnectorConfig returns a basic *bridge.BrokerConnectorConfig based on the
 func getBrokerConnectorConfig(useTLS bool) *bridge.BrokerConnectorConfig {
 	config := &bridge.BrokerConnectorConfig{
 		Username:   "guest",
@@ -69,12 +74,9 @@ func getBrokerConnectorConfig(useTLS bool) *bridge.BrokerConnectorConfig {
 			UseTLS: useTLS,
 		},
 		HeartBeatOut: 30 * time.Second,
-		STOMPHeader: map[string]string{
-			"access-token": "something",
-			"hooo":         "ddffd",
-		},
+		STOMPHeader: map[string]string{},
 		HttpHeader: http.Header{
-			"Sec-Websocket-Protocol": {"v12.stomp, access-token.something"},
+			"Sec-Websocket-Protocol": {"v12.stomp"},
 		},
 	}
 

@@ -8,6 +8,9 @@ import (
 	"os"
 )
 
+// ListenViaAmqp directly connects to a RabbitMQ instance, sets up a sample topic exchange and
+// creates a queue that is bound with routing key "something.somewhere". this method is not using
+// any of Transport function but is useful to observe messages that originated from Transport.
 func ListenViaAmqp(c2 chan os.Signal) {
 	conn, err := GetNewConnection("amqp://guest:guest@localhost:5672")
 	if err != nil {

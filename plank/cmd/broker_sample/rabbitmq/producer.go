@@ -8,16 +8,22 @@ import (
 	"os"
 )
 
+// GetNewConnection returns a new *amqp.Connection and error if any
 func GetNewConnection(url string) (conn *amqp.Connection, err error) {
 	conn, err = amqp.Dial(url)
 	return
 }
 
+// GetNewChannel returns a new *amqp.Channel from the passed *amqp.Connection instance and error if any
 func GetNewChannel(conn *amqp.Connection) (ch *amqp.Channel, err error) {
 	ch, err = conn.Channel()
 	return
 }
 
+// SendTopic sends a message to a topic exchange with routing key "something.somewhere".
+// if environment variable LISTEN_METHOD is set to rbmq_stomp then the excahgne is set to
+// amq.topic instead of logs_topic because RabbitMQ STOMP plugin routes incoming messages
+// to the amq.topic exchange.
 func SendTopic(ch *amqp.Channel) error {
 	var err error
 	listenMethod := os.Getenv("LISTEN_METHOD")
@@ -40,6 +46,7 @@ func SendTopic(ch *amqp.Channel) error {
 	return nil
 }
 
+// SendQueue sends a message to a direct exchange with routing key "testing".
 func SendQueue(conn *amqp.Connection, ch *amqp.Channel) error {
 	var err error
 	if ch, err = GetNewChannel(conn); err != nil {
@@ -52,7 +59,7 @@ func SendQueue(conn *amqp.Connection, ch *amqp.Channel) error {
 		false,
 		amqp.Publishing{
 			ContentType: "text/plain",
-			Body:        []byte("yo"),
+			Body:        []byte("hello"),
 		}); err != nil {
 		return err
 	}

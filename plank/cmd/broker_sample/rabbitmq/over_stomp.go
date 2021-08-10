@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+// ListenViaStomp directly connects to a RabbitMQ instance via TCP port 61613 that RabbitMQ STOMP plugin
+// exposes, and listens on topic "something.somewhere". also it sends out a test message to the topic
+// after a one second delay. note that RabbitMQ STOMP plugin routes messages arriving from the client
+// to the amq.topic exchange. for details see producer.go
 func ListenViaStomp(c2 chan os.Signal) {
 	b := bus.GetBus()
 	bus.EnableLogging(true)
