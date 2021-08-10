@@ -1,3 +1,6 @@
+// Copyright 2019-2021 VMware, Inc.
+// SPDX-License-Identifier: BSD-2-Clause
+
 package utils
 
 import "github.com/fatih/color"

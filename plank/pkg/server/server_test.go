@@ -1,3 +1,6 @@
+// Copyright 2019-2021 VMware, Inc.
+// SPDX-License-Identifier: BSD-2-Clause
+
 package server
 
 import (
@@ -24,8 +27,8 @@ func TestMain(m *testing.M) {
 		Port:    9980,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     "stdout",
-			AccessLog: "stdout",
-			ErrorLog: "stderr",
+			AccessLog:     "stdout",
+			ErrorLog:      "stderr",
 			FormatOptions: &utils.LogFormatOption{},
 		},
 	}
@@ -47,8 +50,8 @@ func TestNewPlatformServer_EmptyRootDir(t *testing.T) {
 		Port: 80,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     "stdout",
-			AccessLog: "stdout",
-			ErrorLog: "stderr",
+			AccessLog:     "stdout",
+			ErrorLog:      "stderr",
 			FormatOptions: &utils.LogFormatOption{},
 		},
 	}
@@ -68,8 +71,8 @@ func TestNewPlatformServer_FileLog(t *testing.T) {
 		Port:    80,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     "/tmp/testlog.log",
-			AccessLog: "stdout",
-			ErrorLog: "stderr",
+			AccessLog:     "stdout",
+			ErrorLog:      "stderr",
 			FormatOptions: &utils.LogFormatOption{},
 		},
 	}
@@ -118,11 +121,11 @@ func TestPlatformServer_UnknownRequest(t *testing.T) {
 
 func setupBridge(ps PlatformServer, endpoint, method, channel, request string) {
 	bridgeConfig := &service.RESTBridgeConfig{
-		ServiceChannel:       channel,
-		Uri:                  endpoint,
-		Method:               method,
-		AllowHead:            false,
-		AllowOptions:         false,
+		ServiceChannel: channel,
+		Uri:            endpoint,
+		Method:         method,
+		AllowHead:      false,
+		AllowOptions:   false,
 		FabricRequestBuilder: func(w http.ResponseWriter, r *http.Request) model.Request {
 			q := r.URL.Query()
 			return model.Request{

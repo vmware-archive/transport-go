@@ -1,9 +1,12 @@
+// Copyright 2019-2021 VMware, Inc.
+// SPDX-License-Identifier: BSD-2-Clause
+
 package rabbitmq
 
 import (
-	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/bridge"
 	"github.com/vmware/transport-go/bus"
+	"github.com/vmware/transport-go/plank/utils"
 	"os"
 	"time"
 )

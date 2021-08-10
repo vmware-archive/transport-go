@@ -1,10 +1,13 @@
+// Copyright 2019-2021 VMware, Inc.
+// SPDX-License-Identifier: BSD-2-Clause
+
 package main
 
 import (
+	"github.com/urfave/cli"
 	"github.com/vmware/transport-go/plank/pkg/server"
 	"github.com/vmware/transport-go/plank/services"
 	"github.com/vmware/transport-go/plank/utils"
-	"github.com/urfave/cli"
 	"os"
 )
 

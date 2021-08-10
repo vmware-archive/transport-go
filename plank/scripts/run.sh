@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright 2019 VMware, Inc. All Rights Reserved.
+#
 
 ROOT=$(cd $(dirname $0)/.. ; pwd)
 HASH="${CI_COMMIT_SHORT_SHA:-$(git branch --no-color | grep '*' | sed 's/\*\ //')-$(git log -1 --format=%h)}"

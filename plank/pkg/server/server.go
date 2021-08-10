@@ -1,3 +1,6 @@
+// Copyright 2019-2021 VMware, Inc.
+// SPDX-License-Identifier: BSD-2-Clause
+
 package server
 
 import (
@@ -23,14 +26,14 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/vmware/transport-go/plank/pkg/middleware"
-	"github.com/vmware/transport-go/plank/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
+	"github.com/vmware/transport-go/plank/pkg/middleware"
+	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/service"
 	"github.com/vmware/transport-go/stompserver"
 )
@@ -304,7 +307,7 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 	// NOTE: mux.Router does not have mutex or any locking mechanism so it could sometimes lead to concurrency write
 	// panics. following is to ensure the modification to ps.router can happen only once per thread
 	for !atomic.CompareAndSwapInt32(ps.routerConcurrencyProtection, 0, 1) {
-		time.Sleep(1*time.Nanosecond)
+		time.Sleep(1 * time.Nanosecond)
 	}
 
 	ps.router.

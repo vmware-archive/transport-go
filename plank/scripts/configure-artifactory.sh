@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright 2019 VMware, Inc. All Rights Reserved.
+#
+
 AUTH_TARGET="https://$REGISTRY_PREFIX"
 echo "Logging into $REGISTRY_PREFIX..."
 if [ -z $CI ] ; then

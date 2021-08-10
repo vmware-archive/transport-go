@@ -1,3 +1,6 @@
+// Copyright 2019-2021 VMware, Inc.
+// SPDX-License-Identifier: BSD-2-Clause
+
 package utils
 
 func ContainsString(arr []string, str string) bool {
