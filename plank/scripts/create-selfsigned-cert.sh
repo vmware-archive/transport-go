@@ -59,7 +59,7 @@ openssl req -new \
             -key ${CERT_OUTPUT_DIR}/${CA_KEY_NAME} \
             -out ${CERT_OUTPUT_DIR}/${CA_CERT_NAME} \
             -days 365 \
-            -subj "/C=US/ST=California/O=VMware, Inc./OU=CSBU/CN=CA"
+            -subj "/C=US/ST=California/O=Your Company/OU=Your Organization/CN=CA"
 if [ $? -gt 0 ] ; then
   error "Failed to generate certificate"
 fi
@@ -70,7 +70,7 @@ info "Generating a new certificate signing request"
 openssl req -newkey rsa:${RSA_KEYSIZE} \
             -keyout ${CERT_OUTPUT_DIR}/${SERVER_KEY_NAME} \
             -out ${CERT_OUTPUT_DIR}/${SERVER_CSR_NAME} \
-            -subj "/C=US/ST=California/O=VMware, Inc./OU=CSBU/CN=localhost" \
+            -subj "/C=US/ST=California/O=Your Company/OU=Your Organization/CN=localhost" \
             -nodes
 if [ $? -gt 0 ] ; then
   error "Failed to generate certificate signing request"

@@ -1,21 +1,22 @@
 # Plank
 
 ## What is Plank?
-Plank is a small yet powerful Golang server that can serve static contents, single page applications, create and expose
-microservices over REST endpoints or WebSocket via a built-in STOMP broker, or even interact directly with other message brokers such as
-RabbitMQ. All this is done in a consistent and easy to follow manner powered by Transport Event Bus.
+Plank is just enough of a platform to build whatever you want on top. It is a small yet powerful Golang server that can serve
+static contents, single page applications, create and expose microservices over REST endpoints or WebSocket via a built-in
+STOMP broker, or even interact directly with other message brokers such as RabbitMQ. All this is done in a consistent
+and easy to follow manner powered by Transport Event Bus.
 
 Writing a service for a Plank server is in a way similar to writing a Spring Boot `Component` or `Service`, because a lot of tedious
-plumbing work is already done for you such as creating an instance and wiring it up with HTTP endpoints using routers etc.
+plumbing work is already done for you such as creating an instance of a service and wiring it up with HTTP endpoints using routers etc.
 Just by following the API you can easily stand up a service, apply any kinds of middleware your application logic calls for, and do all these
 dynamically while in runtime, meaning you can conditionally apply a filter for certain REST endpoints, stand up a new service on demand, or
-even spawn yet another whole new instance of Plank server at a different endpoint.
+even spawn yet another whole new instance of Plank at a different endpoint.
 
-All of the features are cleanly exposed as public API and modules and, combined with the power of Golang's concurrency model using channels,
+All features are cleanly exposed as public API and modules and, combined with the power of Golang's concurrency model using channels,
 the Transport Event Bus allows creating a clean application architecture, with straightforward and easy to follow logic.
 
-Detailed tutorials and examples are currently under work and will be made public on the [Transport GitHub page](https://vmware.github.io/transport/).
-Some of the topics that will initially be covered are:
+Detailed tutorials and examples are currently in progress and will be made public on the [Transport GitHub page](https://vmware.github.io/transport/).
+Some topics that will initially be covered are:
 
 - Writing a simple service and interacting with it over REST and WebSocket
 - Service lifecycle hooks
@@ -25,7 +26,7 @@ Some of the topics that will initially be covered are:
 - Securing your REST and WebSocket endpoints using Auth Provider Manager
 
 ## Hello world
-### How to build
+### How to build Plank
 First things first, you'll need the latest Golang version. Plank was first written in Golang 1.13 and it still works with it, but it's advised
 to use the latest Golang (especially 1.16 and forward) because of some nice new packages such as `embed` that we may later employ as part of Plank codebase.
 Once you have the latest Golang ready, follow the commands below:
