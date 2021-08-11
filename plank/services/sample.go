@@ -28,7 +28,7 @@ func NewPingPongService() *PingPongService {
 
 func (ps *PingPongService) HandleServiceRequest(request *model.Request, core service.FabricServiceCore) {
 	switch request.Request {
-	case "ping":
+	case "ping-post":
 		m := make(map[string]interface{})
 		m["timestamp"] = time.Now().Unix()
 		err := json.Unmarshal(request.Payload.([]byte), &m)
@@ -37,7 +37,7 @@ func (ps *PingPongService) HandleServiceRequest(request *model.Request, core ser
 		} else {
 			core.SendResponse(request, m)
 		}
-	case "ping2":
+	case "ping-get":
 		rsp := make(map[string]interface{})
 		val := request.Payload.(string)
 		rsp["payload"] = val + "-response"
@@ -70,7 +70,7 @@ func (ps *PingPongService) GetRESTBridgeConfig() []*service.RESTBridgeConfig {
 			AllowOptions:   true,
 			FabricRequestBuilder: func(w http.ResponseWriter, r *http.Request) model.Request {
 				body, _ := ioutil.ReadAll(r.Body)
-				return createServiceRequest("ping", body)
+				return createServiceRequest("ping-post", body)
 			},
 		},
 		{
@@ -80,7 +80,7 @@ func (ps *PingPongService) GetRESTBridgeConfig() []*service.RESTBridgeConfig {
 			AllowHead:      true,
 			AllowOptions:   true,
 			FabricRequestBuilder: func(w http.ResponseWriter, r *http.Request) model.Request {
-				return model.Request{Id: &uuid.UUID{}, Request: "ping2", Payload: r.URL.Query().Get("message")}
+				return model.Request{Id: &uuid.UUID{}, Request: "ping-get", Payload: r.URL.Query().Get("message")}
 			},
 		},
 		{
@@ -91,7 +91,7 @@ func (ps *PingPongService) GetRESTBridgeConfig() []*service.RESTBridgeConfig {
 				pathParams := mux.Vars(r)
 				return model.Request{
 					Id:      &uuid.UUID{},
-					Request: "ping2",
+					Request: "ping-get",
 					Payload: fmt.Sprintf(
 						"From %s to %s: %s",
 						pathParams["from"],

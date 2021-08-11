@@ -100,7 +100,7 @@ func TestPlatformServer_RegisterService(t *testing.T) {
 
 func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {
 	_ = ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
-	setupBridge(ps, "/pong", "GET", services.PingPongServiceChan, "ping2")
+	setupBridge(ps, "/pong", "GET", services.PingPongServiceChan, "ping-get")
 
 	rsp, err := http.Get("http://localhost:9980/pong?msg=hello")
 	assert.Nil(t, err)

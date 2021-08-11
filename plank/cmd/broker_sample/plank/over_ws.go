@@ -24,17 +24,23 @@ func ListenViaWS(c chan os.Signal, useTLS bool) {
 	var err error
 	b := bus.GetBus()
 	cm := b.GetChannelManager()
+
+	// create a local service channel. this is the channel we'll be mapping to the
+	// galactic channel from the remote Plank instance.
 	cm.CreateChannel(services.PingPongServiceChan)
 
+	// connect to the broker
 	broker, err := b.ConnectBroker(getBrokerConnectorConfig(useTLS))
 	if err != nil {
 		utils.Log.Fatalln("conn error", err)
 	}
 
+	// mark channel galactic by linking it to the broker we have just connected to
 	if err = b.GetChannelManager().MarkChannelAsGalactic(services.PingPongServiceChan, "/queue/"+services.PingPongServiceChan, broker); err != nil {
 		utils.Log.Fatalln(err)
 	}
 
+	// listen to messages arriving in the channel and print out messages by setting up a handler
 	hd, err := b.ListenStream(services.PingPongServiceChan)
 	if err != nil {
 		utils.Log.Fatalln(err)
@@ -51,8 +57,9 @@ func ListenViaWS(c chan os.Signal, useTLS bool) {
 	})
 	utils.Log.Infoln("waiting for messages")
 
+	// now that we are listening to the channel send a request to the ping pong service to receive a message back.
 	time.Sleep(2 * time.Second)
-	md := &model.Request{Request: "ping2", Payload: "hello"}
+	md := &model.Request{Request: "ping-get", Payload: "hello"}
 	m, _ := json.Marshal(md)
 	err = broker.SendJSONMessage("/pub/queue/"+services.PingPongServiceChan, m)
 	if err != nil {

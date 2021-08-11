@@ -19,6 +19,7 @@ func ListenViaStomp(c2 chan os.Signal) {
 	b := bus.GetBus()
 	bus.EnableLogging(true)
 
+	// connect to the RabbitMQ STOMP endpoint
 	broker, err := b.ConnectBroker(&bridge.BrokerConnectorConfig{
 		Username:     "guest",
 		Password:     "guest",
@@ -32,15 +33,19 @@ func ListenViaStomp(c2 chan os.Signal) {
 		utils.Log.Fatalln("conn error", err)
 	}
 
+	// send a message to topic named "something.somewhere" after one second
 	go func() {
 		time.Sleep(1 * time.Second)
-		broker.SendMessage("/topic/something.somewhere", "application/octet-stream", []byte("i can send too!"))
+		broker.SendMessage("/topic/something.somewhere", "text/plain", []byte("i can send too!"))
 	}()
 
+	// subscribe to topic named "something.somewhere"
 	subs, err := broker.Subscribe("/topic/something.somewhere")
 	if err != nil {
 		utils.Log.Fatalln(err)
 	}
+
+	// get the message channel from the subscription and print out messages as soon as they arrive on the channel
 	c := subs.GetMsgChannel()
 	go func() {
 		for msg := range c {

@@ -28,6 +28,7 @@ func main() {
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGKILL)
 
+	// if PRODUCE_MESSAGE_ON_RABBITMQ is set to 1 then randomly send a message to a sample topic every two seconds
 	if produceMessage == "1" {
 		go func() {
 			conn, err := rabbitmq.GetNewConnection("amqp://guest:guest@localhost:5672")
@@ -39,7 +40,7 @@ func main() {
 			}
 			defer ch.Close()
 
-			// produce a message
+			// send a message every two seconds
 			for {
 				time.Sleep(2 * time.Second)
 				if err = rabbitmq.SendTopic(ch); err != nil {

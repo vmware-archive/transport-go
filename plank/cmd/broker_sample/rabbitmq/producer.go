@@ -32,6 +32,8 @@ func SendTopic(ch *amqp.Channel) error {
 		// STOMP channels' queues are attached to amq.topic exchange
 		exchange = "amq.topic"
 	}
+
+	// publish a message to the exchange with routing key "something.somewhere"
 	if err = ch.Publish(
 		exchange,
 		"something.somewhere",
@@ -49,9 +51,12 @@ func SendTopic(ch *amqp.Channel) error {
 // SendQueue sends a message to a direct exchange with routing key "testing".
 func SendQueue(conn *amqp.Connection, ch *amqp.Channel) error {
 	var err error
+	// get a new channel from the connection
 	if ch, err = GetNewChannel(conn); err != nil {
 		return err
 	}
+
+	// publish a message to a direct exchange with routing key "testing"
 	if err = ch.Publish(
 		"",
 		"testing",
