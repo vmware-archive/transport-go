@@ -88,4 +88,8 @@ var PlatformServerFlagConstants = map[string]map[string]string{
 		"FlagName":    "prometheus",
 		"Description": "Enable Prometheus for basic runtime metrics",
 	},
+	"RestBridgeTimeout": {
+		"FlagName":    "rest-bridge-timeout",
+		"Description": "Time in minutes before a REST endpoint for a service request to timeout",
+	},
 }

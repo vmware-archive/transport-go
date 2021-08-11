@@ -46,6 +46,7 @@ type serverConfigFactory struct {
 	DebugPtr              *bool
 	NoBannerPtr           *bool
 	PrometheusPtr         *bool
+	RestBridgeTimeoutPtr *int64
 
 	flagsParsed bool
 }
@@ -134,6 +135,10 @@ func (f *serverConfigFactory) Prometheus() bool {
 	return *f.PrometheusPtr
 }
 
+func (f *serverConfigFactory) RestBridgeTimeout() int64 {
+	return *f.RestBridgeTimeoutPtr
+}
+
 func (f *serverConfigFactory) parseFlags() {
 	flag.Parse()
 	f.flagsParsed = flag.Parsed()
@@ -162,4 +167,5 @@ func (f *serverConfigFactory) configureFlags() {
 	f.DebugPtr = flag.Bool(utils.PlatformServerFlagConstants["Debug"]["FlagName"], false, utils.PlatformServerFlagConstants["Debug"]["Description"])
 	f.NoBannerPtr = flag.Bool(utils.PlatformServerFlagConstants["NoBanner"]["FlagName"], false, utils.PlatformServerFlagConstants["NoBanner"]["Description"])
 	f.PrometheusPtr = flag.Bool(utils.PlatformServerFlagConstants["Prometheus"]["FlagName"], false, utils.PlatformServerFlagConstants["Prometheus"]["Description"])
+	f.RestBridgeTimeoutPtr = flag.Int64(utils.PlatformServerFlagConstants["RestBridgeTimeout"]["FlagName"], 1, utils.PlatformServerFlagConstants["RestBridgeTimeout"]["Description"])
 }

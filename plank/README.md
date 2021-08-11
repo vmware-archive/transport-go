@@ -108,6 +108,7 @@ something that looks more informational or more appealing at least.
 |--debug|-d|false|false|Debug mode|
 |--no-banner|-b|false|false|Do not print Plank banner at startup|
 |--prometheus|-|false|false|Enable Prometheus at /prometheus for metrics|
+|--rest-bridge-timeout|-|1|false|Time in minutes before a REST endpoint for a service request to timeout|
 
 Examples are as follows:
 ```bash

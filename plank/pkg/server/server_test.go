@@ -25,6 +25,7 @@ func TestMain(m *testing.M) {
 		RootDir: "/tmp/",
 		Host:    "localhost",
 		Port:    9980,
+		RestBridgeTimeoutInMinutes: time.Minute,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     "stdout",
 			AccessLog:     "stdout",
@@ -48,6 +49,7 @@ func TestNewPlatformServer_EmptyRootDir(t *testing.T) {
 	newConfig := &PlatformServerConfig{
 		Host: "localhost",
 		Port: 80,
+		RestBridgeTimeoutInMinutes: time.Minute,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     "stdout",
 			AccessLog:     "stdout",
@@ -69,6 +71,7 @@ func TestNewPlatformServer_FileLog(t *testing.T) {
 		RootDir: "/tmp/",
 		Host:    "localhost",
 		Port:    80,
+		RestBridgeTimeoutInMinutes: time.Minute,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     "/tmp/testlog.log",
 			AccessLog:     "stdout",

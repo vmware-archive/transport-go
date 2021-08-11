@@ -73,6 +73,14 @@ func NewPlatformServerFromConfig(configPath string) (PlatformServer, error) {
 	config.LogConfig.AccessLog = utils.JoinBasePathIfRelativeRegularFilePath(config.LogConfig.Root, config.LogConfig.AccessLog)
 	config.LogConfig.ErrorLog = utils.JoinBasePathIfRelativeRegularFilePath(config.LogConfig.Root, config.LogConfig.ErrorLog)
 
+	// handle invalid duration by setting it to the default value of 1 minute
+	if config.RestBridgeTimeoutInMinutes <= 0 {
+		config.RestBridgeTimeoutInMinutes = 1
+	}
+
+	// the raw value from the config.json needs to be multiplied by time.Minute otherwise it's interpreted as nanosecond
+	config.RestBridgeTimeoutInMinutes = config.RestBridgeTimeoutInMinutes * time.Minute
+
 	if config.TLSCertConfig != nil {
 		if !path.IsAbs(config.TLSCertConfig.CertFile) {
 			config.TLSCertConfig.CertFile = path.Clean(path.Join(config.RootDir, config.TLSCertConfig.CertFile))
@@ -292,7 +300,12 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 		ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel] = make([]string, 0)
 	}
 
-	ps.endpointHandlerMap[endpointHandlerKey] = buildEndpointHandler(bridgeConfig.ServiceChannel, bridgeConfig.FabricRequestBuilder)
+	// build endpoint handler
+	ps.endpointHandlerMap[endpointHandlerKey] = buildEndpointHandler(
+		bridgeConfig.ServiceChannel,
+		bridgeConfig.FabricRequestBuilder,
+		ps.serverConfig.RestBridgeTimeoutInMinutes)
+
 	ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel] = append(
 		ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel], endpointHandlerKey)
 
@@ -324,13 +337,17 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 		bridgeConfig.ServiceChannel, bridgeConfig.Uri, bridgeConfig.Method)
 }
 
+// clearHttpChannelBridgesForService takes serviceChannel, gets all mux.Route instances associated with
+// the service and removes them while keeping the rest of the routes intact. returns the pointer
+// of a new instance of mux.Router.
 func (ps *platformServer) clearHttpChannelBridgesForService(serviceChannel string) *mux.Router {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
 
 	// NOTE: gorilla mux doesn't allow us to mutate routes field of the Router struct which is critical in rerouting incoming
 	// requests to the new route. there is not a public API that allows us to do it so we're instead creating a new instance of
-	// Router and assigning the existing config and route
+	// Router and assigning the existing config and route. this means `ps.route` is treated as immutable and will be
+	// replaced with a new instance of mux.Router by the operation performed in this function
 
 	// walk over existing routes and store them temporarily EXCEPT the ones that are being overwritten which can
 	// be tracked by the service channel
@@ -395,7 +412,7 @@ func (ps *platformServer) loadGlobalHttpHandler(h *mux.Router) {
 				ps.serverConfig.LogConfig.GetAccessLogFilePointer(), ps.router)))
 }
 
-func buildEndpointHandler(svcChannel string, reqBuilder func(w http.ResponseWriter, r *http.Request) model.Request) http.HandlerFunc {
+func buildEndpointHandler(svcChannel string, reqBuilder func(w http.ResponseWriter, r *http.Request) model.Request, restBridgeTimeout time.Duration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -404,8 +421,8 @@ func buildEndpointHandler(svcChannel string, reqBuilder func(w http.ResponseWrit
 			}
 		}()
 
-		// set context that would expire after 30 seconds by default to prevent requests from hanging forever
-		ctx, cancelFn := context.WithTimeout(context.Background(), 30*time.Second)
+		// set context that expires after the provided amount of time in restBridgeTimeout to prevent requests from hanging forever
+		ctx, cancelFn := context.WithTimeout(context.Background(), restBridgeTimeout)
 		defer cancelFn()
 		h, err := bus.GetBus().ListenOnce(svcChannel)
 		if err != nil {
@@ -748,6 +765,7 @@ func generatePlatformServerConfig(i interface{}) (*PlatformServerConfig, error) 
 	requestPrefix := extractFlagValueFromProvider(i, "RequestPrefix", "string").(string)
 	requestQueuePrefix := extractFlagValueFromProvider(i, "RequestQueuePrefix", "string").(string)
 	prometheus := extractFlagValueFromProvider(i, "Prometheus", "bool").(bool)
+	restBridgeTimeout := extractFlagValueFromProvider(i, "RestBridgeTimeout", "int64").(int64)
 
 	// if config file flag is provided, read directly from the file
 	if len(configFile) > 0 {
@@ -759,7 +777,21 @@ func generatePlatformServerConfig(i interface{}) (*PlatformServerConfig, error) 
 		if err = json.Unmarshal(b, &serverConfig); err != nil {
 			return nil, err
 		}
+
+		// handle invalid duration by setting it to the default value of 1 minute
+		if serverConfig.RestBridgeTimeoutInMinutes <= 0 {
+			serverConfig.RestBridgeTimeoutInMinutes = 1
+		}
+
+		// the raw value from the config.json needs to be multiplied by time.Minute otherwise it's interpreted as nanosecond
+		serverConfig.RestBridgeTimeoutInMinutes = serverConfig.RestBridgeTimeoutInMinutes * time.Minute
+
 		return &serverConfig, nil
+	}
+
+	// handle invalid duration by setting it to the default value of 1 minute
+	if restBridgeTimeout <= 0 {
+		restBridgeTimeout = 1
 	}
 
 	// instantiate a server config
@@ -779,6 +811,7 @@ func generatePlatformServerConfig(i interface{}) (*PlatformServerConfig, error) 
 		Debug:            debug,
 		NoBanner:         noBanner,
 		EnablePrometheus: prometheus,
+		RestBridgeTimeoutInMinutes: time.Duration(restBridgeTimeout) * time.Minute,
 	}
 
 	if len(certKey) > 0 && len(certKey) > 0 {

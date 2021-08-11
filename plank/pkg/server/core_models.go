@@ -31,6 +31,7 @@ type PlatformServerConfig struct {
 	Debug                    bool                `json:"debug"`
 	NoBanner                 bool                `json:"no_banner"`
 	ShutdownTimeoutInMinutes time.Duration       `json:"shutdown_timeout_in_minutes"`
+	RestBridgeTimeoutInMinutes time.Duration `json:"rest_bridge_timeout_in_minutes"`
 }
 
 type TLSCertConfig struct {

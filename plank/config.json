@@ -34,6 +34,7 @@
     }
   },
   "shutdown_timeout_in_minutes": 5,
+  "rest_bridge_timeout_in_minutes": 1,
   "fabric_config": {
     "fabric_endpoint": "/ws",
     "endpoint_config": {
