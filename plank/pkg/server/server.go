@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -18,7 +17,6 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -26,12 +24,8 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	"github.com/vmware/transport-go/bus"
-	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/plank/pkg/middleware"
 	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/service"
@@ -333,6 +327,29 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 		bridgeConfig.ServiceChannel, bridgeConfig.Uri, bridgeConfig.Method)
 }
 
+// GetMiddlewareManager returns the MiddleManager instance
+func (ps *platformServer) GetMiddlewareManager() middleware.MiddlewareManager {
+	return ps.middlewareManager
+}
+
+func (ps *platformServer) GetRestBridgeSubRoute(uri, method string) (*mux.Route, error) {
+	route, err := ps.getSubRoute(fmt.Sprintf("bridge-%s-%s", uri, method))
+	if route == nil {
+		return nil, fmt.Errorf("no route exists at %s (%s) exists", uri, method)
+	}
+	return route, err
+}
+
+// CustomizeTLSConfig is used to create a customized TLS configuration for use with http.Server.
+// this function needs to be called before the server starts, otherwise it will error out.
+func (c *platformServer) CustomizeTLSConfig(tls *tls.Config) error {
+	if c.serverAvailability.http || c.serverAvailability.fabric {
+		return fmt.Errorf("TLS configuration can be provided only if the server is not running")
+	}
+	c.HttpServer.TLSConfig = tls
+	return nil
+}
+
 // clearHttpChannelBridgesForService takes serviceChannel, gets all mux.Route instances associated with
 // the service and removes them while keeping the rest of the routes intact. returns the pointer
 // of a new instance of mux.Router.
@@ -377,19 +394,6 @@ func (ps *platformServer) clearHttpChannelBridgesForService(serviceChannel strin
 	return newRouter
 }
 
-// GetMiddlewareManager returns the MiddleManager instance
-func (ps *platformServer) GetMiddlewareManager() middleware.MiddlewareManager {
-	return ps.middlewareManager
-}
-
-func (ps *platformServer) GetRestBridgeSubRoute(uri, method string) (*mux.Route, error) {
-	route, err := ps.getSubRoute(fmt.Sprintf("bridge-%s-%s", uri, method))
-	if route == nil {
-		return nil, fmt.Errorf("no route exists at %s (%s) exists", uri, method)
-	}
-	return route, err
-}
-
 func (ps *platformServer) getSubRoute(name string) (*mux.Route, error) {
 	route := ps.router.Get(name)
 	if route == nil {
@@ -406,111 +410,6 @@ func (ps *platformServer) loadGlobalHttpHandler(h *mux.Router) {
 		handlers.CompressHandler(
 			handlers.CombinedLoggingHandler(
 				ps.serverConfig.LogConfig.GetAccessLogFilePointer(), ps.router)))
-}
-
-func buildEndpointHandler(svcChannel string, reqBuilder func(w http.ResponseWriter, r *http.Request) model.Request, restBridgeTimeout time.Duration) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if r := recover(); r != nil {
-				utils.Log.Errorln(r)
-				http.Error(w, "Internal Server Error", 500)
-			}
-		}()
-
-		// set context that expires after the provided amount of time in restBridgeTimeout to prevent requests from hanging forever
-		ctx, cancelFn := context.WithTimeout(context.Background(), restBridgeTimeout)
-		defer cancelFn()
-		h, err := bus.GetBus().ListenOnce(svcChannel)
-		if err != nil {
-			panic(err)
-		}
-
-		// set up a channel through which to receive the raw response from transport channel
-		// handler function runs in another thread so we need to utilize channel to use the correct writer.
-		chanReturn := make(chan *transportChannelResponse)
-		h.Handle(func(message *model.Message) {
-			chanReturn <- &transportChannelResponse{message: message}
-		}, func(err error) {
-			chanReturn <- &transportChannelResponse{err: err}
-		})
-
-		// relay the request to transport channel
-		reqModel := reqBuilder(w, r)
-		err = bus.GetBus().SendRequestMessage(svcChannel, reqModel, reqModel.Id)
-
-		// get a response from the channel, render the results using ResponseWriter and log the data/error
-		// to the console as well.
-		select {
-		case <-ctx.Done():
-			http.Error(w, "Request timed out", 500)
-		case chanResponse := <-chanReturn:
-			if chanResponse.err != nil {
-				utils.Log.WithError(chanResponse.err).Errorf(
-					"Error received from channel %s:", svcChannel)
-				http.Error(w, chanResponse.err.Error(), 500)
-			} else {
-				// only send the actual user payload not wrapper information
-				response := chanResponse.message.Payload.(*model.Response)
-				var respBody interface{}
-				if response.Error {
-					if response.Payload != nil {
-						respBody = response.Payload
-					} else {
-						respBody = response
-					}
-				} else {
-					respBody = response.Payload
-				}
-
-				utils.Log.WithFields(logrus.Fields{
-					//"payload": respBody, // don't show this, we may be sending around big byte arrays
-				}).Debugf("Response received from channel %s:", svcChannel)
-
-				// if our message is an error and it has a code, lets send that back to the client.
-				if response.Error {
-
-					// we have to set the headers for the error response
-					for k, v := range response.Headers {
-						w.Header().Set(k, v)
-					}
-
-					// deal with the response body now, if set.
-					n, e := json.Marshal(respBody)
-					if e != nil {
-
-						w.WriteHeader(response.ErrorCode)
-						w.Write([]byte(response.ErrorMessage))
-						return
-
-					} else {
-						w.WriteHeader(response.ErrorCode)
-						w.Write(n)
-						return
-					}
-				} else {
-					// if the response has headers, set those headers. particularly if you're sending around
-					// byte array data for things like zip files etc.
-					for k, v := range response.Headers {
-						w.Header().Set(k, v)
-						if strings.ToLower(k) == "content-type" {
-							respBody, err = utils.ConvertInterfaceToByteArray(v, respBody)
-						}
-					}
-
-					var respBodyBytes []byte
-					// ensure respBody is properly converted to a byte array as Content-Type header might not be
-					// set in the request and the restBody could be in a format that can be json marshalled.
-					respBodyBytes, err = marshalResponseBody(respBody)
-
-					// write the non-error payload back.
-					if _, err = w.Write(respBodyBytes); err != nil {
-						utils.Log.WithError(err).Errorf("Error received from channel %s:", svcChannel)
-						http.Error(w, err.Error(), 500)
-					}
-				}
-			}
-		}
-	}
 }
 
 func (ps *platformServer) configureRobotsPath() {
@@ -609,304 +508,4 @@ func (ps *platformServer) checkPortAvailability() {
 		utils.Log.Fatalf("Server could not start at %s:%d because another process is using it. Please try another endpoint.",
 			ps.serverConfig.Host, ps.serverConfig.Port)
 	}
-}
-
-// initialize sets up basic configurations according to the serverConfig object such as setting output writer,
-// log formatter, creating a router instance, and setting up an HttpServer instance.
-func (ps *platformServer) initialize() {
-	var err error
-
-	// initialize service registry
-	service.GetServiceRegistry()
-
-	// initialize HTTP endpoint handlers map
-	ps.endpointHandlerMap = map[string]http.HandlerFunc{}
-	ps.serviceChanToBridgeEndpoints = make(map[string][]string, 0)
-
-	// initialize log output streams
-	if err = ps.serverConfig.LogConfig.PrepareLogFiles(); err != nil {
-		panic(err)
-	}
-
-	// alias outputLogFp as ps.out for platform log outputs
-	ps.out = ps.serverConfig.LogConfig.GetPlatformLogFilePointer()
-
-	// set logrus out writer options and assign output stream to ps.out
-	formatter := utils.CreateTextFormatterFromFormatOptions(ps.serverConfig.LogConfig.FormatOptions)
-	utils.Log.SetFormatter(formatter)
-	utils.Log.SetOutput(ps.out)
-
-	// if debug flag is provided enable extra logging
-	if ps.serverConfig.Debug {
-		utils.Log.SetLevel(logrus.DebugLevel)
-		utils.Log.Debugln("Debug logging enabled")
-	}
-
-	// set a new route handler
-	ps.router = mux.NewRouter().Schemes("http", "https").Subrouter()
-
-	// register a reserved path /robots.txt for setting crawler policies
-	ps.configureRobotsPath()
-
-	// register a reserved path /health for use with container orchestration layer like k8s
-	ps.router.Path("/health").Name("health").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("OK"))
-	})
-
-	// register a reserved path /prometheus for runtime metrics, if enabled
-	if ps.serverConfig.EnablePrometheus {
-		ps.router.Path("/prometheus").Name("prometheus").Methods(http.MethodGet).Handler(
-			middleware.BasicSecurityHeaderMiddleware.Intercept(promhttp.HandlerFor(
-				prometheus.DefaultGatherer,
-				promhttp.HandlerOpts{
-					EnableOpenMetrics: true,
-				})))
-	}
-
-	// register static paths
-	for _, dir := range ps.serverConfig.StaticDir {
-		p, uri := utils.DeriveStaticURIFromPath(dir)
-		utils.Log.Debugf("Serving static path %s at %s", p, uri)
-		ps.SetStaticRoute(uri, p)
-	}
-
-	// create an http server instance
-	ps.HttpServer = &http.Server{
-		Addr:         fmt.Sprintf(":%d", ps.serverConfig.Port),
-		ReadTimeout:  60 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		ErrorLog:     log.New(ps.serverConfig.LogConfig.GetErrorLogFilePointer(), "ERROR ", log.LstdFlags),
-	}
-
-	// set up a listener to receive REST bridge configs for services and set them up according to their specs
-	lcmChanHandler, err := bus.GetBus().ListenStreamForDestination(service.LifecycleManagerChannelName, bus.GetBus().GetId())
-	if err != nil {
-		utils.Log.Fatalln(err)
-	}
-
-	lcmChanHandler.Handle(func(message *model.Message) {
-		request, ok := message.Payload.(*service.SetupRESTBridgeRequest)
-		if !ok {
-			utils.Log.Errorf("failed to set up REST bridge ")
-		}
-
-		// REST bridge setup done. now wait for service to be ready
-		fabricSvc, _ := service.GetServiceRegistry().GetService(request.ServiceChannel)
-		lcm := service.GetServiceLifecycleManager()
-		svcReadyStore := bus.GetBus().GetStoreManager().GetStore(service.ServiceReadyStore)
-		hooks := lcm.GetServiceHooks(request.ServiceChannel)
-
-		if val, found := svcReadyStore.Get(request.ServiceChannel); !found || !val.(bool) {
-			readyChan := hooks.OnServiceReady()
-			svcReadyStore.Put(request.ServiceChannel, <-readyChan, service.ServiceInitStateChange)
-			utils.Log.Infof("Service '%s' initialized successfully", reflect.TypeOf(fabricSvc).String())
-			close(readyChan)
-		}
-
-		if request.Override {
-			// clear old bridges affected by this override. there's a suboptimal workaround for mux.Router not
-			// supporting a way to dynamically remove routers slice. see clearHttpChannelBridgesForService for details
-			newRouter := ps.clearHttpChannelBridgesForService(request.ServiceChannel)
-			ps.loadGlobalHttpHandler(newRouter)
-		}
-
-		for _, config := range request.Config {
-			ps.SetHttpChannelBridge(config)
-		}
-
-	}, func(err error) {
-		utils.Log.Errorln(err)
-	})
-
-	// instantiate a new middleware manager
-	ps.middlewareManager = middleware.NewMiddlewareManager(&ps.endpointHandlerMap)
-
-	// print out the quick summary of the server configuration, if NoBanner is false
-	if !ps.serverConfig.NoBanner {
-		ps.printBanner()
-	}
-}
-
-// CustomizeTLSConfig is used to create a customized TLS configuration for use with http.Server.
-// this function needs to be called before the server starts, otherwise it will error out.
-func (c *platformServer) CustomizeTLSConfig(tls *tls.Config) error {
-	if c.serverAvailability.http || c.serverAvailability.fabric {
-		return fmt.Errorf("TLS configuration can be provided only if the server is not running")
-	}
-	c.HttpServer.TLSConfig = tls
-	return nil
-}
-
-// helpers
-
-func generatePlatformServerConfig(i interface{}) (*PlatformServerConfig, error) {
-	configFile := extractFlagValueFromProvider(i, "ConfigFile", "string").(string)
-	host := extractFlagValueFromProvider(i, "Hostname", "string").(string)
-	port := extractFlagValueFromProvider(i, "Port", "int").(int)
-	rootDir := extractFlagValueFromProvider(i, "RootDir", "string").(string)
-	static := extractFlagValueFromProvider(i, "Static", "[]string").([]string)
-	shutdownTimeoutInMinutes := extractFlagValueFromProvider(i, "ShutdownTimeout", "int64").(int64)
-	accessLog := extractFlagValueFromProvider(i, "AccessLog", "string").(string)
-	outputLog := extractFlagValueFromProvider(i, "OutputLog", "string").(string)
-	errorLog := extractFlagValueFromProvider(i, "ErrorLog", "string").(string)
-	debug := extractFlagValueFromProvider(i, "Debug", "bool").(bool)
-	noBanner := extractFlagValueFromProvider(i, "NoBanner", "bool").(bool)
-	cert := extractFlagValueFromProvider(i, "Cert", "string").(string)
-	certKey := extractFlagValueFromProvider(i, "CertKey", "string").(string)
-	spaPath := extractFlagValueFromProvider(i, "SpaPath", "string").(string)
-	noFabricBroker := extractFlagValueFromProvider(i, "NoFabricBroker", "bool").(bool)
-	fabricEndpoint := extractFlagValueFromProvider(i, "FabricEndpoint", "string").(string)
-	topicPrefix := extractFlagValueFromProvider(i, "TopicPrefix", "string").(string)
-	queuePrefix := extractFlagValueFromProvider(i, "QueuePrefix", "string").(string)
-	requestPrefix := extractFlagValueFromProvider(i, "RequestPrefix", "string").(string)
-	requestQueuePrefix := extractFlagValueFromProvider(i, "RequestQueuePrefix", "string").(string)
-	prometheus := extractFlagValueFromProvider(i, "Prometheus", "bool").(bool)
-	restBridgeTimeout := extractFlagValueFromProvider(i, "RestBridgeTimeout", "int64").(int64)
-
-	// if config file flag is provided, read directly from the file
-	if len(configFile) > 0 {
-		var serverConfig PlatformServerConfig
-		b, err := ioutil.ReadFile(configFile)
-		if err != nil {
-			return nil, err
-		}
-		if err = json.Unmarshal(b, &serverConfig); err != nil {
-			return nil, err
-		}
-
-		// handle invalid duration by setting it to the default value of 1 minute
-		if serverConfig.RestBridgeTimeoutInMinutes <= 0 {
-			serverConfig.RestBridgeTimeoutInMinutes = 1
-		}
-
-		// the raw value from the config.json needs to be multiplied by time.Minute otherwise it's interpreted as nanosecond
-		serverConfig.RestBridgeTimeoutInMinutes = serverConfig.RestBridgeTimeoutInMinutes * time.Minute
-
-		return &serverConfig, nil
-	}
-
-	// handle invalid duration by setting it to the default value of 1 minute
-	if restBridgeTimeout <= 0 {
-		restBridgeTimeout = 1
-	}
-
-	// instantiate a server config
-	serverConfig := &PlatformServerConfig{
-		Host:                     host,
-		Port:                     port,
-		RootDir:                  rootDir,
-		StaticDir:                static,
-		ShutdownTimeoutInMinutes: time.Duration(shutdownTimeoutInMinutes),
-		LogConfig: &utils.LogConfig{
-			AccessLog:     accessLog,
-			ErrorLog:      errorLog,
-			OutputLog:     outputLog,
-			Root:          rootDir,
-			FormatOptions: &utils.LogFormatOption{},
-		},
-		Debug:                      debug,
-		NoBanner:                   noBanner,
-		EnablePrometheus:           prometheus,
-		RestBridgeTimeoutInMinutes: time.Duration(restBridgeTimeout) * time.Minute,
-	}
-
-	if len(certKey) > 0 && len(certKey) > 0 {
-		var err error
-		certKey, err = filepath.Abs(certKey)
-		if err != nil {
-			return nil, err
-		}
-		cert, err = filepath.Abs(cert)
-		if err != nil {
-			return nil, err
-		}
-
-		serverConfig.TLSCertConfig = &TLSCertConfig{CertFile: cert, KeyFile: certKey}
-	}
-
-	if len(strings.TrimSpace(spaPath)) > 0 {
-		var err error
-		serverConfig.SpaConfig, err = NewSpaConfig(spaPath)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// unless --no-fabric-broker flag is provided, set up a broker config
-	if !noFabricBroker {
-		serverConfig.FabricConfig = &FabricBrokerConfig{
-			FabricEndpoint: fabricEndpoint,
-			EndpointConfig: &bus.EndpointConfig{
-				TopicPrefix:           topicPrefix,
-				UserQueuePrefix:       queuePrefix,
-				AppRequestPrefix:      requestPrefix,
-				AppRequestQueuePrefix: requestQueuePrefix,
-				Heartbeat:             60000},
-		}
-	}
-
-	return serverConfig, nil
-}
-
-// marshalResponseBody takes body as an interface not knowing whether it is already converted to []byte or not.
-// if it is of a map type then it marshals it using json.Marshal to get the byte representation of it. otherwise
-// the input is cast to []byte and returned.
-func marshalResponseBody(body interface{}) (bytes []byte, err error) {
-	vt := reflect.TypeOf(body)
-	if vt == reflect.TypeOf([]byte{}) {
-		bytes, err = body.([]byte), nil
-	} else {
-		bytes, err = json.Marshal(body)
-	}
-
-	return
-}
-
-// sanitizeConfigRootPath takes *PlatformServerConfig, ensures the path specified by RootDir field exists.
-// if RootDir is empty then the current working directory will be populated. if for some reason the path
-// cannot be accessed it'll cause a panic.
-func sanitizeConfigRootPath(config *PlatformServerConfig) {
-	if len(config.RootDir) == 0 {
-		wd, _ := os.Getwd()
-		config.RootDir = wd
-	}
-
-	absRootPath, err := filepath.Abs(config.RootDir)
-	if err != nil {
-		panic(err)
-	}
-
-	_, err = os.Stat(absRootPath)
-	if err != nil {
-		panic(err)
-	}
-
-	// once it has been confirmed that the path exists, set config.RootDir to the absolute path
-	config.RootDir = absRootPath
-}
-
-func extractFlagValueFromProvider(provider interface{}, key string, parseType string) interface{} {
-	switch provider.(type) {
-	case *cli.Context:
-		cast := provider.(*cli.Context)
-		switch parseType {
-		case "string":
-			return cast.String(utils.PlatformServerFlagConstants[key]["FlagName"])
-		case "int":
-			return cast.Int(utils.PlatformServerFlagConstants[key]["FlagName"])
-		case "int64":
-			return cast.Int64(utils.PlatformServerFlagConstants[key]["FlagName"])
-		case "[]string":
-			return cast.StringSlice(utils.PlatformServerFlagConstants[key]["FlagName"])
-		case "bool":
-			return cast.Bool(utils.PlatformServerFlagConstants[key]["FlagName"])
-		}
-		break
-	case *serverConfigFactory:
-		refl := reflect.ValueOf(provider)
-		method := refl.MethodByName(key)
-		raw := method.Call([]reflect.Value{})
-		return raw[0].Interface()
-	}
-	return nil
 }
