@@ -12,9 +12,6 @@ import (
 	"sync"
 )
 
-// reusable basic security headers. TODO: make it configurable
-var BasicSecurityHeaderMiddleware = NewBasicSecurityHeadersMiddleware()
-
 type MiddlewareManager interface {
 	SetNewMiddleware(route *mux.Route, middleware []Middleware) error
 	RemoveMiddleware(route *mux.Route) error

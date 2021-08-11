@@ -20,11 +20,11 @@ import (
 )
 
 var (
-	GOOS string
-	GOARCH string
+	GOOS          string
+	GOARCH        string
 	versionString string
-	outputPath string
-	LDFLAGS = []string{"-s", "-w"}
+	outputPath    string
+	LDFLAGS       = []string{"-s", "-w"}
 )
 
 // main application to build Plank
@@ -50,7 +50,6 @@ func main() {
 		log.Fatalln(err)
 	}
 
-
 	// assemble version string
 	// if it's a branch or tag, version string should be ${BRANCH}-${HASH} otherwise ${HASH}
 	branch, err := getBranch(r)
@@ -64,7 +63,7 @@ func main() {
 	}
 
 	versionString = buildVersionString(branch, tags)
-	LDFLAGS = append(LDFLAGS, "-X main.version=" + versionString)
+	LDFLAGS = append(LDFLAGS, "-X main.version="+versionString)
 
 	// set output path
 	binaryExt := ""
@@ -81,7 +80,7 @@ func main() {
 	fmt.Printf("Output\t\t%s\n", outputPath)
 	fmt.Printf("ldflags\t\t%v\n", LDFLAGS)
 
-	buildCommand := []string{"build", "-o", outputPath, "-ldflags", "'"+strings.Join(LDFLAGS, " ")+"'", "cmd/main.go"}
+	buildCommand := []string{"build", "-o", outputPath, "-ldflags", "'" + strings.Join(LDFLAGS, " ") + "'", "cmd/main.go"}
 	fmt.Println()
 	fmt.Printf("Build command:\ngo %s\n", strings.Join(buildCommand, " "))
 

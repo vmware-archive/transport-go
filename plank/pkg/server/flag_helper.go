@@ -46,7 +46,7 @@ type serverConfigFactory struct {
 	DebugPtr              *bool
 	NoBannerPtr           *bool
 	PrometheusPtr         *bool
-	RestBridgeTimeoutPtr *int64
+	RestBridgeTimeoutPtr  *int64
 
 	flagsParsed bool
 }

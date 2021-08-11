@@ -81,7 +81,7 @@ func getBrokerConnectorConfig(useTLS bool) *bridge.BrokerConnectorConfig {
 			UseTLS: useTLS,
 		},
 		HeartBeatOut: 30 * time.Second,
-		STOMPHeader: map[string]string{},
+		STOMPHeader:  map[string]string{},
 		HttpHeader: http.Header{
 			"Sec-Websocket-Protocol": {"v12.stomp"},
 		},

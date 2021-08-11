@@ -12,7 +12,6 @@ import (
 	"github.com/vmware/transport-go/service"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -20,14 +19,22 @@ const (
 	PingPongServiceChan = "ping-pong-service"
 )
 
+// PingPongService is a very simple service to demonstrate how request-response cycles are handled in Transport & Plank.
+// this service has two requests named "ping-post" and "ping-get", the first accepts the payload and expects it to be of
+// a POJO type (e.g. {"anything": "here"}), whereas the second expects the payload to be a pure string.
+// a request made through the Event Bus API like bus.RequestOnce() will be routed to HandleServiceRequest()
+// which will match the request's Request to the list of available service request types and return the response.
 type PingPongService struct{}
 
 func NewPingPongService() *PingPongService {
 	return &PingPongService{}
 }
 
+// HandleServiceRequest routes the incoming request and based on the Request property of request, it invokes the
+// appropriate handler logic defined and separated by a switch statement like the one shown below.
 func (ps *PingPongService) HandleServiceRequest(request *model.Request, core service.FabricServiceCore) {
 	switch request.Request {
+	// ping-post request type accepts the payload as a POJO
 	case "ping-post":
 		m := make(map[string]interface{})
 		m["timestamp"] = time.Now().Unix()
@@ -37,6 +44,7 @@ func (ps *PingPongService) HandleServiceRequest(request *model.Request, core ser
 		} else {
 			core.SendResponse(request, m)
 		}
+	// ping-get request type accepts the payload as a string
 	case "ping-get":
 		rsp := make(map[string]interface{})
 		val := request.Payload.(string)
@@ -48,6 +56,11 @@ func (ps *PingPongService) HandleServiceRequest(request *model.Request, core ser
 	}
 }
 
+// OnServiceReady contains logic that handles the service initialization that needs to be carried out
+// before it is ready to accept user requests. Plank monitors and waits for service initialization to
+// complete by trying to receive a boolean payload from a channel of boolean type. as a service developer
+// you need to perform any and every init logic here and return a channel that would receive a payload
+// once your service truly becomes ready to accept requests.
 func (ps *PingPongService) OnServiceReady() chan bool {
 	// for sample purposes this service initializes instantly
 	readyChan := make(chan bool, 1)
@@ -55,11 +68,20 @@ func (ps *PingPongService) OnServiceReady() chan bool {
 	return readyChan
 }
 
+// OnServerShutdown is the opposite of OnServiceReady. it is called when the server enters graceful shutdown
+// where all the running services need to complete before the server could shut down finally. this method does not need
+// to return anything because the main server thread is going to shut down soon, but if there's any important teardown
+// or cleanup that needs to be done, this is the right place to perform that.
 func (ps *PingPongService) OnServerShutdown() {
 	// for sample purposes emulate a 1 second teardown process
 	time.Sleep(1 * time.Second)
 }
 
+// GetRESTBridgeConfig returns a list of REST bridge configurations that Plank will use to automatically register
+// REST endpoints that map to the requests for this service. this means you can map any request types defined under
+// HandleServiceRequest with any combination of URI, HTTP verb, path parameter, query parameter and request headers.
+// as the service author you have full control over every aspect of the translation process which basically turns
+// an incoming *http.Request into model.Request. See FabricRequestBuilder below to see it in action.
 func (ps *PingPongService) GetRESTBridgeConfig() []*service.RESTBridgeConfig {
 	return []*service.RESTBridgeConfig{
 		{
@@ -102,18 +124,12 @@ func (ps *PingPongService) GetRESTBridgeConfig() []*service.RESTBridgeConfig {
 	}
 }
 
+// createServiceRequest is a small utility function that takes request type and payload and
+// returns a new model.Request instance populated with them
 func createServiceRequest(requestType string, body []byte) model.Request {
 	id := uuid.New()
 	return model.Request{
 		Id:      &id,
 		Request: requestType,
 		Payload: body}
-}
-
-func createServiceRequestWithValues(requestType string, vals url.Values) model.Request {
-	id := uuid.New()
-	return model.Request{
-		Id:      &id,
-		Request: requestType,
-		Payload: vals}
 }

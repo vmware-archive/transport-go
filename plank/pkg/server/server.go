@@ -804,9 +804,9 @@ func generatePlatformServerConfig(i interface{}) (*PlatformServerConfig, error) 
 			Root:          rootDir,
 			FormatOptions: &utils.LogFormatOption{},
 		},
-		Debug:            debug,
-		NoBanner:         noBanner,
-		EnablePrometheus: prometheus,
+		Debug:                      debug,
+		NoBanner:                   noBanner,
+		EnablePrometheus:           prometheus,
 		RestBridgeTimeoutInMinutes: time.Duration(restBridgeTimeout) * time.Minute,
 	}
 

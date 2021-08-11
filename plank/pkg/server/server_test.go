@@ -22,9 +22,9 @@ var ps PlatformServer
 
 func TestMain(m *testing.M) {
 	config = &PlatformServerConfig{
-		RootDir: "/tmp/",
-		Host:    "localhost",
-		Port:    9980,
+		RootDir:                    "/tmp/",
+		Host:                       "localhost",
+		Port:                       9980,
 		RestBridgeTimeoutInMinutes: time.Minute,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     "stdout",
@@ -47,8 +47,8 @@ func TestNewPlatformServer(t *testing.T) {
 
 func TestNewPlatformServer_EmptyRootDir(t *testing.T) {
 	newConfig := &PlatformServerConfig{
-		Host: "localhost",
-		Port: 80,
+		Host:                       "localhost",
+		Port:                       80,
 		RestBridgeTimeoutInMinutes: time.Minute,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     "stdout",
@@ -68,9 +68,9 @@ func TestNewPlatformServer_FileLog(t *testing.T) {
 	}()
 
 	newConfig := &PlatformServerConfig{
-		RootDir: "/tmp/",
-		Host:    "localhost",
-		Port:    80,
+		RootDir:                    "/tmp/",
+		Host:                       "localhost",
+		Port:                       80,
 		RestBridgeTimeoutInMinutes: time.Minute,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     "/tmp/testlog.log",

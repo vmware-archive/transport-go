@@ -7,6 +7,8 @@ import (
 	"net/http"
 )
 
+var BasicSecurityHeaderMiddleware = NewBasicSecurityHeadersMiddleware()
+
 type basicSecurityHeadersMiddleware struct {
 	name string
 }

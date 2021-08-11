@@ -108,7 +108,7 @@ var UrfaveCLIFlags = []cli.Flag{
 		Usage: PlatformServerFlagConstants["Prometheus"]["Description"],
 	},
 	cli.Int64Flag{
-		Name: fmt.Sprintf("%s", PlatformServerFlagConstants["RestBridgeTimeout"]["FlagName"]),
+		Name:  fmt.Sprintf("%s", PlatformServerFlagConstants["RestBridgeTimeout"]["FlagName"]),
 		Usage: PlatformServerFlagConstants["RestBridgeTimeout"]["Description"],
 		Value: 1,
 	},
