@@ -36,10 +36,10 @@ Once you have the latest Golang ready, follow the commands below:
 go get ./...
 
 # To build against your operating system
-./scripts/build.sh
+go run build.go
 
 # or, to build against a specific operating system
-GOOS=darwin|linux|windows ./scripts/build.sh
+BUILD_OS=darwin|linux|windows go run build.go
 ```
 
 Once successfully built, `plank` binary will be ready under `build/`.
