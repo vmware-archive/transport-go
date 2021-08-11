@@ -113,10 +113,6 @@ func CreateServerConfig() (*PlatformServerConfig, error) {
 func (ps *platformServer) StartServer(syschan chan os.Signal) {
 	connClosed := make(chan struct{})
 
-	// start bifrost core and service registry
-	bus.GetBus()
-	service.GetServiceRegistry()
-
 	ps.SyscallChan = syschan
 	signal.Notify(ps.SyscallChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
