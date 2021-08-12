@@ -104,24 +104,27 @@ func TestStompServer_OnApplicationRequest(t *testing.T) {
     f2 := frame.New(frame.MESSAGE, frame.Destination, "/pub2/testRequest2")
     f2.Body = []byte("request2-payload")
 
-    server.connectionEvents <- &connEvent{
-        eventType: incomingMessage,
+    server.connectionEvents <- &ConnEvent{
+        ConnId:    "con1",
+        eventType: IncomingMessage,
         conn: &stompConn{
             id: "con1",
         },
         destination: "/pub/testRequest1",
         frame: f1,
     }
-    server.connectionEvents <- &connEvent{
-        eventType: incomingMessage,
+    server.connectionEvents <- &ConnEvent{
+        ConnId: "con2",
+        eventType: IncomingMessage,
         conn: &stompConn{
             id: "con2",
         },
         destination: "/pub2/testRequest2",
         frame: f2,
     }
-    server.connectionEvents <- &connEvent{
-        eventType: incomingMessage,
+    server.connectionEvents <- &ConnEvent{
+        ConnId: "con1",
+        eventType: IncomingMessage,
         conn: &stompConn{
             id: "con1",
         },
