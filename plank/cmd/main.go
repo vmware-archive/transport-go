@@ -48,7 +48,7 @@ func main() {
 				if err := platformServer.RegisterService(services.NewPingPongService(), services.PingPongServiceChan); err != nil {
 					panic(err)
 				}
-				if err := platformServer.RegisterService(services.NewSample2Service(), services.Sample2ServiceChan); err != nil {
+				if err := platformServer.RegisterService(services.NewStockTickerService(), services.StockTickerServiceChannel); err != nil {
 					panic(err)
 				}
 
