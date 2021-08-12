@@ -31,7 +31,8 @@ type StompServer interface {
     OnUnsubscribeEvent(callback UnsubscribeHandlerFunction)
     // registers a callback for application requests
     OnApplicationRequest(callback ApplicationRequestHandlerFunction)
-    // sets callback for ConnEvent type to be invoked every time such events happen
+    // SetConnectionEventCallback is used to set up a callback when certain STOMP session events happen
+    // such as ConnectionStarting, ConnectionClosed, SubscribeToTopic, UnsubscribeFromTopic and IncomingMessage.
     SetConnectionEventCallback(connEventType StompSessionEventType, cb func(connEvent *ConnEvent))
 }
 

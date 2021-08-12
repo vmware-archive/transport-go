@@ -17,7 +17,7 @@ var internalServices = map[string]bool{
 }
 
 const (
-	LifecycleManagerChannelName = "service-lifecycle-manager"
+	LifecycleManagerChannelName = bus.TRANSPORT_INTERNAL_CHANNEL_PREFIX + "service-lifecycle-manager"
 
 	// store constants
 	ServiceReadyStore = "service-ready-notification-store"

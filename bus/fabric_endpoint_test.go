@@ -24,6 +24,7 @@ type MockStompServer struct {
     started bool
     sentMessages []MockStompServerMessage
     subscribeHandlerFunction stompserver.SubscribeHandlerFunction
+    connectionEventCallbacks map[stompserver.StompSessionEventType]func(event *stompserver.ConnEvent)
     unsubscribeHandlerFunction stompserver.UnsubscribeHandlerFunction
     applicationRequestHandlerFunction stompserver.ApplicationRequestHandlerFunction
     wg *sync.WaitGroup
@@ -67,10 +68,15 @@ func(s *MockStompServer) OnSubscribeEvent(callback stompserver.SubscribeHandlerF
     s.subscribeHandlerFunction = callback
 }
 
+func (s *MockStompServer) SetConnectionEventCallback(connEventType stompserver.StompSessionEventType, cb func(connEvent *stompserver.ConnEvent)) {
+    s.connectionEventCallbacks[connEventType] = cb
+    cb(&stompserver.ConnEvent{ConnId: "id"})
+}
+
 func newTestFabricEndpoint(bus EventBus, config EndpointConfig) (*fabricEndpoint, *MockStompServer) {
 
     fe := newFabricEndpoint(bus, nil, config).(*fabricEndpoint)
-    ms := &MockStompServer{}
+    ms := &MockStompServer{connectionEventCallbacks: make(map[stompserver.StompSessionEventType]func(event *stompserver.ConnEvent))}
 
     fe.server = ms
     fe.initHandlers()
@@ -111,6 +117,7 @@ func TestFabricEndpoint_StartAndStop(t *testing.T) {
 func TestFabricEndpoint_SubscribeEvent(t *testing.T) {
 
     bus := newTestEventBus()
+    bus.GetChannelManager().CreateChannel(STOMP_SESSION_NOTIFY_CHANNEL) // used for internal channel protection test
     fe, mockServer := newTestFabricEndpoint(bus,
         EndpointConfig{TopicPrefix: "/topic", UserQueuePrefix:"/user/queue"})
 
@@ -166,6 +173,11 @@ func TestFabricEndpoint_SubscribeEvent(t *testing.T) {
     assert.Equal(t, len(fe.chanMappings), 1)
     assert.Equal(t, len(fe.chanMappings["test-service"].subs), 3)
     assert.Equal(t, fe.chanMappings["test-service"].subs["con1#sub3"], true)
+
+    // attempt to subscribe to a protected destination
+    mockServer.subscribeHandlerFunction("con1", "sub4", "/topic/" + STOMP_SESSION_NOTIFY_CHANNEL, nil)
+    _, chanMapCreated := fe.chanMappings[STOMP_SESSION_NOTIFY_CHANNEL]
+    assert.False(t, chanMapCreated)
 
     mockServer.wg = &sync.WaitGroup{}
     mockServer.wg.Add(1)

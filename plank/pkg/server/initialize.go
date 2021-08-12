@@ -127,6 +127,12 @@ func (ps *platformServer) initialize() {
 	// instantiate a new middleware manager
 	ps.middlewareManager = middleware.NewMiddlewareManager(&ps.endpointHandlerMap)
 
+	// create an internal bus channel to notify significant changes in sessions such as disconnect
+	if ps.serverConfig.FabricConfig != nil {
+		channelManager := bus.GetBus().GetChannelManager()
+		channelManager.CreateChannel(bus.STOMP_SESSION_NOTIFY_CHANNEL)
+	}
+
 	// print out the quick summary of the server configuration, if NoBanner is false
 	if !ps.serverConfig.NoBanner {
 		ps.printBanner()
