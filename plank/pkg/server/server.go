@@ -408,8 +408,9 @@ func (ps *platformServer) loadGlobalHttpHandler(h *mux.Router) {
 	ps.router = h
 	ps.HttpServer.Handler = handlers.RecoveryHandler()(
 		handlers.CompressHandler(
-			handlers.CombinedLoggingHandler(
-				ps.serverConfig.LogConfig.GetAccessLogFilePointer(), ps.router)))
+			handlers.ProxyHeaders(
+				handlers.CombinedLoggingHandler(
+					ps.serverConfig.LogConfig.GetAccessLogFilePointer(), ps.router))))
 }
 
 func (ps *platformServer) configureRobotsPath() {
