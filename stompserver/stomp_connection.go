@@ -359,14 +359,20 @@ func (conn *stompConn) handleSend(f *frame.Frame) error {
         return unsupportedStompCommandError
     }
 
-    err := conn.sendReceiptResponse(f)
-    if err != nil {
-        return err
-    }
-
+    // no destination triggers an error
     dest, ok := f.Header.Contains(frame.Destination)
     if !ok {
         return invalidFrameError
+    }
+
+    // reject SENDing directly to non-request channels by clients
+    if !conn.config.IsAppRequestDestination(f.Header.Get(frame.Destination)) {
+        return invalidSendDestinationError
+    }
+
+    err := conn.sendReceiptResponse(f)
+    if err != nil {
+        return err
     }
 
     f.Command = frame.MESSAGE

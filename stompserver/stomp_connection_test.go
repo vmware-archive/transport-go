@@ -415,20 +415,16 @@ func TestStompConn_Subscribe(t *testing.T) {
         frame.Id, "sub-id",
         frame.Destination, "/topic/test")
 
-    rawConn.incomingFrames <- frame.New(frame.SEND, frame.Destination, "/topic/dest")
-
-    // verify that there will be no SubscribeToTopic con event for the
-    // the second request.
-    e = <- events
-    assert.Equal(t, e.eventType, IncomingMessage)
+    // verify that there was no second subscription created for the same subscription id
+    assert.Equal(t, e.sub, stompConn.subscriptions["sub-id"])
 }
 
 func TestStompConn_SendNotConnected(t *testing.T) {
-    _, rawConn, events := getTestStompConn(NewStompConfig(0, []string{}), nil)
+    _, rawConn, events := getTestStompConn(NewStompConfig(0, []string{"/pub/"}), nil)
 
     rawConn.incomingFrames <- frame.New(
         frame.SEND,
-        frame.Destination, "/topic/test")
+        frame.Destination, "/pub/test")
 
     e := <- events
     assert.Equal(t, e.eventType, ConnectionClosed)
@@ -439,7 +435,7 @@ func TestStompConn_SendNotConnected(t *testing.T) {
 }
 
 func TestStompConn_SendMissingDestinationHeader(t *testing.T) {
-    stompConn, rawConn, events := getTestStompConn(NewStompConfig(0, []string{}), nil)
+    stompConn, rawConn, events := getTestStompConn(NewStompConfig(0, []string{"/pub/"}), nil)
 
     rawConn.SendConnectFrame()
 
@@ -458,15 +454,36 @@ func TestStompConn_SendMissingDestinationHeader(t *testing.T) {
     assert.Equal(t, stompConn.state, closed)
 }
 
+func TestStompConn_Send_InvalidSend(t *testing.T) {
+    _, rawConn, events := getTestStompConn(NewStompConfig(0, []string{"/pub/"}), nil)
+
+    rawConn.SendConnectFrame()
+
+    e := <- events
+    assert.Equal(t, e.eventType, ConnectionEstablished)
+    assert.Equal(t, len(rawConn.sentFrames), 1)
+    verifyFrame(t, rawConn.sentFrames[0], frame.New(frame.CONNECTED), false)
+
+    // try sending a frame to a topic channel directly not request channel
+    rawConn.incomingFrames <- frame.New(frame.SEND,
+        frame.Destination, "/topic/test")
+    e = <- events
+
+    assert.Equal(t, e.eventType, ConnectionClosed)
+    assert.Equal(t, len(rawConn.sentFrames), 2)
+    verifyFrame(t, rawConn.sentFrames[1], frame.New(frame.ERROR,
+        frame.Message, invalidSendDestinationError.Error()), true)
+}
+
 func TestStompConn_Send(t *testing.T) {
-    _, rawConn, events := getTestStompConn(NewStompConfig(0, []string{}), nil)
+    _, rawConn, events := getTestStompConn(NewStompConfig(0, []string{"/pub/"}), nil)
 
     rawConn.SendConnectFrame()
 
     e := <- events
     assert.Equal(t, e.eventType, ConnectionEstablished)
 
-    msgF := frame.New(frame.SEND, frame.Destination, "/topic/test")
+    msgF := frame.New(frame.SEND, frame.Destination, "/pub/test")
 
     rawConn.incomingFrames <- msgF
 
@@ -476,7 +493,7 @@ func TestStompConn_Send(t *testing.T) {
     assert.Equal(t, e.frame.Command, frame.MESSAGE)
 
     rawConn.incomingFrames <- frame.New(frame.SEND,
-            frame.Destination, "/topic/test", frame.Receipt, "receipt-id")
+            frame.Destination, "/pub/test", frame.Receipt, "receipt-id")
 
     e = <- events
     assert.Equal(t, e.eventType, IncomingMessage)
@@ -710,7 +727,7 @@ func TestStompConn_WriteErrorDuringConnect(t *testing.T) {
 }
 
 func TestStompConn_WriteErrorDuringSend(t *testing.T) {
-    stompConn, rawConn, events := getTestStompConn(NewStompConfig(0, []string{}), nil)
+    stompConn, rawConn, events := getTestStompConn(NewStompConfig(0, []string{"/pub/"}), nil)
 
     rawConn.SendConnectFrame()
 
@@ -720,7 +737,7 @@ func TestStompConn_WriteErrorDuringSend(t *testing.T) {
     rawConn.nextWriteErr = errors.New("write error")
     rawConn.incomingFrames <- frame.New(
         frame.SEND,
-        frame.Destination, "/topic",
+        frame.Destination, "/pub/",
         frame.Receipt, "receipt-id")
 
     e = <- events
