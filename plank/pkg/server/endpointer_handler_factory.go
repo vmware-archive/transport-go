@@ -7,6 +7,7 @@ import (
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/plank/utils"
+	"github.com/vmware/transport-go/service"
 	"net/http"
 	"strings"
 	"time"
@@ -14,7 +15,7 @@ import (
 
 // buildEndpointHandler builds a http.HandlerFunc that wraps Transport Bus operations in an HTTP request-response cycle.
 // service channel, request builder and rest bridge timeout are passed as parameters.
-func buildEndpointHandler(svcChannel string, reqBuilder func(w http.ResponseWriter, r *http.Request) model.Request, restBridgeTimeout time.Duration) http.HandlerFunc {
+func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, restBridgeTimeout time.Duration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if r := recover(); r != nil {

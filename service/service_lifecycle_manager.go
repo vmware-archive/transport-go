@@ -7,6 +7,8 @@ import (
 
 var svcLifecycleManagerInstance ServiceLifecycleManager
 
+type RequestBuilder func(w http.ResponseWriter, r *http.Request) model.Request
+
 type ServiceLifecycleManager interface {
 	GetServiceHooks(serviceChannelName string) ServiceLifecycleHookEnabled
 	OverrideRESTBridgeConfig(serviceChannelName string, config []*RESTBridgeConfig) error
@@ -30,9 +32,7 @@ type RESTBridgeConfig struct {
 	Method               string // HTTP verb to map the transport service request to URI with
 	AllowHead            bool   // whether HEAD calls are allowed for this bridge point
 	AllowOptions         bool   // whether OPTIONS calls are allowed for this bridge point
-	FabricRequestBuilder func(
-		w http.ResponseWriter,
-		r *http.Request) model.Request // function to transform HTTP request into a transport request
+	FabricRequestBuilder RequestBuilder // function to transform HTTP request into a transport request
 }
 
 type serviceLifecycleManager struct {
