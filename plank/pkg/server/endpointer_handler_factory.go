@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
@@ -49,7 +50,10 @@ func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, 
 		// to the console as well.
 		select {
 		case <-ctx.Done():
-			http.Error(w, "Request timed out", 500)
+			http.Error(
+				w,
+				fmt.Sprintf("No response received from service channel in %s, request timed out", restBridgeTimeout.String(),
+			), 500)
 		case chanResponse := <-chanReturn:
 			if chanResponse.err != nil {
 				utils.Log.WithError(chanResponse.err).Errorf(
