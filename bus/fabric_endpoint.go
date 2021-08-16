@@ -14,6 +14,11 @@ import (
     "sync"
 )
 
+const (
+    TRANSPORT_INTERNAL_CHANNEL_PREFIX = "_transportInternal/"
+    STOMP_SESSION_NOTIFY_CHANNEL = TRANSPORT_INTERNAL_CHANNEL_PREFIX + "stomp-session-notify"
+)
+
 type EndpointConfig struct {
     // Prefix for public topics e.g. "/topic"
     TopicPrefix           string
@@ -55,6 +60,11 @@ type channelMapping struct {
     autoCreated bool
 }
 
+type StompSessionEvent struct {
+    Id string
+    EventType stompserver.StompSessionEventType
+}
+
 type fabricEndpoint struct {
     server stompserver.StompServer
     bus    EventBus
@@ -93,6 +103,18 @@ func newFabricEndpoint(bus EventBus,
 }
 
 func (fe *fabricEndpoint) Start() {
+    fe.server.SetConnectionEventCallback(stompserver.ConnectionStarting, func(connEvent *stompserver.ConnEvent) {
+        busInstance.SendResponseMessage(STOMP_SESSION_NOTIFY_CHANNEL, &StompSessionEvent{
+            Id: connEvent.ConnId,
+            EventType: stompserver.ConnectionStarting,
+        }, nil)
+    })
+    fe.server.SetConnectionEventCallback(stompserver.ConnectionClosed, func(connEvent *stompserver.ConnEvent) {
+        busInstance.SendResponseMessage(STOMP_SESSION_NOTIFY_CHANNEL, &StompSessionEvent{
+            Id: connEvent.ConnId,
+            EventType: stompserver.ConnectionClosed,
+        }, nil)
+    })
     fe.server.Start()
 }
 
@@ -111,6 +133,12 @@ func (fe *fabricEndpoint) addSubscription(
 
     channelName, ok := fe.getChannelNameFromSubscription(destination)
     if !ok {
+        return
+    }
+
+    // if destination is a protected channel do not establish a subscription
+    // (we don't want any clients to be sending messages to internal channels)
+    if isProtectedDestination(channelName) {
         return
     }
 
@@ -261,4 +289,11 @@ func (fe *fabricEndpoint) getChannelNameFromSubscription(destination string) (ch
         return destination[len(fe.config.UserQueuePrefix):], true
     }
     return "", false
+}
+
+// isProtectedDestination checks if the destination is protected. this utility function is used to
+// prevent messages being from clients to the protected destinations. such examples would be
+// internal bus channels prefixed with _transportInternal/
+func isProtectedDestination(destination string) bool {
+    return strings.HasPrefix(destination, TRANSPORT_INTERNAL_CHANNEL_PREFIX)
 }

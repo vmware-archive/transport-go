@@ -11,6 +11,7 @@ const (
     invalidSubscriptionError     = stompErrorMessage("invalid subscription")
     invalidFrameError            = stompErrorMessage("invalid frame")
     invalidHeaderError           = stompErrorMessage("invalid frame header")
+    invalidSendDestinationError  = stompErrorMessage("invalid send destination")
 )
 
 type stompErrorMessage string

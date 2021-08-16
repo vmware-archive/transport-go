@@ -47,14 +47,14 @@ type stompConn struct {
     readTimeoutMs    int64
     writeTimeout     time.Duration
     id               string
-    events           chan *connEvent
+    events           chan *ConnEvent
     config           StompConfig
     subscriptions    map[string]*subscription
     currentMessageId uint64
     closeOnce        sync.Once
 }
 
-func NewStompConn(rawConnection RawConnection, config StompConfig, events chan *connEvent) StompConn {
+func NewStompConn(rawConnection RawConnection, config StompConfig, events chan *ConnEvent) StompConn {
     conn := &stompConn{
         rawConnection: rawConnection,
         state:         connecting,
@@ -82,9 +82,10 @@ func (conn *stompConn) Close() {
         atomic.StoreInt32(&conn.state, closed)
         conn.rawConnection.Close()
 
-        conn.events <- &connEvent{
-            eventType: connectionClosed,
-            conn: conn,
+        conn.events <- &ConnEvent{
+            ConnId:    conn.GetId(),
+            eventType: ConnectionClosed,
+            conn:      conn,
         }
     })
 }
@@ -250,9 +251,10 @@ func (conn *stompConn) handleConnect(f *frame.Frame) error {
 
     atomic.StoreInt32(&conn.state, connected)
 
-    conn.events <- &connEvent{
-        eventType: connectionEstablished,
-        conn: conn,
+    conn.events <- &ConnEvent{
+        ConnId:    conn.GetId(),
+        eventType: ConnectionEstablished,
+        conn:      conn,
     }
 
     return nil
@@ -297,12 +299,13 @@ func (conn *stompConn) handleSubscribe(f *frame.Frame) error {
         destination: dest,
     }
 
-    conn.events <- &connEvent{
+    conn.events <- &ConnEvent{
+        ConnId:      conn.GetId(),
+        eventType:   SubscribeToTopic,
         destination: dest,
-        eventType: subscribeToTopic,
-        conn: conn,
-        sub: conn.subscriptions[subId],
-        frame: f,
+        conn:        conn,
+        sub:         conn.subscriptions[subId],
+        frame:       f,
     }
 
     return nil
@@ -332,10 +335,11 @@ func (conn *stompConn) handleUnsubscribe(f *frame.Frame) error {
     // remove the subscription
     delete(conn.subscriptions, id)
 
-    conn.events <- &connEvent{
-        eventType: unsubscribeFromTopic,
-        conn: conn,
-        sub: sub,
+    conn.events <- &ConnEvent{
+        ConnId:      conn.GetId(),
+        eventType:   UnsubscribeFromTopic,
+        conn:        conn,
+        sub:         sub,
         destination: sub.destination,
     }
 
@@ -355,22 +359,29 @@ func (conn *stompConn) handleSend(f *frame.Frame) error {
         return unsupportedStompCommandError
     }
 
-    err := conn.sendReceiptResponse(f)
-    if err != nil {
-        return err
-    }
-
+    // no destination triggers an error
     dest, ok := f.Header.Contains(frame.Destination)
     if !ok {
         return invalidFrameError
     }
 
+    // reject SENDing directly to non-request channels by clients
+    if !conn.config.IsAppRequestDestination(f.Header.Get(frame.Destination)) {
+        return invalidSendDestinationError
+    }
+
+    err := conn.sendReceiptResponse(f)
+    if err != nil {
+        return err
+    }
+
     f.Command = frame.MESSAGE
-    conn.events <- &connEvent{
-        eventType: incomingMessage,
+    conn.events <- &ConnEvent{
+        ConnId:      conn.GetId(),
+        eventType:   IncomingMessage,
         destination: dest,
-        frame: f,
-        conn: conn,
+        frame:       f,
+        conn:        conn,
     }
 
     return nil

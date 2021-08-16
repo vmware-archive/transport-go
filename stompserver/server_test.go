@@ -104,24 +104,27 @@ func TestStompServer_OnApplicationRequest(t *testing.T) {
     f2 := frame.New(frame.MESSAGE, frame.Destination, "/pub2/testRequest2")
     f2.Body = []byte("request2-payload")
 
-    server.connectionEvents <- &connEvent{
-        eventType: incomingMessage,
+    server.connectionEvents <- &ConnEvent{
+        ConnId:    "con1",
+        eventType: IncomingMessage,
         conn: &stompConn{
             id: "con1",
         },
         destination: "/pub/testRequest1",
         frame: f1,
     }
-    server.connectionEvents <- &connEvent{
-        eventType: incomingMessage,
+    server.connectionEvents <- &ConnEvent{
+        ConnId: "con2",
+        eventType: IncomingMessage,
         conn: &stompConn{
             id: "con2",
         },
         destination: "/pub2/testRequest2",
         frame: f2,
     }
-    server.connectionEvents <- &connEvent{
-        eventType: incomingMessage,
+    server.connectionEvents <- &ConnEvent{
+        ConnId: "con1",
+        eventType: IncomingMessage,
         conn: &stompConn{
             id: "con1",
         },
@@ -258,6 +261,139 @@ func TestStompServer_SendMessage(t *testing.T) {
         wg.Done()
     })
     mockRwConn3.incomingFrames <- frame.New(frame.DISCONNECT)
+    wg.Wait()
+}
+
+func TestStompServer_SetConnectionEventCallback_ConnectionStarting(t *testing.T) {
+    wg := sync.WaitGroup{}
+    server, listener := newTestStompServer(NewStompConfig(0, []string{"/pub/"}))
+    server.SetConnectionEventCallback(ConnectionStarting, func(connEvent *ConnEvent) {
+        assert.Equal(t, ConnectionStarting, connEvent.eventType)
+        wg.Done()
+    })
+
+    go server.Start()
+
+    wg.Add(1)
+    mockRwConn1 := NewMockRawConnection()
+    listener.incomingConnections <- mockRwConn1
+
+    // should trigger ConnectionStarting callback
+    mockRwConn1.SendConnectFrame()
+    wg.Wait()
+}
+
+func TestStompServer_SetConnectionEventCallback_SubscribeToTopic(t *testing.T) {
+    wg := sync.WaitGroup{}
+    server, listener := newTestStompServer(NewStompConfig(0, []string{"/pub/"}))
+    server.SetConnectionEventCallback(SubscribeToTopic, func(connEvent *ConnEvent) {
+        assert.Equal(t, SubscribeToTopic, connEvent.eventType)
+        wg.Done()
+    })
+
+    go server.Start()
+
+    mockRwConn1 := NewMockRawConnection()
+    listener.incomingConnections <- mockRwConn1
+
+    // connect first
+    mockRwConn1.SendConnectFrame()
+
+    // should trigger SubscribeToTopic callback
+    wg.Add(1)
+    subscribeMockConToTopic(mockRwConn1, "/topic/test-topic1")
+    wg.Wait()
+}
+
+func TestStompServer_SetConnectionEventCallback_IncomingMessage(t *testing.T) {
+    wg := sync.WaitGroup{}
+    server, listener := newTestStompServer(NewStompConfig(0, []string{"/pub/"}))
+    server.SetConnectionEventCallback(IncomingMessage, func(connEvent *ConnEvent) {
+        assert.Equal(t, IncomingMessage, connEvent.eventType)
+        wg.Done()
+    })
+
+    go server.Start()
+
+    mockRwConn1 := NewMockRawConnection()
+    listener.incomingConnections <- mockRwConn1
+
+    // connect first
+    mockRwConn1.SendConnectFrame()
+
+    // only decerement wg after subscription has been established
+    server.OnSubscribeEvent(func(conId string, subId string, destination string, f *frame.Frame) {
+        wg.Done()
+    })
+
+    // subscribe to a topic
+    wg.Add(1)
+    subscribeMockConToTopic(mockRwConn1, "/topic/test-topic1")
+    wg.Wait()
+
+    // should trigger IncomingMessage callback
+    wg.Add(1)
+    server.connectionEvents <- &ConnEvent{
+        ConnId: "con1",
+        eventType: IncomingMessage,
+        conn: &stompConn{
+            id: "con1",
+        },
+        destination: "/pub/test-topic1",
+        frame: frame.New(frame.SEND),
+    }
+    wg.Wait()
+}
+
+func TestStompServer_SetConnectionEventCallback_Unsubscribe(t *testing.T) {
+    wg := sync.WaitGroup{}
+    server, listener := newTestStompServer(NewStompConfig(0, []string{"/pub/"}))
+    server.SetConnectionEventCallback(UnsubscribeFromTopic, func(connEvent *ConnEvent) {
+        assert.Equal(t, UnsubscribeFromTopic, connEvent.eventType)
+        wg.Done()
+    })
+
+    go server.Start()
+
+    mockRwConn1 := NewMockRawConnection()
+    listener.incomingConnections <- mockRwConn1
+
+    // should trigger ConnectionStarting callback
+    mockRwConn1.SendConnectFrame()
+
+    server.OnSubscribeEvent(func(conId string, subId string, destination string, f *frame.Frame) {
+        wg.Done()
+    })
+
+    // subscribe to a channel
+    wg.Add(1)
+    subscribeMockConToTopic(mockRwConn1, "/topic/test-topic1")
+
+    // should trigger UnsubscribeFromTopic callback
+    wg.Add(1)
+    mockRwConn1.incomingFrames <- frame.New(frame.UNSUBSCRIBE, frame.Id, "/topic/test-topic1-0")
+    wg.Wait()
+}
+
+func TestStompServer_SetConnectionEventCallback_Disconnect(t *testing.T) {
+    wg := sync.WaitGroup{}
+    server, listener := newTestStompServer(NewStompConfig(0, []string{"/pub/"}))
+    server.SetConnectionEventCallback(ConnectionClosed, func(connEvent *ConnEvent) {
+        assert.Equal(t, ConnectionClosed, connEvent.eventType)
+        wg.Done()
+    })
+
+    go server.Start()
+
+    mockRwConn1 := NewMockRawConnection()
+    listener.incomingConnections <- mockRwConn1
+
+    // connect
+    mockRwConn1.SendConnectFrame()
+
+    // should trigger ConnectionClosed callback
+    wg.Add(1)
+    mockRwConn1.incomingFrames <- frame.New(frame.DISCONNECT)
     wg.Wait()
 }
 

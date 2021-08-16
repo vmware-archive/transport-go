@@ -31,21 +31,25 @@ type StompServer interface {
     OnUnsubscribeEvent(callback UnsubscribeHandlerFunction)
     // registers a callback for application requests
     OnApplicationRequest(callback ApplicationRequestHandlerFunction)
+    // SetConnectionEventCallback is used to set up a callback when certain STOMP session events happen
+    // such as ConnectionStarting, ConnectionClosed, SubscribeToTopic, UnsubscribeFromTopic and IncomingMessage.
+    SetConnectionEventCallback(connEventType StompSessionEventType, cb func(connEvent *ConnEvent))
 }
 
-type eventType int
+type StompSessionEventType int
 const (
-    connectionStarting eventType = iota
-    connectionEstablished
-    connectionClosed
-    subscribeToTopic
-    unsubscribeFromTopic
-    incomingMessage
+    ConnectionStarting StompSessionEventType = iota
+    ConnectionEstablished
+    ConnectionClosed
+    SubscribeToTopic
+    UnsubscribeFromTopic
+    IncomingMessage
 )
 
-type connEvent struct {
-    eventType eventType
-    conn StompConn
+type ConnEvent struct {
+    ConnId    string
+    eventType StompSessionEventType
+    conn      StompConn
     destination string
     sub *subscription
     frame *frame.Frame
@@ -79,7 +83,8 @@ func newConnSubscriptions(conn StompConn) *connSubscriptions{
 
 type stompServer struct {
     connectionListener RawConnectionListener
-    connectionEvents chan *connEvent
+    connectionEvents chan *ConnEvent
+    connectionEventCallbacks map[StompSessionEventType]func(event *ConnEvent)
     apiEvents chan *apiEvent
     running bool
     connectionsMap map[string]StompConn
@@ -97,7 +102,8 @@ func NewStompServer(listener RawConnectionListener, config StompConfig) StompSer
         connectionListener:          listener,
         apiEvents:                   make(chan *apiEvent, 32),
         connectionsMap:              make(map[string]StompConn),
-        connectionEvents:            make(chan *connEvent, 64),
+        connectionEvents:            make(chan *ConnEvent, 64),
+        connectionEventCallbacks:    make(map[StompSessionEventType]func(event *ConnEvent)),
         subscriptionsMap:            make(map[string]map[string]*connSubscriptions),
         subscribeCallbacks:          make([]SubscribeHandlerFunction, 0),
         unsubscribeCallbacks:        make([]UnsubscribeHandlerFunction, 0),
@@ -163,6 +169,12 @@ func (s *stompServer) SendMessageToClient(connectionId string, destination strin
     }
 }
 
+func (s *stompServer) SetConnectionEventCallback(connEventType StompSessionEventType, cb func(connEvent *ConnEvent)) {
+    s.callbackLock.Lock()
+    defer s.callbackLock.Unlock()
+    s.connectionEventCallbacks[connEventType] = cb
+}
+
 func (s *stompServer) Start() {
     if s.running {
         return
@@ -190,9 +202,10 @@ func (s *stompServer) waitForConnections() {
          } else {
              c := NewStompConn(rawConn, s.config, s.connectionEvents)
 
-             s.connectionEvents <- &connEvent{
+             s.connectionEvents <- &ConnEvent{
+                 ConnId:    c.GetId(),
                  conn:      c,
-                 eventType: connectionStarting,
+                 eventType: ConnectionStarting,
              }
          }
     }
@@ -223,16 +236,19 @@ func (s *stompServer) run() {
     }
 }
 
-func (s *stompServer) handleConnectionEvent(e *connEvent) {
+func (s *stompServer) handleConnectionEvent(e *ConnEvent) {
 
     s.callbackLock.RLock()
     defer s.callbackLock.RUnlock()
 
     switch e.eventType {
-    case connectionStarting:
+    case ConnectionStarting:
         s.connectionsMap[e.conn.GetId()] = e.conn
+        if fn, exists := s.connectionEventCallbacks[ConnectionStarting]; exists {
+            fn(e)
+        }
 
-    case connectionClosed:
+    case ConnectionClosed:
         delete(s.connectionsMap, e.conn.GetId())
         for _, connSubscriptions := range s.subscriptionsMap {
             conSub, ok := connSubscriptions[e.conn.GetId()]
@@ -245,8 +261,11 @@ func (s *stompServer) handleConnectionEvent(e *connEvent) {
                 }
             }
         }
+        if fn, exists := s.connectionEventCallbacks[ConnectionClosed]; exists {
+            fn(e)
+        }
 
-    case subscribeToTopic:
+    case SubscribeToTopic:
         subsMap, ok := s.subscriptionsMap[e.destination]
         if !ok {
             subsMap = make(map[string]*connSubscriptions)
@@ -264,8 +283,11 @@ func (s *stompServer) handleConnectionEvent(e *connEvent) {
         for _, callback := range s.subscribeCallbacks {
             callback(e.conn.GetId(), e.sub.id, e.destination, e.frame)
         }
+        if fn, exists := s.connectionEventCallbacks[SubscribeToTopic]; exists {
+            fn(e)
+        }
 
-    case unsubscribeFromTopic:
+    case UnsubscribeFromTopic:
         subs, ok := s.subscriptionsMap[e.destination]
         if ok {
             var conSub *connSubscriptions
@@ -281,8 +303,11 @@ func (s *stompServer) handleConnectionEvent(e *connEvent) {
                 }
             }
         }
+        if fn, exists := s.connectionEventCallbacks[UnsubscribeFromTopic]; exists {
+            fn(e)
+        }
 
-    case incomingMessage:
+    case IncomingMessage:
         s.sendFrame(e.destination, e.frame)
 
         if s.config.IsAppRequestDestination(e.destination) && e.conn != nil {
@@ -290,6 +315,9 @@ func (s *stompServer) handleConnectionEvent(e *connEvent) {
             for _, callback := range s.applicationRequestCallbacks {
                 callback(e.destination, e.frame.Body, e.conn.GetId())
             }
+        }
+        if fn, exists := s.connectionEventCallbacks[IncomingMessage]; exists {
+            fn(e)
         }
     }
 }

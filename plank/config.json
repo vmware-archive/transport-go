@@ -1,0 +1,53 @@
+{
+  "debug": false,
+  "no_banner": false,
+  "root_dir": "./",
+  "static_dir": [],
+  "spa_config": {
+    "root_folder": "public/",
+    "base_uri": "/public",
+    "static_assets": [
+      "public/spa-test/assets:/assets"
+    ]
+  },
+  "host": "localhost",
+  "port": 30080,
+  "log_config": {
+    "root": ".",
+    "access_log": "access.log",
+    "error_log": "errors.log",
+    "output_log": "stdout",
+    "format_options": {
+      "force_colors": false,
+      "disable_colors": true,
+      "force_quote": false,
+      "disable_quote": false,
+      "environment_override_colors": false,
+      "disable_timestamp": false,
+      "full_timestamp": true,
+      "timestamp_format": "",
+      "disable_sorting": false,
+      "disable_level_truncation": false,
+      "pad_level_text": false,
+      "quote_empty_fields": false,
+      "is_terminal": true
+    }
+  },
+  "shutdown_timeout_in_minutes": 5,
+  "rest_bridge_timeout_in_minutes": 1,
+  "fabric_config": {
+    "fabric_endpoint": "/ws",
+    "endpoint_config": {
+      "TopicPrefix": "/topic",
+      "UserQueuePrefix": "/queue",
+      "AppRequestPrefix": "/pub",
+      "AppRequestQueuePrefix": "/pub/queue",
+      "Heartbeat": 60000
+    }
+  },
+  "enable_prometheus": true,
+  "tls_config": {
+    "cert_file": "cert/fullchain.pem",
+    "key_file": "cert/server.key"
+  }
+}
