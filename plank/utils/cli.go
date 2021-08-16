@@ -6,14 +6,17 @@ package utils
 var PlatformServerFlagConstants = map[string]map[string]string{
 	"Hostname": {
 		"FlagName":    "hostname",
+		"ShortFlag":   "n",
 		"Description": "Hostname where Plank accepts connections",
 	},
 	"Port": {
 		"FlagName":    "port",
+		"ShortFlag":   "p",
 		"Description": "Port where Plank is to be served",
 	},
 	"RootDir": {
-		"FlagName":    "root-dir",
+		"FlagName":    "rootdir",
+		"ShortFlag":   "r",
 		"Description": "Root directory for the server (default: Current directory)",
 	},
 	"Cert": {
@@ -26,6 +29,7 @@ var PlatformServerFlagConstants = map[string]map[string]string{
 	},
 	"Static": {
 		"FlagName":    "static",
+		"ShortFlag":   "s",
 		"Description": "Path(s) where static files will be served",
 	},
 	"SpaPath": {
@@ -66,22 +70,27 @@ var PlatformServerFlagConstants = map[string]map[string]string{
 	},
 	"OutputLog": {
 		"FlagName":    "output-log",
+		"ShortFlag":   "l",
 		"Description": "Platform log output",
 	},
 	"AccessLog": {
 		"FlagName":    "access-log",
+		"ShortFlag":   "a",
 		"Description": "HTTP server access log output",
 	},
 	"ErrorLog": {
 		"FlagName":    "error-log",
+		"ShortFlag":   "e",
 		"Description": "HTTP server error log output",
 	},
 	"Debug": {
 		"FlagName":    "debug",
+		"ShortFlag":   "d",
 		"Description": "Enable debug logging",
 	},
 	"NoBanner": {
 		"FlagName":    "no-banner",
+		"ShortFlag":   "b",
 		"Description": "Do not print Plank banner at startup",
 	},
 	"Prometheus": {

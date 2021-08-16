@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -24,7 +26,6 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/urfave/cli"
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/plank/pkg/middleware"
 	"github.com/vmware/transport-go/plank/utils"
@@ -92,13 +93,19 @@ func NewPlatformServerFromConfig(configPath string) (PlatformServer, error) {
 	return ps, nil
 }
 
-func CreateServerConfigFromUrfaveCLIContext(c *cli.Context) (*PlatformServerConfig, error) {
-	return generatePlatformServerConfig(c)
-}
-
+// CreateServerConfig creates a new instance of PlatformServerConfig and returns the pointer to it.
 func CreateServerConfig() (*PlatformServerConfig, error) {
 	factory := &serverConfigFactory{}
-	factory.configureFlags()
+	factory.configureFlags(pflag.CommandLine)
+	factory.parseFlags()
+	return generatePlatformServerConfig(factory)
+}
+
+// CreateServerConfigForCobraCommand performs the same as CreateServerConfig but loads the flags to
+// the provided cobra Command's *pflag.FlagSet instead of the global FlagSet instance.
+func CreateServerConfigForCobraCommand(cmd *cobra.Command) (*PlatformServerConfig, error) {
+	factory := &serverConfigFactory{}
+	factory.configureFlags(cmd.Flags())
 	factory.parseFlags()
 	return generatePlatformServerConfig(factory)
 }

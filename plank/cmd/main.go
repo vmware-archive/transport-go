@@ -4,7 +4,7 @@
 package main
 
 import (
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 	"github.com/vmware/transport-go/plank/pkg/server"
 	"github.com/vmware/transport-go/plank/services"
 	"github.com/vmware/transport-go/plank/utils"
@@ -15,54 +15,48 @@ var version string
 var platformServer *server.PlatformServer
 
 func main() {
-	app := cli.NewApp()
-	app.Name = "Plank"
-	app.Version = version
-	app.Description = "Plank"
-	app.Commands = []cli.Command{
-		{
-			Name:  "start-server",
-			Usage: "Start server",
-			Flags: utils.UrfaveCLIFlags,
-			Action: func(c *cli.Context) error {
-				var platformServer server.PlatformServer
-				var err error
-				configPath := c.String("config-file")
+	var serverConfig *server.PlatformServerConfig
 
-				// if server config file is available create a server instance with it. otherwise, create it with a
-				// server config with provided CLI flag values
-				if len(configPath) > 0 {
-					platformServer, err = server.NewPlatformServerFromConfig(configPath)
-					if err != nil {
-						return err
-					}
-				} else {
-					serverConfig, err := server.CreateServerConfigFromUrfaveCLIContext(c)
-					if err != nil {
-						return err
-					}
-					platformServer = server.NewPlatformServer(serverConfig)
-				}
+	// define the root command - entry of our application
+	app := &cobra.Command{
+		Use:     "plank",
+		Version: version,
+		Short:   "Plank demo application",
+	}
 
-				// register services
-				if err := platformServer.RegisterService(services.NewPingPongService(), services.PingPongServiceChan); err != nil {
-					panic(err)
-				}
-				if err := platformServer.RegisterService(services.NewStockTickerService(), services.StockTickerServiceChannel); err != nil {
-					panic(err)
-				}
+	// define a command that starts the Plank server
+	startCmd := &cobra.Command{
+		Use:   "start-server",
+		Short: "Start Plank server",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var platformServer server.PlatformServer
+			platformServer = server.NewPlatformServer(serverConfig)
 
-				// start server
-				syschan := make(chan os.Signal, 1)
-				platformServer.StartServer(syschan)
+			// register services
+			if err := platformServer.RegisterService(services.NewPingPongService(), services.PingPongServiceChan); err != nil {
+				return err
+			}
+			if err := platformServer.RegisterService(services.NewStockTickerService(), services.StockTickerServiceChannel); err != nil {
+				return err
+			}
 
-				return nil
-			},
+			// start server
+			syschan := make(chan os.Signal, 1)
+			platformServer.StartServer(syschan)
+			return nil
 		},
 	}
 
-	err := app.Run(os.Args)
-	if err != nil {
-		panic(err)
+	// create a new server configuration. this Cobra variant of the server.CreateServerConfig() function
+	// configures and parses flags from the command line arguments into Cobra Command's structure. otherwise,
+	// it is identical to server.CreateServerConfig() which you can use if you don't want to use Cobra.
+	serverConfig, err := server.CreateServerConfigForCobraCommand(startCmd)
+
+	// add startCmd command to app
+	app.AddCommand(startCmd)
+
+	// start the app
+	if err = app.Execute(); err != nil {
+		utils.Log.Fatalln(err)
 	}
 }

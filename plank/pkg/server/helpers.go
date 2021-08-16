@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"github.com/urfave/cli"
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/plank/utils"
 	"io/ioutil"
@@ -16,29 +15,29 @@ import (
 // generatePlatformServerConfig is a generic internal method that returns the pointer of a new
 // instance of PlatformServerConfig. for an argument it can be passed either *serverConfigFactory
 // or *cli.Context which the method will analyze and determine the best way to extract user provided values from it.
-func generatePlatformServerConfig(i interface{}) (*PlatformServerConfig, error) {
-	configFile := extractFlagValueFromProvider(i, "ConfigFile", "string").(string)
-	host := extractFlagValueFromProvider(i, "Hostname", "string").(string)
-	port := extractFlagValueFromProvider(i, "Port", "int").(int)
-	rootDir := extractFlagValueFromProvider(i, "RootDir", "string").(string)
-	static := extractFlagValueFromProvider(i, "Static", "[]string").([]string)
-	shutdownTimeoutInMinutes := extractFlagValueFromProvider(i, "ShutdownTimeout", "int64").(int64)
-	accessLog := extractFlagValueFromProvider(i, "AccessLog", "string").(string)
-	outputLog := extractFlagValueFromProvider(i, "OutputLog", "string").(string)
-	errorLog := extractFlagValueFromProvider(i, "ErrorLog", "string").(string)
-	debug := extractFlagValueFromProvider(i, "Debug", "bool").(bool)
-	noBanner := extractFlagValueFromProvider(i, "NoBanner", "bool").(bool)
-	cert := extractFlagValueFromProvider(i, "Cert", "string").(string)
-	certKey := extractFlagValueFromProvider(i, "CertKey", "string").(string)
-	spaPath := extractFlagValueFromProvider(i, "SpaPath", "string").(string)
-	noFabricBroker := extractFlagValueFromProvider(i, "NoFabricBroker", "bool").(bool)
-	fabricEndpoint := extractFlagValueFromProvider(i, "FabricEndpoint", "string").(string)
-	topicPrefix := extractFlagValueFromProvider(i, "TopicPrefix", "string").(string)
-	queuePrefix := extractFlagValueFromProvider(i, "QueuePrefix", "string").(string)
-	requestPrefix := extractFlagValueFromProvider(i, "RequestPrefix", "string").(string)
-	requestQueuePrefix := extractFlagValueFromProvider(i, "RequestQueuePrefix", "string").(string)
-	prometheus := extractFlagValueFromProvider(i, "Prometheus", "bool").(bool)
-	restBridgeTimeout := extractFlagValueFromProvider(i, "RestBridgeTimeout", "int64").(int64)
+func generatePlatformServerConfig(f *serverConfigFactory) (*PlatformServerConfig, error) {
+	configFile := f.ConfigFile()
+	host := f.Hostname()
+	port := f.Port()
+	rootDir := f.RootDir()
+	static := f.Static()
+	shutdownTimeoutInMinutes := f.ShutdownTimeout()
+	accessLog := f.AccessLog()
+	outputLog := f.OutputLog()
+	errorLog := f.ErrorLog()
+	debug := f.Debug()
+	noBanner := f.NoBanner()
+	cert := f.Cert()
+	certKey := f.CertKey()
+	spaPath := f.SpaPath()
+	noFabricBroker := f.NoFabricBroker()
+	fabricEndpoint := f.FabricEndpoint()
+	topicPrefix := f.TopicPrefix()
+	queuePrefix := f.QueuePrefix()
+	requestPrefix := f.RequestPrefix()
+	requestQueuePrefix := f.RequestQueuePrefix()
+	prometheus := f.Prometheus()
+	restBridgeTimeout := f.RestBridgeTimeout()
 
 	// if config file flag is provided, read directly from the file
 	if len(configFile) > 0 {
@@ -160,32 +159,4 @@ func sanitizeConfigRootPath(config *PlatformServerConfig) {
 
 	// once it has been confirmed that the path exists, set config.RootDir to the absolute path
 	config.RootDir = absRootPath
-}
-
-// extractFlagValueFromProvider extracts from provider a value for key. when the provider is of *cli.Context
-// type parseType will be used to invoke the correct method to convert the user input to its appropriate value type.
-func extractFlagValueFromProvider(provider interface{}, key string, parseType string) interface{} {
-	switch provider.(type) {
-	case *cli.Context:
-		cast := provider.(*cli.Context)
-		switch parseType {
-		case "string":
-			return cast.String(utils.PlatformServerFlagConstants[key]["FlagName"])
-		case "int":
-			return cast.Int(utils.PlatformServerFlagConstants[key]["FlagName"])
-		case "int64":
-			return cast.Int64(utils.PlatformServerFlagConstants[key]["FlagName"])
-		case "[]string":
-			return cast.StringSlice(utils.PlatformServerFlagConstants[key]["FlagName"])
-		case "bool":
-			return cast.Bool(utils.PlatformServerFlagConstants[key]["FlagName"])
-		}
-		break
-	case *serverConfigFactory:
-		refl := reflect.ValueOf(provider)
-		method := refl.MethodByName(key)
-		raw := method.Call([]reflect.Value{})
-		return raw[0].Interface()
-	}
-	return nil
 }

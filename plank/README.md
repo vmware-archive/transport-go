@@ -93,7 +93,7 @@ something that looks more informational or more appealing at least.
 |----|----|----|----|----|
 |--hostname|-n|localhost|false|Hostname where Plank is to be served. Also reads from `$PLANK_SERVER_HOSTNAME` environment variable|
 |--port|-p|30080|false|Port where Plank is to be served. Also reads from `$PLANK_SERVER_PORT` environment variable|
-|--rootDir|-r|<current directory>|false|Root directory for the server. Also reads from `$PLANK_SERVER_ROOT` environment variable|
+|--rootdir|-r|<current directory>|false|Root directory for the server. Also reads from `$PLANK_SERVER_ROOTDIR` environment variable|
 |--static|-s|-|false|Path to a location where static files will be served. Can be used multiple times|
 |--no-fabric-broker|-|false|false|Do not start Fabric broker|
 |--fabric-endpoint|-|/fabric|false|Fabric broker endpoint (ignored if --no-fabric-broker is present)|
