@@ -11,20 +11,20 @@ import (
 var UrfaveCLIFlags = []cli.Flag{
 	cli.StringFlag{
 		Name:   fmt.Sprintf("%s, %s", PlatformServerFlagConstants["Hostname"]["FlagName"], "n"),
-		EnvVar: "PLANK_HOSTNAME",
+		EnvVar: "PLANK_SERVER_HOSTNAME",
 		Value:  "localhost",
 		Usage:  PlatformServerFlagConstants["Hostname"]["Description"],
 	},
 	cli.IntFlag{
 		Name:   fmt.Sprintf("%s, %s", PlatformServerFlagConstants["Port"]["FlagName"], "p"),
 		Usage:  PlatformServerFlagConstants["Port"]["Description"],
-		EnvVar: "PLANK_PORT",
+		EnvVar: "PLANK_SERVER_PORT",
 		Value:  30080,
 	},
 	cli.StringFlag{
 		Name:   fmt.Sprintf("%s, %s", PlatformServerFlagConstants["RootDir"]["FlagName"], "r"),
 		Usage:  PlatformServerFlagConstants["RootDir"]["Description"],
-		EnvVar: "PLANK_ROOT",
+		EnvVar: "PLANK_SERVER_ROOT",
 	},
 	cli.StringFlag{
 		Name:  fmt.Sprintf("%s", PlatformServerFlagConstants["Cert"]["FlagName"]),
