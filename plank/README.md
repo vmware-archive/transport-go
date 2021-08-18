@@ -44,8 +44,6 @@ BUILD_OS=darwin|linux|windows go run build.go
 
 Once successfully built, `plank` binary will be ready under `build/`.
 
-> NOTE: we acknowledge there's a lack of build script for Windows Powershell, We'll add it soon!
-
 ### Generate a self signed certificate
 Plank can run in non-HTTPS mode but it's generally a good idea to always do development in a similar environment where you'll be serving your
 audience in public internet (or even intranet). Plank repository comes with a handy utility script that can generate a pair of server certificate
@@ -80,12 +78,24 @@ SPA static assets	/assets
 Health endpoint		/health
 Prometheus endpoint	/prometheus
 ...
-time="2021-08-05T21:32:50-07:00" level=info msg="Starting HTTP server at localhost:30080 with TLS" fileName=server.go goroutine=28 package=server
+time="2021-08-17T13:28:15-07:00" level=info msg="Service '*services.StockTickerService' initialized successfully" fileName=initialize.go goroutine=44 package=server
+time="2021-08-17T13:28:15-07:00" level=info msg="Service channel 'stock-ticker-service' is now bridged to a REST endpoint /rest/stock-ticker/{symbol} (GET)\n" fileName=server.go goroutine=44 package=server
+time="2021-08-17T13:28:15-07:00" level=info msg="Starting Fabric broker at localhost:30080/ws" fileName=server.go goroutine=1 package=server
+time="2021-08-17T13:28:15-07:00" level=info msg="Starting HTTP server at localhost:30080 with TLS" fileName=server.go goroutine=3 package=server
 ```
 
-Open your browser and navigate to https://localhost:30080, accept the self-signed certificate warning and you'll be greeted with a 404!
-This is an expected behavior, as the demo app does not serve anything at root `/`, but we will consider changing the default 404 screen to
-something that looks more informational or more appealing at least.
+Now, open your browser and navigate to https://localhost:30080/rest/stock-ticker/VMW (or
+type `curl -k https://localhost:30080/rest/stock-ticker/VMW` in Terminal if you prefer CLI),
+and accept the self-signed certificate warning. You will be served a page that shows the latest stock price
+for VMware, Inc. Try and swap out `VMW` with another symbol of your choice to further test it out!
+
+> NOTE: The sample service is using a loosely gated third party API which imposes
+> a substantial limit on how many calls you can make per minute and per day in return for making
+> the service free to all.
+
+> NOTE: If you navigate to the root at https://localhost:30080, you'll be greeted with a 404!
+> This is an expected behavior, as the demo app does not serve anything at root `/`, but we will
+> consider changing the default 404 screen to something that is informational or more appealing at least.
 
 ## All supported flags and usages
 

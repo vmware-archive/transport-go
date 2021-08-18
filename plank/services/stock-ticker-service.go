@@ -6,6 +6,9 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/plank/utils"
@@ -22,22 +25,23 @@ import (
 
 const (
 	StockTickerServiceChannel = "stock-ticker-service"
-	StockTickerAPI = "https://www.alphavantage.co/query"
+	StockTickerAPI            = "https://www.alphavantage.co/query"
 )
 
 // TickerSnapshotData and TickerMetadata ares the data structures for this demo service
 type TickerSnapshotData struct {
-	MetaData *TickerMetadata `json:"Meta Data"`
+	MetaData   *TickerMetadata                   `json:"Meta Data"`
 	TimeSeries map[string]map[string]interface{} `json:"Time Series (1min)"`
+	Note string `json:"Note"`
 }
 
 type TickerMetadata struct {
-	Information string `json:"1. Information"`
-	Symbol string `json:"2. Symbol"`
+	Information   string `json:"1. Information"`
+	Symbol        string `json:"2. Symbol"`
 	LastRefreshed string `json:"3. Last Refreshed"`
-	Interval string `json:"4. Interval"`
-	OutputSize string `json:"5. Output Size"`
-	TimeZone string `json:"6. Time Zone"`
+	Interval      string `json:"4. Interval"`
+	OutputSize    string `json:"5. Output Size"`
+	TimeZone      string `json:"6. Time Zone"`
 }
 
 // StockTickerService is a more complex real life example where its job is to subscribe clients
@@ -47,9 +51,9 @@ type TickerMetadata struct {
 // once the service receives the request, it will schedule a job to query the stock price API
 // for the provided symbol, retrieve the data and pipe it back to the client every thirty seconds.
 // upon the connected client leaving, the service will remove from its cache the timer.
-type StockTickerService struct{
+type StockTickerService struct {
 	tickerListenersMap map[string]*time.Ticker
-	lock sync.RWMutex
+	lock               sync.RWMutex
 }
 
 // NewStockTickerService returns a new instance of StockTickerService
@@ -63,10 +67,30 @@ func NewStockTickerService() *StockTickerService {
 // a third party API and return the results back to the user.
 func (ps *StockTickerService) HandleServiceRequest(request *model.Request, core service.FabricServiceCore) {
 	switch request.Request {
-	case "receive_ticker_updates":
+	case "ticker_price_lookup":
+		input := request.Payload.(map[string]string)
+		response, err := queryStockTickerAPI(input["symbol"])
+		if err != nil {
+			core.SendErrorResponse(request, 400, err.Error())
+			return
+		}
+		// send the response back to the client
+		core.SendResponse(request, response)
+		break
+
+	case "ticker_price_update_stream":
 		// parse the request and extract user input from key "symbol"
 		input := request.Payload.(map[string]interface{})
 		symbol := input["symbol"].(string)
+
+		// get the price immediately for the first request
+		response, err := queryStockTickerAPI(symbol)
+		if err != nil {
+			core.SendErrorResponse(request, 400, err.Error())
+			return
+		}
+		// send the response back to the client
+		core.SendResponse(request, response)
 
 		// set a ticker that fires every 30 seconds and keep it in a map for later disposal
 		ps.lock.Lock()
@@ -79,42 +103,7 @@ func (ps *StockTickerService) HandleServiceRequest(request *model.Request, core 
 			for {
 				select {
 				case <-ticker.C:
-					// craft a new HTTP request for the stock price provider API
-					req, err := newTickerRequest(symbol)
-					if err != nil {
-						core.SendErrorResponse(request, 400, err.Error())
-						continue
-					}
-
-					// perform an HTTP call
-					rsp, err := ctxhttp.Do(context.Background(), http.DefaultClient, req)
-					if err != nil {
-						core.SendErrorResponse(request, rsp.StatusCode, err.Error())
-						continue
-					}
-
-					// parse the response from the HTTP call
-					defer rsp.Body.Close()
-					tickerData := &TickerSnapshotData{}
-					b, err := ioutil.ReadAll(rsp.Body)
-					if err != nil {
-						core.SendErrorResponse(request, 500, err.Error())
-						continue
-					}
-
-					if err = json.Unmarshal(b, tickerData); err != nil {
-						core.SendErrorResponse(request, 500, err.Error())
-						continue
-					}
-
-					if tickerData == nil || tickerData.TimeSeries == nil {
-						core.SendErrorResponse(request, 500, string(b))
-						continue
-					}
-
-					// extract the data we need.
-					latestClosePriceStr := tickerData.TimeSeries[tickerData.MetaData.LastRefreshed]["4. close"].(string)
-					latestClosePrice, err := strconv.ParseFloat(latestClosePriceStr, 32)
+					response, err = queryStockTickerAPI(symbol)
 					if err != nil {
 						core.SendErrorResponse(request, 500, err.Error())
 						continue
@@ -122,14 +111,10 @@ func (ps *StockTickerService) HandleServiceRequest(request *model.Request, core 
 
 					// log message to demonstrate that once the client disconnects
 					// the server disposes of the ticker to prevent memory leak.
-					utils.Log.Warnln("sending...")
+					utils.Log.Infoln("sending...")
 
 					// send the response back to the client
-					core.SendResponse(request, map[string]interface{}{
-						"symbol": symbol,
-						"lastRefreshed": tickerData.MetaData.LastRefreshed,
-						"closePrice": latestClosePrice,
-					})
+					core.SendResponse(request, response)
 				}
 			}
 		}()
@@ -173,10 +158,27 @@ func (ps *StockTickerService) OnServerShutdown() {
 	return
 }
 
-// GetRESTBridgeConfig returns nothing. this service is only available through
-// STOMP over WebSocket.
+// GetRESTBridgeConfig returns a config for a REST endpoint that performs the same action as the STOMP variant
+// except that there will be only one response instead of every 30 seconds.
 func (ps *StockTickerService) GetRESTBridgeConfig() []*service.RESTBridgeConfig {
-	return nil
+	return []*service.RESTBridgeConfig{
+		{
+			ServiceChannel: StockTickerServiceChannel,
+			Uri:            "/rest/stock-ticker/{symbol}",
+			Method:         http.MethodGet,
+			AllowHead:      true,
+			AllowOptions:   true,
+			FabricRequestBuilder: func(w http.ResponseWriter, r *http.Request) model.Request {
+				pathParams := mux.Vars(r)
+				return model.Request{
+					Id:                &uuid.UUID{},
+					Payload:           map[string]string{"symbol": pathParams["symbol"]},
+					Request:           "ticker_price_lookup",
+					BrokerDestination: nil,
+				}
+			},
+		},
+	}
 }
 
 // newTickerRequest is a convenient function that takes symbol as an input and returns
@@ -194,4 +196,56 @@ func newTickerRequest(symbol string) (*http.Request, error) {
 	}
 	req.URL.RawQuery = uv.Encode()
 	return req, nil
+}
+
+// queryStockTickerAPI performs an HTTP request against the Stock Ticker API and returns the results
+// as a generic map[string]interface{} structure. if there's any error during the request-response cycle
+// a nil will be returned followed by an error object.
+func queryStockTickerAPI(symbol string) (map[string]interface{}, error) {
+	// craft a new HTTP request for the stock price provider API
+	req, err := newTickerRequest(symbol)
+	if err != nil {
+		return nil, err
+	}
+
+	// perform an HTTP call
+	rsp, err := ctxhttp.Do(context.Background(), http.DefaultClient, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// parse the response from the HTTP call
+	defer rsp.Body.Close()
+	tickerData := &TickerSnapshotData{}
+	b, err := ioutil.ReadAll(rsp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = json.Unmarshal(b, tickerData); err != nil {
+		return nil, err
+	}
+
+	// Alpha Vantage which is the provider of this API limits API calls to 5 calls per minute and 500 a day, and when
+	// the quota has been reached it will return a message in the Note field.
+	if len(tickerData.Note) > 0 {
+		return nil, fmt.Errorf(tickerData.Note)
+	}
+
+	if tickerData == nil || tickerData.TimeSeries == nil {
+		return nil, err
+	}
+
+	// extract the data we need.
+	latestClosePriceStr := tickerData.TimeSeries[tickerData.MetaData.LastRefreshed]["4. close"].(string)
+	latestClosePrice, err := strconv.ParseFloat(latestClosePriceStr, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"symbol":        symbol,
+		"lastRefreshed": tickerData.MetaData.LastRefreshed,
+		"closePrice":    latestClosePrice,
+	}, nil
 }
