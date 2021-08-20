@@ -27,9 +27,9 @@ Some topics that will initially be covered are:
 
 ## Hello world
 ### How to build Plank
-First things first, you'll need the latest Golang version. Plank was first written in Golang 1.13 and it still works with it, but it's advised
-to use the latest Golang (especially 1.16 and forward) because of some nice new packages such as `embed` that we may later employ as part of Plank codebase.
-Once you have the latest Golang ready, follow the commands below:
+First things first, you'll need Golang SDK of at least version 1.16 because it uses a built-in
+package that was added as of 1.16. Once you made sure your Golang version is at least 1.16,
+follow the commands below:
 
 ```bash
 # get all dependencies
