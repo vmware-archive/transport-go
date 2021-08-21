@@ -3,10 +3,12 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
+	"github.com/vmware/transport-go/plank/pkg/server/auth_provider_manager"
 	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/service"
 	"net/http"
@@ -24,6 +26,24 @@ func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, 
 				http.Error(w, "Internal Server Error", 500)
 			}
 		}()
+
+		apm := auth_provider_manager.GetAuthProviderManager()
+		provider, err := apm.GetRESTAuthProvider(r.URL.Path)
+
+		if err != nil && !errors.Is(err, &auth_provider_manager.AuthProviderNotFoundError{}){
+			utils.Log.Errorln(err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// run validation against rules registered in the provider only if such provider exists
+		if provider != nil {
+			err := provider.Validate(r)
+			if err != nil {
+				http.Error(w, err.Message, err.Code)
+				return
+			}
+		}
 
 		// set context that expires after the provided amount of time in restBridgeTimeout to prevent requests from hanging forever
 		ctx, cancelFn := context.WithTimeout(context.Background(), restBridgeTimeout)
