@@ -1,0 +1,131 @@
+asyncapi: '2.1.0'
+info:
+  title: Plank Sample Services
+  version: 1.0.0
+  description: |
+    Plank offers a selection of sample services to talk to, so you can get the hang of
+    how it works, and get an idea of what you can do.
+  contact:
+    name: VMware Transport Team
+    url: https://vmware.github.io/transport
+  license:
+    name: BSD-2-Clause
+    url: https://opensource.org/licenses/BSD-2-Clause
+servers:
+  transport-bus:
+    url: wss://transport-bus.io/ws
+    protocol: stomp
+tags:
+  - name: Stock-Ticker-Service
+channels:
+
+  pub/queue/stock-ticker-service:
+    description: |
+      This channel is served by the
+      [stock ticker example](https://github.com/vmware/transport-go/blob/main/plank/services/stock-ticker-service.go) in plank.
+      You can send over a `StockSymbol` request here and listen for the response (using your UUID) over at queue/stock-ticker-service
+    publish:
+      operationId: ticker_price_update_stream
+      description: Publish your stock symbol lookup requests here, make sure you have subscribed first.
+      message:
+        $ref: '#/components/messages/StockSymbol'
+
+
+  queue/stock-ticker-service:
+    description: |
+      This channel is served by the
+      [stock ticker example](https://github.com/vmware/transport-go/blob/main/plank/services/stock-ticker-service.go) in plank.
+      Requests for stock lookup are delivered here. No inbound (publish) requests accepted here.
+    subscribe:
+      operationId: getStockSymbolResponse
+      description: Listen for stock request responses. Use your requesting `UUID` to listen for your specific response.
+      message:
+        $ref: '#/components/messages/StockSymbolResponse'
+components:
+  schemas:
+    TransportMessage:
+      description:  |
+        `TransportMessage` is a set of properties that always exist on any returning message from a request.
+        these properties are used by various other layers in the system to decide how to treat a transport message.
+      type: object
+      properties:
+        id:
+          description: |
+            `UUID` represented as a *string*. Should always be **unique** for every single message.
+          type: string
+          examples:
+            - d68695be-0f11-4c9c-8644-2667135a7baf
+        version:
+          description: |
+            Version of the message, default to '1' if you don't use this feature.
+          type: number
+          format: int32
+          examples:
+            - 1
+        created:
+          description: |
+            Timestamp representing when the message was created.
+          type: number
+          format: int64
+          examples:
+            - 1629991055269
+        request:
+          description: |
+            This is the command being issued to the service, this is the same as the `operationId` of the service.
+          type: string
+          examples:
+            - get-stock
+            - get-joke
+            - do-something
+  messages:
+    StockSymbol:
+      description: |
+        Representation of a company stock symbol that you want to look up.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/TransportMessage'
+          - type: object
+            properties:
+              payload:
+                type: object
+                description: |
+                  The Stock Ticker service only needs to know the code of the stock you want to look up.
+                properties:
+                  symbol:
+                    description: Short-hand code use to represent the company stock in a market.
+                    type: string
+                    examples:
+                      - VMW
+                      - GOOG
+                      - AAPL
+    StockSymbolResponse:
+      description: |
+        Response from a `StockSymbol` request published to pub/queue/stock-ticker-service
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/TransportMessage'
+          - type: object
+            properties:
+              payload:
+                type: object
+                description: |
+                  The result may not be realtime, the API we use in the backend is not great.
+                properties:
+                  symbol:
+                    description: Short-hand code use to represent the company stock in a market.
+                    type: string
+                    examples:
+                      - VMW
+                      - GOOG
+                      - AAPL
+                  lastRefreshed:
+                    description: Timestamp pre-rendered as a string of when this value was last refreshed (last market close)
+                    type: string
+                    examples:
+                      - "2021-08-25 18:45:00"
+                  closePrice:
+                    description: The value at which the stock price last closed on the open market.
+                    type: number
+                    format: float64
+                    examples:
+                      - 158.99
