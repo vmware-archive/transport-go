@@ -49,6 +49,9 @@ type FabricServiceCore interface {
 
 	// GenerateJSONHeaders Automatically ready to go map with json headers.
 	GenerateJSONHeaders() map[string]string
+
+	// SetDefaultJSONHeaders Automatically sets default accept and return content types as 'application/json'
+	SetDefaultJSONHeaders()
 }
 
 type fabricCore struct {
@@ -62,16 +65,23 @@ func (core *fabricCore) Bus() bus.EventBus {
 }
 
 func (core *fabricCore) SendResponse(request *model.Request, responsePayload interface{}) {
+
+	headers := core.mergeHeadersWithDefaults(nil)
+
 	response := &model.Response{
 		Id:                request.Id,
 		Destination:       core.channelName,
 		Payload:           responsePayload,
+		Headers:           headers,
 		BrokerDestination: request.BrokerDestination,
 	}
 	core.bus.SendResponseMessage(core.channelName, response, request.Id)
 }
 
 func (core *fabricCore) SendResponseWithHeaders(request *model.Request, responsePayload interface{}, headers map[string]string) {
+
+	headers = core.mergeHeadersWithDefaults(headers)
+
 	response := &model.Response{
 		Id:                request.Id,
 		Destination:       core.channelName,
@@ -91,10 +101,13 @@ func (core *fabricCore) SendErrorResponseWithPayload(
 	request *model.Request,
 	responseErrorCode int, responseErrorMessage string, payload interface{}) {
 
+	headers := core.mergeHeadersWithDefaults(nil)
+
 	response := &model.Response{
 		Id:                request.Id,
 		Destination:       core.channelName,
 		Payload:           payload,
+		Headers:           headers,
 		Error:             true,
 		ErrorCode:         responseErrorCode,
 		ErrorMessage:      responseErrorMessage,
@@ -106,6 +119,8 @@ func (core *fabricCore) SendErrorResponseWithPayload(
 func (core *fabricCore) SendErrorResponseWithHeaders(
 	request *model.Request,
 	responseErrorCode int, responseErrorMessage string, headers map[string]string) {
+
+	headers = core.mergeHeadersWithDefaults(headers)
 
 	response := &model.Response{
 		Id:                request.Id,
@@ -122,6 +137,8 @@ func (core *fabricCore) SendErrorResponseWithHeaders(
 func (core *fabricCore) SendErrorResponseWithHeadersAndPayload(
 	request *model.Request,
 	responseErrorCode int, responseErrorMessage string, payload interface{}, headers map[string]string) {
+
+	headers = core.mergeHeadersWithDefaults(headers)
 
 	response := &model.Response{
 		Id:                request.Id,
@@ -149,6 +166,26 @@ func (core *fabricCore) GenerateJSONHeaders() map[string]string {
 	h := make(map[string]string)
 	h["Content-Type"] = "application/json"
 	return h
+}
+
+func (core *fabricCore) SetDefaultJSONHeaders() {
+	core.SetHeaders(core.GenerateJSONHeaders())
+}
+
+func (core *fabricCore) mergeHeadersWithDefaults(headers map[string]string) map[string]string {
+
+	// merge global service headers with the headers from user supplied headers.
+	// note that headers specified in user requirements will override the global headers.
+	mergedHeaders := make(map[string]string)
+	for k, v := range core.headers {
+		mergedHeaders[k] = v
+	}
+	if headers != nil {
+		for k, v := range headers {
+			mergedHeaders[k] = v
+		}
+	}
+	return mergedHeaders
 }
 
 func (core *fabricCore) RestServiceRequest(restRequest *RestServiceRequest,

@@ -252,3 +252,37 @@ func TestFabricCore_GenerateJSONHeaders(t *testing.T) {
 	h := core.GenerateJSONHeaders()
 	assert.EqualValues(t, "application/json", h["Content-Type"])
 }
+
+func TestFabricCore_SetDefaultJSONHeaders(t *testing.T) {
+	core := newTestFabricCore("test-channel")
+	core.SetDefaultJSONHeaders()
+
+	mh, _ := core.Bus().ListenStream("test-channel")
+
+	wg := sync.WaitGroup{}
+
+	var lastMessage *model.Message
+
+	mh.Handle(func(message *model.Message) {
+		lastMessage = message
+		wg.Done()
+	}, func(e error) {
+		assert.Fail(t, "unexpected error")
+	})
+
+	id := uuid.New()
+	req := model.Request{
+		Id:      &id,
+		Payload: "test-headers",
+	}
+
+	wg.Add(1)
+	core.SendResponse(&req, "test-response")
+	wg.Wait()
+
+	response := lastMessage.Payload.(*model.Response)
+
+	// content-type and accept should have been set.
+	assert.Len(t, response.Headers, 1)
+	assert.EqualValues(t, "application/json", response.Headers["Content-Type"])
+}
