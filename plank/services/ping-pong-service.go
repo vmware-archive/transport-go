@@ -30,6 +30,18 @@ func NewPingPongService() *PingPongService {
 	return &PingPongService{}
 }
 
+// Init will fire when the service is being registered by the fabric, it passes a reference of the same core
+// Passed through when implementing HandleServiceRequest
+func (ps *PingPongService) Init(core service.FabricServiceCore) error {
+
+	// set default headers for this service.
+	core.SetHeaders(map[string]string{
+		"Content-Type": "application/json",
+	})
+
+	return nil
+}
+
 // HandleServiceRequest routes the incoming request and based on the Request property of request, it invokes the
 // appropriate handler logic defined and separated by a switch statement like the one shown below.
 func (ps *PingPongService) HandleServiceRequest(request *model.Request, core service.FabricServiceCore) {
