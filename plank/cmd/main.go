@@ -55,6 +55,9 @@ func main() {
 	// configures and parses flags from the command line arguments into Cobra Command's structure. otherwise,
 	// it is identical to server.CreateServerConfig() which you can use if you don't want to use Cobra.
 	serverConfig, err := server.CreateServerConfigForCobraCommand(startCmd)
+	if err != nil {
+		utils.Log.Fatalln(err)
+	}
 
 	// add startCmd command to app
 	app.AddCommand(startCmd)
