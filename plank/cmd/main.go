@@ -40,6 +40,10 @@ func main() {
 				return err
 			}
 
+			if err := platformServer.RegisterService(services.NewSimpleStreamService(), services.SimpleStreamServiceChannel); err != nil {
+				return err
+			}
+
 			// start server
 			syschan := make(chan os.Signal, 1)
 			platformServer.StartServer(syschan)
