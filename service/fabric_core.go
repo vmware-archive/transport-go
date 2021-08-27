@@ -163,9 +163,7 @@ func (core *fabricCore) SetHeaders(headers map[string]string) {
 }
 
 func (core *fabricCore) GenerateJSONHeaders() map[string]string {
-	h := make(map[string]string)
-	h["Content-Type"] = "application/json"
-	return h
+	return map[string]string{"Content-Type": "application/json"}
 }
 
 func (core *fabricCore) SetDefaultJSONHeaders() {
