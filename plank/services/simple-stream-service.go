@@ -27,6 +27,7 @@ type SimpleStreamService struct {
 	cronJob    *cron.Cron                // cronjob that runs every 1s.
 }
 
+// NewSimpleStreamService will return a new instance of the SimpleStreamService.
 func NewSimpleStreamService() *SimpleStreamService {
 	return &SimpleStreamService{}
 }
