@@ -125,27 +125,6 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 	// finalize handler by setting out writer
 	ps.loadGlobalHttpHandler(ps.router)
 
-	// if path for SPA app is provided set it up
-	// NOTE: the reason SPA app route is configured after service & static routes are configured is that sometimes you may want the UI
-	// to be served at the root (/) route in which case setting up an SPA route first will basically mask all other URIs.
-	// TODO: error if the base uri conflicts with another URI registered before
-	if ps.serverConfig.SpaConfig != nil {
-		for _, asset := range ps.serverConfig.SpaConfig.StaticAssets {
-			folderPath, uri := utils.DeriveStaticURIFromPath(asset)
-			ps.SetStaticRoute(utils.SanitizeUrl(uri, false), folderPath)
-		}
-
-		ps.router.PathPrefix(ps.serverConfig.SpaConfig.BaseUri).Name("spa-base").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			resource := "index.html"
-
-			// if the URI contains an extension we treat it as access to static resources
-			if len(filepath.Ext(r.URL.Path)) > 0 {
-				resource = filepath.Clean(r.URL.Path)
-			}
-			http.ServeFile(w, r, filepath.Join(ps.serverConfig.SpaConfig.RootFolder, resource))
-		})
-	}
-
 	go func() {
 		ps.serverAvailability.http = true
 		if ps.serverConfig.TLSCertConfig != nil {
@@ -173,6 +152,28 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 		// if creation of listener fails, crash and burn
 		if err != nil {
 			panic(err)
+		}
+
+		// if path for SPA app is provided set it up
+		// NOTE: the reason SPA app route is configured after service & static routes & other reserved endpoints like websocket
+		// are configured is that sometimes you may want the UI to be served at the root (/) route in which case setting up
+		// an SPA route at the root first will mask away all other URIs.
+		// TODO: error if the base uri conflicts with another URI registered before
+		if ps.serverConfig.SpaConfig != nil {
+			for _, asset := range ps.serverConfig.SpaConfig.StaticAssets {
+				folderPath, uri := utils.DeriveStaticURIFromPath(asset)
+				ps.SetStaticRoute(utils.SanitizeUrl(uri, false), folderPath)
+			}
+
+			ps.router.PathPrefix(ps.serverConfig.SpaConfig.BaseUri).Name("spa-base").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				resource := "index.html"
+
+				// if the URI contains an extension we treat it as access to static resources
+				if len(filepath.Ext(r.URL.Path)) > 0 {
+					resource = filepath.Clean(r.URL.Path)
+				}
+				http.ServeFile(w, r, filepath.Join(ps.serverConfig.SpaConfig.RootFolder, resource))
+			})
 		}
 
 		// otherwise, start the broker
