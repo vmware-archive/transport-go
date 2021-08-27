@@ -12,7 +12,6 @@ import (
 )
 
 var version string
-var platformServer *server.PlatformServer
 
 func main() {
 	var serverConfig *server.PlatformServerConfig
@@ -33,20 +32,35 @@ func main() {
 			platformServer = server.NewPlatformServer(serverConfig)
 
 			// register services
-			if err := platformServer.RegisterService(services.NewPingPongService(), services.PingPongServiceChan); err != nil {
-				return err
-			}
-			if err := platformServer.RegisterService(services.NewStockTickerService(), services.StockTickerServiceChannel); err != nil {
+
+			// ping-pong service
+			if err := platformServer.RegisterService(services.NewPingPongService(),
+				services.PingPongServiceChan); err != nil {
 				return err
 			}
 
-			if err := platformServer.RegisterService(services.NewSimpleStreamService(), services.SimpleStreamServiceChannel); err != nil {
+			// stock ticker service
+			if err := platformServer.RegisterService(services.NewStockTickerService(),
+				services.StockTickerServiceChannel); err != nil {
+				return err
+			}
+
+			// simple stream service
+			if err := platformServer.RegisterService(services.NewSimpleStreamService(),
+				services.SimpleStreamServiceChannel); err != nil {
+				return err
+			}
+
+			// joke service
+			if err := platformServer.RegisterService(services.NewJokeService(),
+				services.JokeServiceChannel); err != nil {
 				return err
 			}
 
 			// start server
-			syschan := make(chan os.Signal, 1)
-			platformServer.StartServer(syschan)
+			sysChan := make(chan os.Signal, 1)
+			platformServer.StartServer(sysChan)
+
 			return nil
 		},
 	}
