@@ -115,6 +115,12 @@ func (fe *fabricEndpoint) Start() {
             EventType: stompserver.ConnectionClosed,
         }, nil)
     })
+    fe.server.SetConnectionEventCallback(stompserver.UnsubscribeFromTopic, func(connEvent *stompserver.ConnEvent) {
+        busInstance.SendResponseMessage(STOMP_SESSION_NOTIFY_CHANNEL, &StompSessionEvent{
+            Id: connEvent.ConnId,
+            EventType: stompserver.UnsubscribeFromTopic,
+        }, nil)
+    })
     fe.server.Start()
 }
 

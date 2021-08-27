@@ -132,13 +132,14 @@ func (ps *StockTickerService) OnServiceReady() chan bool {
 	sessionNotifyHandler, _ := bus.GetBus().ListenStream(bus.STOMP_SESSION_NOTIFY_CHANNEL)
 	sessionNotifyHandler.Handle(func(message *model.Message) {
 		stompSessionEvt := message.Payload.(*bus.StompSessionEvent)
-		if stompSessionEvt.EventType == stompserver.ConnectionClosed {
+		if stompSessionEvt.EventType == stompserver.ConnectionClosed ||
+			stompSessionEvt.EventType == stompserver.UnsubscribeFromTopic {
 			if ticker, exists := ps.tickerListenersMap[stompSessionEvt.Id]; exists {
 				ticker.Stop()
 				ps.lock.Lock()
 				delete(ps.tickerListenersMap, stompSessionEvt.Id)
 				ps.lock.Unlock()
-				utils.Log.Warnln("client", stompSessionEvt.Id, "disconnected")
+				utils.Log.Warnf("timer cleaned for %s. trigger: %v", stompSessionEvt.Id, stompSessionEvt.EventType)
 			}
 		}
 	}, func(err error) {})
