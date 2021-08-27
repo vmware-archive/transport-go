@@ -5,9 +5,9 @@
   "static_dir": [],
   "spa_config": {
     "root_folder": "public/",
-    "base_uri": "/public",
+    "base_uri": "/",
     "static_assets": [
-      "public/spa-test/assets:/assets"
+      "public/assets:/assets"
     ]
   },
   "host": "localhost",
