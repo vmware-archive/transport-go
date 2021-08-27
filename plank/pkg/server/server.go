@@ -136,7 +136,13 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 		}
 
 		ps.router.PathPrefix(ps.serverConfig.SpaConfig.BaseUri).Name("spa-base").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, filepath.Join(ps.serverConfig.SpaConfig.RootFolder, "index.html"))
+			resource := "index.html"
+
+			// if the URI contains an extension we treat it as access to static resources
+			if len(filepath.Ext(r.URL.Path)) > 0 {
+				resource = filepath.Clean(r.URL.Path)
+			}
+			http.ServeFile(w, r, filepath.Join(ps.serverConfig.SpaConfig.RootFolder, resource))
 		})
 	}
 
