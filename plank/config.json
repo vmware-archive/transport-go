@@ -2,7 +2,6 @@
   "debug": false,
   "no_banner": false,
   "root_dir": "./",
-  "static_dir": [],
   "spa_config": {
     "root_folder": "public/",
     "base_uri": "/",
