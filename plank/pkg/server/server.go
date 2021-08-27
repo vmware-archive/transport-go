@@ -330,7 +330,7 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 	}
 
 	utils.Log.Infof(
-		"Service channel '%s' is now bridged to a REST endpoint %s (%s)\n",
+		"Service channel '%s' is now bridged to a REST endpoint %s (%s)",
 		bridgeConfig.ServiceChannel, bridgeConfig.Uri, bridgeConfig.Method)
 }
 
