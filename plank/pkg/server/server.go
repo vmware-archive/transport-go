@@ -30,15 +30,16 @@ import (
 	"github.com/vmware/transport-go/plank/pkg/middleware"
 	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/service"
-	"github.com/vmware/transport-go/stompserver"
 )
+
+const PLANK_SERVER_ONLINE_CHANNEL = bus.TRANSPORT_INTERNAL_CHANNEL_PREFIX + "plank-online-notify"
 
 // NewPlatformServer configures and returns a new platformServer instance
 func NewPlatformServer(config *PlatformServerConfig) PlatformServer {
 	ps := new(platformServer)
 	sanitizeConfigRootPath(config)
 	ps.serverConfig = config
-	ps.serverAvailability = &serverAvailability{}
+	ps.ServerAvailability = &ServerAvailability{}
 	ps.routerConcurrencyProtection = new(int32)
 	ps.initialize()
 
@@ -87,7 +88,7 @@ func NewPlatformServerFromConfig(configPath string) (PlatformServer, error) {
 	}
 
 	ps.serverConfig = &config
-	ps.serverAvailability = &serverAvailability{}
+	ps.ServerAvailability = &ServerAvailability{}
 	ps.routerConcurrencyProtection = new(int32)
 	ps.initialize()
 	return ps, nil
@@ -120,13 +121,16 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 	// ensure port is available
 	ps.checkPortAvailability()
 
-	// get http access log and error log file pointers ready
-
 	// finalize handler by setting out writer
 	ps.loadGlobalHttpHandler(ps.router)
 
+	// configure SPA
+	// NOTE: the reason SPA app route is configured during server startup is that if the base uri is `/` for SPA
+	// then all other routes registered after SPA route will be masked away.
+	ps.configureSPA()
+
 	go func() {
-		ps.serverAvailability.http = true
+		ps.ServerAvailability.Http = true
 		if ps.serverConfig.TLSCertConfig != nil {
 			utils.Log.Infof("Starting HTTP server at %s:%d with TLS", ps.serverConfig.Host, ps.serverConfig.Port)
 			_ = ps.HttpServer.ListenAndServeTLS(ps.serverConfig.TLSCertConfig.CertFile, ps.serverConfig.TLSCertConfig.KeyFile)
@@ -136,49 +140,12 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 		}
 	}()
 
-	// if fabric broker configuration is found, start the broker
+	// if Fabric broker configuration is found, start the broker
 	if ps.serverConfig.FabricConfig != nil {
-		var err error
-		utils.Log.Infof("Starting Fabric broker at %s:%d%s",
-			ps.serverConfig.Host, ps.serverConfig.Port, ps.serverConfig.FabricConfig.FabricEndpoint)
-
-		// TODO: consider tightening access by allowing configuring allowedOrigins
-		ps.fabricConn, err = stompserver.NewWebSocketConnectionFromExistingHttpServer(
-			ps.HttpServer,
-			ps.router,
-			ps.serverConfig.FabricConfig.FabricEndpoint,
-			nil)
-
-		// if creation of listener fails, crash and burn
-		if err != nil {
-			panic(err)
-		}
-
-		// if path for SPA app is provided set it up
-		// NOTE: the reason SPA app route is configured after service & static routes & other reserved endpoints like websocket
-		// are configured is that sometimes you may want the UI to be served at the root (/) route in which case setting up
-		// an SPA route at the root first will mask away all other URIs.
-		// TODO: error if the base uri conflicts with another URI registered before
-		if ps.serverConfig.SpaConfig != nil {
-			for _, asset := range ps.serverConfig.SpaConfig.StaticAssets {
-				folderPath, uri := utils.DeriveStaticURIFromPath(asset)
-				ps.SetStaticRoute(utils.SanitizeUrl(uri, false), folderPath)
-			}
-
-			ps.router.PathPrefix(ps.serverConfig.SpaConfig.BaseUri).Name("spa-base").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				resource := "index.html"
-
-				// if the URI contains an extension we treat it as access to static resources
-				if len(filepath.Ext(r.URL.Path)) > 0 {
-					resource = filepath.Clean(r.URL.Path)
-				}
-				http.ServeFile(w, r, filepath.Join(ps.serverConfig.SpaConfig.RootFolder, resource))
-			})
-		}
-
-		// otherwise, start the broker
 		go func() {
-			ps.serverAvailability.fabric = true
+			utils.Log.Infof("Starting Fabric broker at %s:%d%s",
+				ps.serverConfig.Host, ps.serverConfig.Port, ps.serverConfig.FabricConfig.FabricEndpoint)
+			ps.ServerAvailability.Fabric = true
 			if err := bus.GetBus().StartFabricEndpoint(ps.fabricConn, *ps.serverConfig.FabricConfig.EndpointConfig); err != nil {
 				panic(err)
 			}
@@ -188,9 +155,14 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 	// spawn another goroutine to respond to syscall to shut down servers and terminate the main thread
 	go func() {
 		<-ps.SyscallChan
+		// notify subscribers that the server is shutting down
+		_ = bus.GetBus().SendResponseMessage(PLANK_SERVER_ONLINE_CHANNEL, false, nil)
 		ps.StopServer()
 		close(connClosed)
 	}()
+
+	// notify subscribers that the server is ready to interact with
+	_ = bus.GetBus().SendResponseMessage(PLANK_SERVER_ONLINE_CHANNEL, true, nil)
 
 	<-connClosed
 }
@@ -198,7 +170,7 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 // StopServer attempts to gracefully stop the HTTP and STOMP server if running
 func (ps *platformServer) StopServer() {
 	utils.Log.Infoln("Server shutting down")
-	ps.serverAvailability.http = false
+	ps.ServerAvailability.Http = false
 
 	baseCtx := context.Background()
 	shutdownCtx, cancel := context.WithTimeout(baseCtx, ps.serverConfig.ShutdownTimeoutInMinutes*time.Minute)
@@ -244,7 +216,7 @@ func (ps *platformServer) StopServer() {
 		if err != nil {
 			utils.Log.Errorln(err)
 		}
-		ps.serverAvailability.fabric = false
+		ps.ServerAvailability.Fabric = false
 	}
 
 	// wait for all teardown jobs to be done. if shutdown deadline arrives earlier
@@ -253,18 +225,24 @@ func (ps *platformServer) StopServer() {
 }
 
 // SetStaticRoute adds a route where static resources will be served
-func (ps *platformServer) SetStaticRoute(prefix, fullpath string) {
+func (ps *platformServer) SetStaticRoute(prefix, fullpath string, middlewareFn ...mux.MiddlewareFunc) {
 	ps.router.Handle(prefix, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, prefix+"/", http.StatusMovedPermanently)
 	}))
 
 	ndir := NoDirFileSystem{http.Dir(fullpath)}
-	ps.router.PathPrefix(prefix + "/").Name(fmt.Sprintf("static-%s", prefix)).Handler(http.StripPrefix(prefix,
-		middleware.BasicSecurityHeaderMiddleware.Intercept(
-			middleware.NewCacheControlWrapperMiddleware(time.Hour*0).Intercept(http.FileServer(ndir)))))
+	endpointHandlerMapKey := prefix + "*"
+	compositeHandler := http.StripPrefix(prefix,	middleware.BasicSecurityHeaderMiddleware()(http.FileServer(ndir)))
+
+	for _, mw := range middlewareFn {
+		compositeHandler = mw(compositeHandler)
+	}
+
+	ps.endpointHandlerMap[endpointHandlerMapKey] = compositeHandler.(http.HandlerFunc)
+	ps.router.PathPrefix(prefix + "/").Name(endpointHandlerMapKey).Handler(ps.endpointHandlerMap[endpointHandlerMapKey])
 }
 
-// RegisterService registers a fabric service with Bifrost
+// RegisterService registers a Fabric service with Bifrost
 func (ps *platformServer) RegisterService(svc service.FabricService, svcChannel string) error {
 	sr := service.GetServiceRegistry()
 	err := sr.RegisterService(svc, svcChannel)
@@ -330,7 +308,7 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 	ps.router.
 		Path(bridgeConfig.Uri).
 		Methods(permittedMethods...).
-		Name(fmt.Sprintf("bridge-%s-%s", bridgeConfig.Uri, bridgeConfig.Method)).
+		Name(fmt.Sprintf("%s-%s", bridgeConfig.Uri, bridgeConfig.Method)).
 		Handler(ps.endpointHandlerMap[endpointHandlerKey])
 	if !atomic.CompareAndSwapInt32(ps.routerConcurrencyProtection, 1, 0) {
 		panic("Concurrency write detected!")
@@ -347,7 +325,7 @@ func (ps *platformServer) GetMiddlewareManager() middleware.MiddlewareManager {
 }
 
 func (ps *platformServer) GetRestBridgeSubRoute(uri, method string) (*mux.Route, error) {
-	route, err := ps.getSubRoute(fmt.Sprintf("bridge-%s-%s", uri, method))
+	route, err := ps.getSubRoute(fmt.Sprintf("%s-%s", uri, method))
 	if route == nil {
 		return nil, fmt.Errorf("no route exists at %s (%s) exists", uri, method)
 	}
@@ -357,7 +335,7 @@ func (ps *platformServer) GetRestBridgeSubRoute(uri, method string) (*mux.Route,
 // CustomizeTLSConfig is used to create a customized TLS configuration for use with http.Server.
 // this function needs to be called before the server starts, otherwise it will error out.
 func (c *platformServer) CustomizeTLSConfig(tls *tls.Config) error {
-	if c.serverAvailability.http || c.serverAvailability.fabric {
+	if c.ServerAvailability.Http || c.ServerAvailability.Fabric {
 		return fmt.Errorf("TLS configuration can be provided only if the server is not running")
 	}
 	c.HttpServer.TLSConfig = tls
@@ -378,10 +356,10 @@ func (ps *platformServer) clearHttpChannelBridgesForService(serviceChannel strin
 
 	// walk over existing routes and store them temporarily EXCEPT the ones that are being overwritten which can
 	// be tracked by the service channel
-	newRouter := mux.NewRouter().Schemes("http", "https").Subrouter()
+	newRouter := mux.NewRouter().Schemes("Http", "https").Subrouter()
 	lookupMap := make(map[string]bool)
 	for _, key := range ps.serviceChanToBridgeEndpoints[serviceChannel] {
-		lookupMap["bridge-"+key] = true
+		lookupMap[key] = true
 	}
 
 	ps.router.Walk(func(r *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
@@ -428,30 +406,30 @@ func (ps *platformServer) loadGlobalHttpHandler(h *mux.Router) {
 }
 
 func (ps *platformServer) configureRobotsPath() {
-	ps.router.Path("/robots.txt").Name("robots").Handler(
-		middleware.BasicSecurityHeaderMiddleware.Intercept(
-			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				wd, _ := os.Getwd()
-				robotsFilePath := filepath.Join(wd, "robots.txt")
-				utils.Log.Debugf("Attempting to load robots.txt from %s", robotsFilePath)
+	ps.endpointHandlerMap["/robots"] = middleware.BasicSecurityHeaderMiddleware()(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			wd, _ := os.Getwd()
+			robotsFilePath := filepath.Join(wd, "robots.txt")
+			utils.Log.Debugf("Attempting to load robots.txt from %s", robotsFilePath)
 
-				// if robots.txt was not found or cannot be loaded for some reason, ignore it and return 404
-				// still, return the detailed error as a debug message to facilitate ease of troubleshooting
-				if _, err := os.Stat(robotsFilePath); err != nil {
-					utils.Log.Debugln(err)
-					http.NotFound(w, r)
-					return
-				}
+			// if robots.txt was not found or cannot be loaded for some reason, ignore it and return 404
+			// still, return the detailed error as a debug message to facilitate ease of troubleshooting
+			if _, err := os.Stat(robotsFilePath); err != nil {
+				utils.Log.Debugln(err)
+				http.NotFound(w, r)
+				return
+			}
 
-				b, err := ioutil.ReadFile(robotsFilePath)
-				if err != nil {
-					utils.Log.Debugln(err)
-					http.NotFound(w, r)
-					return
-				}
+			b, err := ioutil.ReadFile(robotsFilePath)
+			if err != nil {
+				utils.Log.Debugln(err)
+				http.NotFound(w, r)
+				return
+			}
 
-				_, _ = w.Write(b)
-			})))
+			_, _ = w.Write(b)
+		})).(http.HandlerFunc)
+	ps.router.Path("/robots.txt").Name("/robots.txt").Handler(ps.endpointHandlerMap["/robots"])
 }
 
 func (ps *platformServer) checkPortAvailability() {

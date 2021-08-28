@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 )
 
+const TRANSPORT_INTERNAL_CHANNEL_PREFIX = "_transportInternal/"
+
 // EventBus provides access to ChannelManager, simple message sending and simple API calls for handling
 // messaging and error handling over channels on the bus.
 type EventBus interface {

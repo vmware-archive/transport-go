@@ -11,8 +11,10 @@ import (
 	"github.com/vmware/transport-go/plank/pkg/middleware"
 	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/service"
+	"github.com/vmware/transport-go/stompserver"
 	"log"
 	"net/http"
+	"path/filepath"
 	"reflect"
 	"time"
 )
@@ -24,6 +26,9 @@ func (ps *platformServer) initialize() {
 
 	// initialize service registry
 	service.GetServiceRegistry()
+
+	// create essential bus channels
+	bus.GetBus().GetChannelManager().CreateChannel(PLANK_SERVER_ONLINE_CHANNEL)
 
 	// initialize HTTP endpoint handlers map
 	ps.endpointHandlerMap = map[string]http.HandlerFunc{}
@@ -49,24 +54,26 @@ func (ps *platformServer) initialize() {
 	}
 
 	// set a new route handler
-	ps.router = mux.NewRouter().Schemes("http", "https").Subrouter()
+	ps.router = mux.NewRouter().Schemes("Http", "https").Subrouter()
 
 	// register a reserved path /robots.txt for setting crawler policies
 	ps.configureRobotsPath()
 
 	// register a reserved path /health for use with container orchestration layer like k8s
-	ps.router.Path("/health").Name("health").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ps.endpointHandlerMap["/health"] = func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("OK"))
-	})
+	}
+	ps.router.Path("/health").Name("/health").Handler(ps.endpointHandlerMap["/health"])
 
 	// register a reserved path /prometheus for runtime metrics, if enabled
 	if ps.serverConfig.EnablePrometheus {
-		ps.router.Path("/prometheus").Name("prometheus").Methods(http.MethodGet).Handler(
-			middleware.BasicSecurityHeaderMiddleware.Intercept(promhttp.HandlerFor(
-				prometheus.DefaultGatherer,
-				promhttp.HandlerOpts{
-					EnableOpenMetrics: true,
-				})))
+		ps.endpointHandlerMap["/prometheus"] = middleware.BasicSecurityHeaderMiddleware()(promhttp.HandlerFor(
+			prometheus.DefaultGatherer,
+			promhttp.HandlerOpts{
+				EnableOpenMetrics: true,
+			})).(http.HandlerFunc)
+		ps.router.Path("/prometheus").Name("/prometheus").Methods(http.MethodGet).Handler(
+			ps.endpointHandlerMap["/prometheus"])
 	}
 
 	// register static paths
@@ -76,7 +83,7 @@ func (ps *platformServer) initialize() {
 		ps.SetStaticRoute(uri, p)
 	}
 
-	// create an http server instance
+	// create an Http server instance
 	ps.HttpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", ps.serverConfig.Port),
 		ReadTimeout:  60 * time.Second,
@@ -125,7 +132,7 @@ func (ps *platformServer) initialize() {
 	})
 
 	// instantiate a new middleware manager
-	ps.middlewareManager = middleware.NewMiddlewareManager(&ps.endpointHandlerMap)
+	ps.middlewareManager = middleware.NewMiddlewareManager(&ps.endpointHandlerMap, ps.router)
 
 	// create an internal bus channel to notify significant changes in sessions such as disconnect
 	if ps.serverConfig.FabricConfig != nil {
@@ -133,8 +140,62 @@ func (ps *platformServer) initialize() {
 		channelManager.CreateChannel(bus.STOMP_SESSION_NOTIFY_CHANNEL)
 	}
 
+	// configure Fabric
+	ps.configureFabric()
+
 	// print out the quick summary of the server configuration, if NoBanner is false
 	if !ps.serverConfig.NoBanner {
 		ps.printBanner()
 	}
+}
+
+func (ps *platformServer) configureFabric() {
+	var err error
+	utils.Log.Infof("Starting Fabric broker at %s:%d%s",
+		ps.serverConfig.Host, ps.serverConfig.Port, ps.serverConfig.FabricConfig.FabricEndpoint)
+
+	// TODO: consider tightening access by allowing configuring allowedOrigins
+	ps.fabricConn, err = stompserver.NewWebSocketConnectionFromExistingHttpServer(
+		ps.HttpServer,
+		ps.router,
+		ps.serverConfig.FabricConfig.FabricEndpoint,
+		nil)
+
+	// if creation of listener fails, crash and burn
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (ps *platformServer) configureSPA() {
+	if ps.serverConfig.SpaConfig == nil {
+		return
+	}
+
+	// TODO: error if the base uri conflicts with another URI registered before
+	for _, asset := range ps.serverConfig.SpaConfig.StaticAssets {
+		folderPath, uri := utils.DeriveStaticURIFromPath(asset)
+		ps.SetStaticRoute(
+			utils.SanitizeUrl(uri, false),
+			folderPath,
+			ps.serverConfig.SpaConfig.CacheControlMiddleware())
+	}
+
+	// TODO: consider handling handlers of conflicting keys
+	endpointHandlerMapKey := ps.serverConfig.SpaConfig.BaseUri + "*"
+	ps.endpointHandlerMap[endpointHandlerMapKey] = func(w http.ResponseWriter, r *http.Request) { // '*' at the end of BaseUri is to indicate it is a prefix route handler
+		resource := "index.html"
+
+		// if the URI contains an extension we treat it as access to static resources
+		if len(filepath.Ext(r.URL.Path)) > 0 {
+			resource = filepath.Clean(r.URL.Path)
+		}
+		http.ServeFile(w, r, filepath.Join(ps.serverConfig.SpaConfig.RootFolder, resource))
+	}
+
+	spaConfigCacheControlMiddleware := ps.serverConfig.SpaConfig.CacheControlMiddleware()
+	ps.router.
+		PathPrefix(ps.serverConfig.SpaConfig.BaseUri).
+		Name(endpointHandlerMapKey).
+		Handler(spaConfigCacheControlMiddleware(ps.endpointHandlerMap[endpointHandlerMapKey]))
 }

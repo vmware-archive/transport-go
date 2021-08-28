@@ -84,7 +84,7 @@ func TestNewPlatformServer_FileLog(t *testing.T) {
 }
 
 func TestPlatformServer_StartServer(t *testing.T) {
-	rsp, err := http.Get("http://localhost:9980")
+	rsp, err := http.Get("Http://localhost:9980")
 	assert.Nil(t, err)
 
 	_, err = ioutil.ReadAll(rsp.Body)
@@ -102,7 +102,7 @@ func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {
 	_ = ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
 	setupBridge(ps, "/pong", "GET", services.PingPongServiceChan, "ping-get")
 
-	rsp, err := http.Get("http://localhost:9980/pong?msg=hello")
+	rsp, err := http.Get("Http://localhost:9980/pong?msg=hello")
 	assert.Nil(t, err)
 
 	body, err := ioutil.ReadAll(rsp.Body)
@@ -114,7 +114,7 @@ func TestPlatformServer_UnknownRequest(t *testing.T) {
 	_ = ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
 	setupBridge(ps, "/ping", "GET", services.PingPongServiceChan, "bubble")
 
-	rsp, err := http.Get("http://localhost:9980/ping?msg=hello")
+	rsp, err := http.Get("Http://localhost:9980/ping?msg=hello")
 	assert.Nil(t, err)
 
 	body, err := ioutil.ReadAll(rsp.Body)

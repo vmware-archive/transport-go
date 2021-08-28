@@ -15,7 +15,7 @@ import (
 // enablePrometheus sets up /prometheus endpoint for metrics
 func enablePrometheus(ps *platformServer) {
 	ps.router.Path("/prometheus").Handler(
-		middleware.BasicSecurityHeaderMiddleware.Intercept(promhttp.HandlerFor(
+		middleware.BasicSecurityHeaderMiddleware()(promhttp.HandlerFor(
 			prometheus.DefaultGatherer,
 			promhttp.HandlerOpts{
 				EnableOpenMetrics: true,
