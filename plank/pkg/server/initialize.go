@@ -54,7 +54,7 @@ func (ps *platformServer) initialize() {
 	}
 
 	// set a new route handler
-	ps.router = mux.NewRouter().Schemes("Http", "https").Subrouter()
+	ps.router = mux.NewRouter().Schemes("http", "https").Subrouter()
 
 	// register a reserved path /robots.txt for setting crawler policies
 	ps.configureRobotsPath()
@@ -151,6 +151,10 @@ func (ps *platformServer) initialize() {
 }
 
 func (ps *platformServer) configureFabric() {
+	if ps.serverConfig.FabricConfig == nil {
+		return
+	}
+
 	var err error
 	utils.Log.Infof("Starting Fabric broker at %s:%d%s",
 		ps.serverConfig.Host, ps.serverConfig.Port, ps.serverConfig.FabricConfig.FabricEndpoint)

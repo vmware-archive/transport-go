@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -22,7 +23,7 @@ var ps PlatformServer
 
 func TestMain(m *testing.M) {
 	config = &PlatformServerConfig{
-		RootDir:                    "/tmp/",
+		RootDir:                    os.TempDir(),
 		Host:                       "localhost",
 		Port:                       9980,
 		RestBridgeTimeoutInMinutes: time.Minute,
@@ -64,27 +65,27 @@ func TestNewPlatformServer_EmptyRootDir(t *testing.T) {
 
 func TestNewPlatformServer_FileLog(t *testing.T) {
 	defer func() {
-		_ = os.Remove("/tmp/testlog.log")
+		_ = os.Remove(filepath.Join(os.TempDir(), "testlog.log"))
 	}()
 
 	newConfig := &PlatformServerConfig{
-		RootDir:                    "/tmp/",
+		RootDir:                    os.TempDir(),
 		Host:                       "localhost",
 		Port:                       80,
 		RestBridgeTimeoutInMinutes: time.Minute,
 		LogConfig: &utils.LogConfig{
-			OutputLog:     "/tmp/testlog.log",
+			OutputLog:     filepath.Join(os.TempDir(), "testlog.log"),
 			AccessLog:     "stdout",
 			ErrorLog:      "stderr",
 			FormatOptions: &utils.LogFormatOption{},
 		},
 	}
 	NewPlatformServer(newConfig)
-	assert.FileExists(t, "/tmp/testlog.log")
+	assert.FileExists(t, filepath.Join(os.TempDir(), "testlog.log"))
 }
 
 func TestPlatformServer_StartServer(t *testing.T) {
-	rsp, err := http.Get("Http://localhost:9980")
+	rsp, err := http.Get("http://localhost:9980")
 	assert.Nil(t, err)
 
 	_, err = ioutil.ReadAll(rsp.Body)
@@ -102,7 +103,7 @@ func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {
 	_ = ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
 	setupBridge(ps, "/pong", "GET", services.PingPongServiceChan, "ping-get")
 
-	rsp, err := http.Get("Http://localhost:9980/pong?msg=hello")
+	rsp, err := http.Get("http://localhost:9980/pong?msg=hello")
 	assert.Nil(t, err)
 
 	body, err := ioutil.ReadAll(rsp.Body)
@@ -114,7 +115,7 @@ func TestPlatformServer_UnknownRequest(t *testing.T) {
 	_ = ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
 	setupBridge(ps, "/ping", "GET", services.PingPongServiceChan, "bubble")
 
-	rsp, err := http.Get("Http://localhost:9980/ping?msg=hello")
+	rsp, err := http.Get("http://localhost:9980/ping?msg=hello")
 	assert.Nil(t, err)
 
 	body, err := ioutil.ReadAll(rsp.Body)
