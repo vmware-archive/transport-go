@@ -356,7 +356,7 @@ func (ps *platformServer) clearHttpChannelBridgesForService(serviceChannel strin
 
 	// walk over existing routes and store them temporarily EXCEPT the ones that are being overwritten which can
 	// be tracked by the service channel
-	newRouter := mux.NewRouter().Schemes("Http", "https").Subrouter()
+	newRouter := mux.NewRouter().Schemes("http", "https").Subrouter()
 	lookupMap := make(map[string]bool)
 	for _, key := range ps.serviceChanToBridgeEndpoints[serviceChannel] {
 		lookupMap[key] = true

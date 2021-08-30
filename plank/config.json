@@ -9,8 +9,8 @@
       "public/assets:/assets"
     ],
     "cache_control_rules": {
-      ".(js|css)$": "public, max-age=86400",
-      ".(ico|jpg|jpeg|svg|png|gif|tiff)$": "public, max-age=604800"
+      "*.{js,css}": "public, max-age=86400",
+      "*.{ico,jpg,jpeg,svg,png,gif,tiff}": "public, max-age=604800"
     }
   },
   "host": "localhost",

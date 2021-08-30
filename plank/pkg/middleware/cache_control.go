@@ -5,24 +5,42 @@ package middleware
 
 import (
 	"fmt"
+	"github.com/gobwas/glob"
 	"github.com/gorilla/mux"
 	"github.com/vmware/transport-go/plank/utils"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 )
 
-type RegexCacheControlRulePair struct {
-	RegexpString      string
+// CacheControlRulePair is a container that lumps together the glob pattern, cache control rule that should be applied to
+// for the matching pattern and the compiled glob pattern for use in runtime. see https://github.com/gobwas/glob for
+// detailed examples of glob patterns.
+type CacheControlRulePair struct {
+	GlobPattern      string
 	CacheControlRule string
-	compiledRegexp   *regexp.Regexp
+	CompiledGlobPattern glob.Glob
 }
 
+// NewCacheControlRulePair returns a new CacheControlRulePair with the provided text glob pattern and its compiled
+// counterpart and the cache control rule.
+func NewCacheControlRulePair(globPattern string, cacheControlRule string) (CacheControlRulePair, error) {
+	var err error
+	pair := CacheControlRulePair{
+		GlobPattern:         globPattern,
+		CacheControlRule:    cacheControlRule,
+	}
+
+	pair.CompiledGlobPattern, err = glob.Compile(globPattern)
+	return pair, err
+}
+
+// CacheControlDirective is a data structure that represents the entry for Cache-Control rules
 type CacheControlDirective struct {
 	directives []string
 }
 
+// NewCacheControlDirective returns creates a new instance of CacheControlDirective and returns its pointer
 func NewCacheControlDirective() *CacheControlDirective {
 	return &CacheControlDirective{}
 }
@@ -96,36 +114,40 @@ func (c *CacheControlDirective) String() string {
 	return strings.Join(c.directives, ", ")
 }
 
-func CacheControlWrapperMiddleware(regExpressions []string, directive *CacheControlDirective) mux.MiddlewareFunc {
-	parsed := parseRegexpString(regExpressions)
+// CacheControlMiddleware is the middleware function to be provided as a parameter to mux.Handler()
+func CacheControlMiddleware(globPatterns []string, directive *CacheControlDirective) mux.MiddlewareFunc {
+	parsed := parseGlobPatterns(globPatterns)
 	return func(handler http.Handler) http.Handler {
 		return cacheControlWrapper(handler, parsed, directive)
 	}
 }
 
-func parseRegexpString(regExpressions []string) []*regexp.Regexp {
-	results := make([]*regexp.Regexp, 0)
-	for _, exp := range regExpressions {
-		regex, err := regexp.Compile(exp)
+// parseGlobPatterns takes an array of glob patterns and returns an array of glob.Glob instances
+func parseGlobPatterns(globPatterns []string) []glob.Glob {
+	results := make([]glob.Glob, 0)
+	for _, exp := range globPatterns {
+		globP, err := glob.Compile(exp)
 		if err != nil {
-			utils.Log.Errorln("Invalid regular expression provided as cache control matcher rule", err)
+			utils.Log.Errorln("Ignoring invalid glob pattern provided as cache control matcher rule", err)
 			continue
 		}
-		results = append(results, regex)
+		results = append(results, globP)
 	}
 	return results
 }
 
-func cacheControlWrapper(h http.Handler, regexps []*regexp.Regexp, directive *CacheControlDirective) http.Handler {
+// cacheControlWrapper is the internal function that actually performs the adding of cache control rules based on
+// glob pattern matching and the rules provided.
+func cacheControlWrapper(h http.Handler, globs []glob.Glob, directive *CacheControlDirective) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(regexps) == 0 {
+		if len(globs) == 0 {
 			h.ServeHTTP(w, r)
 			return
 		}
 
 		uriMatches := false
-		for _, exp := range regexps {
-			if uriMatches = exp.MatchString(r.RequestURI); uriMatches {
+		for _, glob := range globs {
+			if uriMatches = glob.Match(r.RequestURI); uriMatches {
 				break
 			}
 		}

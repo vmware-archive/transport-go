@@ -5,6 +5,7 @@ package server
 
 import (
 	"github.com/gorilla/mux"
+	"github.com/vmware/transport-go/plank/pkg/middleware"
 	"github.com/vmware/transport-go/plank/utils"
 	"net/http"
 	"regexp"
@@ -20,7 +21,7 @@ type SpaConfig struct {
 	StaticAssets      []string          `json:"static_assets"` // locations for static assets used by the SPA
 	CacheControlRules map[string]string `json:"cache_control_rules"` // map holding glob pattern - cache-control header value
 
-	regexCacheControlRulePair []*regexCacheControlRulePair
+	cacheControlRulePairs []middleware.CacheControlRulePair
 }
 
 type regexCacheControlRulePair struct {
@@ -36,26 +37,23 @@ func NewSpaConfig(input string) (spaConfig *SpaConfig, err error) {
 		RootFolder:                p,
 		BaseUri:                   uri,
 		CacheControlRules:         make(map[string]string),
-		regexCacheControlRulePair: make([]*regexCacheControlRulePair, 0),
+		cacheControlRulePairs: make([]middleware.CacheControlRulePair, 0),
 	}
 
 	spaConfig.CollateCacheControlRules()
-	return spaConfig, nil
+	return spaConfig, err
 }
 
-// CollateCacheControlRules converts the regular expressions for cache control rules in plain text format
-// into regular expression objects and store them as an array.
+// CollateCacheControlRules compiles glob patterns and stores them as an array.
 func (s *SpaConfig) CollateCacheControlRules() {
-	for regexpTxt, rule := range s.CacheControlRules {
-		exp, err := regexp.Compile(regexpTxt)
+	for globP, rule := range s.CacheControlRules {
+		pair, err := middleware.NewCacheControlRulePair(globP, rule)
 		if err != nil {
-			utils.Log.Errorln("Invalid regular expression provided as cache control matcher rule", err)
+			utils.Log.Errorln("Ignoring invalid glob pattern provided as cache control matcher rule", err)
 			continue
 		}
-		s.regexCacheControlRulePair = append(s.regexCacheControlRulePair, &regexCacheControlRulePair{
-			regex: exp,
-			cacheControlRule: rule,
-		})
+
+		s.cacheControlRulePairs = append(s.cacheControlRulePairs, pair)
 	}
 }
 
@@ -64,9 +62,9 @@ func (s *SpaConfig) CacheControlMiddleware() mux.MiddlewareFunc {
 	return func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// apply cache control rule that matches first
-			for _, pair := range s.regexCacheControlRulePair {
-				if pair.regex.MatchString(r.RequestURI) {
-					w.Header().Set("Cache-Control", pair.cacheControlRule)
+			for _, pair := range s.cacheControlRulePairs {
+				if pair.CompiledGlobPattern.Match(r.RequestURI) {
+					w.Header().Set("Cache-Control", pair.CacheControlRule)
 					break
 				}
 			}

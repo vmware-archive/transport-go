@@ -63,7 +63,8 @@ func (ps *platformServer) initialize() {
 	ps.endpointHandlerMap["/health"] = func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("OK"))
 	}
-	ps.router.Path("/health").Name("/health").Handler(ps.endpointHandlerMap["/health"])
+	ps.router.Path("/health").Name("/health").Handler(
+		middleware.CacheControlMiddleware([]string{"/health"}, middleware.NewCacheControlDirective().NoStore())(ps.endpointHandlerMap["/health"]))
 
 	// register a reserved path /prometheus for runtime metrics, if enabled
 	if ps.serverConfig.EnablePrometheus {

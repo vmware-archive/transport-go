@@ -78,7 +78,7 @@ func (m *middlewareManager) SetNewMiddleware(route *mux.Route, middleware []mux.
 	route.Handler(handler)
 
 	for _, mw := range middleware {
-		utils.Log.Debugf("middleware '%s' registered for %s", mw, key)
+		utils.Log.Debugf("middleware '%v' registered for %s", mw, key)
 	}
 
 	utils.Log.Infof("New middleware configured for REST bridge at %s", key)
