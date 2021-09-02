@@ -17,7 +17,6 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"path/filepath"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -403,33 +402,6 @@ func (ps *platformServer) loadGlobalHttpHandler(h *mux.Router) {
 			handlers.ProxyHeaders(
 				handlers.CombinedLoggingHandler(
 					ps.serverConfig.LogConfig.GetAccessLogFilePointer(), ps.router))))
-}
-
-func (ps *platformServer) configureRobotsPath() {
-	ps.endpointHandlerMap["/robots"] = middleware.BasicSecurityHeaderMiddleware()(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			wd, _ := os.Getwd()
-			robotsFilePath := filepath.Join(wd, "robots.txt")
-			utils.Log.Debugf("Attempting to load robots.txt from %s", robotsFilePath)
-
-			// if robots.txt was not found or cannot be loaded for some reason, ignore it and return 404
-			// still, return the detailed error as a debug message to facilitate ease of troubleshooting
-			if _, err := os.Stat(robotsFilePath); err != nil {
-				utils.Log.Debugln(err)
-				http.NotFound(w, r)
-				return
-			}
-
-			b, err := ioutil.ReadFile(robotsFilePath)
-			if err != nil {
-				utils.Log.Debugln(err)
-				http.NotFound(w, r)
-				return
-			}
-
-			_, _ = w.Write(b)
-		})).(http.HandlerFunc)
-	ps.router.Path("/robots.txt").Name("/robots.txt").Handler(ps.endpointHandlerMap["/robots"])
 }
 
 func (ps *platformServer) checkPortAvailability() {

@@ -56,9 +56,6 @@ func (ps *platformServer) initialize() {
 	// set a new route handler
 	ps.router = mux.NewRouter().Schemes("http", "https").Subrouter()
 
-	// register a reserved path /robots.txt for setting crawler policies
-	ps.configureRobotsPath()
-
 	// register a reserved path /health for use with container orchestration layer like k8s
 	ps.endpointHandlerMap["/health"] = func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("OK"))
