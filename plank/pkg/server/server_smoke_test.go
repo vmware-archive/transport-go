@@ -9,19 +9,18 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
-	"time"
 )
 
-var eventbus bus.EventBus
+var eventbus = bus.GetBus()
 
 func TestSmokeTests(t *testing.T) {
-	eventbus = bus.NewEventBusInstance()
 	testRoot := filepath.Join(os.TempDir(), "plank-tests")
 	//testOutFile := filepath.Join(testRoot, "plank-server-tests.log")
 	_ = os.MkdirAll(testRoot, 0755)
 	defer os.RemoveAll(testRoot)
 
-	cfg := getBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", 9981)
+	cfg := getBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", 9981, true)
+	cfg.NoBanner = true
 	cfg.FabricConfig = &FabricBrokerConfig{
 		FabricEndpoint: "/ws",
 		EndpointConfig: &bus.EndpointConfig{
@@ -38,36 +37,35 @@ func TestSmokeTests(t *testing.T) {
 
 	syschan := make(chan os.Signal, 1)
 	go testServer.StartServer(syschan)
-	time.Sleep(1 * time.Second)
+	runWhenServerReady(t, eventbus, func(t *testing.T) {
+		// root url - 404
+		t.Run("404 on root", func(t2 *testing.T) {
+			cl := http.DefaultClient
+			rsp, err := cl.Get(baseUrl)
+			assert.Nil(t2, err)
+			assert.EqualValues(t2, 404, rsp.StatusCode)
+		})
 
-	// root url - 404
-	t.Run("404 on root", func(t2 *testing.T) {
-		cl := http.DefaultClient
-		rsp, err := cl.Get(baseUrl)
-		assert.Nil(t2, err)
-		assert.EqualValues(t2, 404, rsp.StatusCode)
+		// connection to fabric endpoint
+		t.Run("fabric endpoint should exist", func(t2 *testing.T) {
+			cl := http.DefaultClient
+			rsp, err := cl.Get(fmt.Sprintf("%s/ws", baseUrl))
+			assert.Nil(t2, err)
+			assert.EqualValues(t2, 400, rsp.StatusCode)
+		})
+
+		// (in separate test suites)
+		// 1.
+		syschan <- syscall.SIGINT
 	})
-
-	// connection to fabric endpoint
-	t.Run("fabric endpoint should exist", func(t2 *testing.T) {
-		cl := http.DefaultClient
-		rsp, err := cl.Get(fmt.Sprintf("%s/ws", baseUrl))
-		assert.Nil(t2, err)
-		assert.EqualValues(t2, 400, rsp.StatusCode)
-	})
-
-	// (in separate test suites)
-	// 1.
-	syschan <- syscall.SIGINT
 }
 
 func TestSmokeTests_NoFabric(t *testing.T) {
-	eventbus = bus.NewEventBusInstance()
 	testRoot := filepath.Join(os.TempDir(), "plank-tests")
 	_ = os.MkdirAll(testRoot, 0755)
 	defer os.RemoveAll(testRoot)
 
-	cfg := getBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", 9981)
+	cfg := getBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", 9981, true)
 	cfg.FabricConfig = nil
 	baseUrl, _, testServer := createTestServer(cfg)
 
@@ -75,15 +73,15 @@ func TestSmokeTests_NoFabric(t *testing.T) {
 
 	syschan := make(chan os.Signal, 1)
 	go testServer.StartServer(syschan)
-	time.Sleep(1 * time.Second)
+	runWhenServerReady(t, eventbus, func(t *testing.T) {
+		// fabric - 404
+		t.Run("404 on fabric endpoint", func(t2 *testing.T) {
+			cl := http.DefaultClient
+			rsp, err := cl.Get(fmt.Sprintf("%s/ws", baseUrl))
+			assert.Nil(t2, err)
+			assert.EqualValues(t2, 404, rsp.StatusCode)
+		})
 
-	// fabric - 404
-	t.Run("404 on fabric endpoint", func(t2 *testing.T) {
-		cl := http.DefaultClient
-		rsp, err := cl.Get(fmt.Sprintf("%s/ws", baseUrl))
-		assert.Nil(t2, err)
-		assert.EqualValues(t2, 404, rsp.StatusCode)
+		syschan <- syscall.SIGINT
 	})
-
-	syschan <- syscall.SIGINT
 }

@@ -6,40 +6,26 @@ package server
 import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/plank/services"
-	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/service"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 var config *PlatformServerConfig
 var ps PlatformServer
 
 func TestMain(m *testing.M) {
-	config = &PlatformServerConfig{
-		RootDir:                    os.TempDir(),
-		Host:                       "localhost",
-		Port:                       9980,
-		RestBridgeTimeoutInMinutes: time.Minute,
-		LogConfig: &utils.LogConfig{
-			OutputLog:     "stdout",
-			AccessLog:     "stdout",
-			ErrorLog:      "stderr",
-			FormatOptions: &utils.LogFormatOption{},
-		},
-	}
+	config = getBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", 9980, true)
 	ps = NewPlatformServer(config)
 	syschan := make(chan os.Signal, 1)
 	go ps.StartServer(syschan)
-	time.Sleep(2 * time.Second)
-
-	os.Exit(m.Run())
+	os.Exit(runTestMainWhenServerReady(m, bus.GetBus()))
 }
 
 func TestNewPlatformServer(t *testing.T) {
@@ -47,17 +33,7 @@ func TestNewPlatformServer(t *testing.T) {
 }
 
 func TestNewPlatformServer_EmptyRootDir(t *testing.T) {
-	newConfig := &PlatformServerConfig{
-		Host:                       "localhost",
-		Port:                       80,
-		RestBridgeTimeoutInMinutes: time.Minute,
-		LogConfig: &utils.LogConfig{
-			OutputLog:     "stdout",
-			AccessLog:     "stdout",
-			ErrorLog:      "stderr",
-			FormatOptions: &utils.LogFormatOption{},
-		},
-	}
+	newConfig := getBasicTestServerConfig("", "stdout", "stdout", "stderr", 80, true)
 	NewPlatformServer(newConfig)
 	wd, _ := os.Getwd()
 	assert.Equal(t, wd, newConfig.RootDir)
@@ -68,18 +44,7 @@ func TestNewPlatformServer_FileLog(t *testing.T) {
 		_ = os.Remove(filepath.Join(os.TempDir(), "testlog.log"))
 	}()
 
-	newConfig := &PlatformServerConfig{
-		RootDir:                    os.TempDir(),
-		Host:                       "localhost",
-		Port:                       80,
-		RestBridgeTimeoutInMinutes: time.Minute,
-		LogConfig: &utils.LogConfig{
-			OutputLog:     filepath.Join(os.TempDir(), "testlog.log"),
-			AccessLog:     "stdout",
-			ErrorLog:      "stderr",
-			FormatOptions: &utils.LogFormatOption{},
-		},
-	}
+	newConfig := getBasicTestServerConfig(os.TempDir(), filepath.Join(os.TempDir(), "testlog.log"), "stdout", "stderr", 80, true)
 	NewPlatformServer(newConfig)
 	assert.FileExists(t, filepath.Join(os.TempDir(), "testlog.log"))
 }
