@@ -15,7 +15,6 @@ import (
 )
 
 const (
-    TRANSPORT_INTERNAL_CHANNEL_PREFIX = "_transportInternal/"
     STOMP_SESSION_NOTIFY_CHANNEL = TRANSPORT_INTERNAL_CHANNEL_PREFIX + "stomp-session-notify"
 )
 

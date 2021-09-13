@@ -25,8 +25,8 @@ type PlatformServerConfig struct {
 	SpaConfig                  *SpaConfig          `json:"spa_config"`                     // single page application configuration
 	Host                       string              `json:"host"`                           // hostname for the server
 	Port                       int                 `json:"port"`                           // port for the server
-	LogConfig                  *utils.LogConfig    `json:"log_config"`                     // log configuration (plank, http access and error logs)
-	FabricConfig               *FabricBrokerConfig `json:"fabric_config"`                  // fabric (websocket) configuration
+	LogConfig                  *utils.LogConfig    `json:"log_config"`                     // log configuration (plank, Http access and error logs)
+	FabricConfig               *FabricBrokerConfig `json:"fabric_config"`                  // Fabric (websocket) configuration
 	TLSCertConfig              *TLSCertConfig      `json:"tls_config"`                     // TLS certificate configuration
 	EnablePrometheus           bool                `json:"enable_prometheus"`              // whether to enable Prometheus for runtime metrics
 	Debug                      bool                `json:"debug"`                          // enable debug logging
@@ -50,19 +50,19 @@ type FabricBrokerConfig struct {
 
 // PlatformServer exposes public API methods that control the behavior of the Plank instance.
 type PlatformServer interface {
-	StartServer(syschan chan os.Signal)                                 // start server
-	StopServer()                                                        // stop server
-	RegisterService(svc service.FabricService, svcChannel string) error // register a new service at given channel
-	SetHttpChannelBridge(bridgeConfig *service.RESTBridgeConfig)        // set up a REST bridge for a service
-	SetStaticRoute(prefix, fullpath string)                             // set up a static content route
-	CustomizeTLSConfig(tls *tls.Config) error                           // used to replace default tls.Config for HTTP server with a custom config
-	GetRestBridgeSubRoute(uri, method string) (*mux.Route, error)       // get *mux.Route that maps to the provided uri and method
-	GetMiddlewareManager() middleware.MiddlewareManager                 // get middleware manager
+	StartServer(syschan chan os.Signal)                                         // start server
+	StopServer()                                                                // stop server
+	RegisterService(svc service.FabricService, svcChannel string) error         // register a new service at given channel
+	SetHttpChannelBridge(bridgeConfig *service.RESTBridgeConfig)                // set up a REST bridge for a service
+	SetStaticRoute(prefix, fullpath string, middlewareFn ...mux.MiddlewareFunc) // set up a static content route
+	CustomizeTLSConfig(tls *tls.Config) error                                   // used to replace default tls.Config for HTTP server with a custom config
+	GetRestBridgeSubRoute(uri, method string) (*mux.Route, error)               // get *mux.Route that maps to the provided uri and method
+	GetMiddlewareManager() middleware.MiddlewareManager                         // get middleware manager
 }
 
 // platformServer is the main struct that holds all components together including servers, various managers etc.
 type platformServer struct {
-	HttpServer                   *http.Server                      // http server instance
+	HttpServer                   *http.Server                      // Http server instance
 	SyscallChan                  chan os.Signal                    // syscall channel to receive SIGINT, SIGKILL events
 	serverConfig                 *PlatformServerConfig             // server config instance
 	middlewareManager            middleware.MiddlewareManager      // middleware maanger instance
@@ -72,7 +72,7 @@ type platformServer struct {
 	endpointHandlerMap           map[string]http.HandlerFunc       // internal map to store rest endpoint -handler mappings
 	serviceChanToBridgeEndpoints map[string][]string               // internal map to store service channel - endpoint handler key mappings
 	fabricConn                   stompserver.RawConnectionListener // WebSocket listener instance
-	serverAvailability           *serverAvailability               // server availability (not much used other than for internal monitoring for now)
+	ServerAvailability           *ServerAvailability               // server availability (not much used other than for internal monitoring for now)
 	lock                         sync.Mutex                        // lock
 }
 
@@ -82,8 +82,8 @@ type transportChannelResponse struct {
 	err     error          // error object if there is any
 }
 
-// serverAvailability contains boolean fields to indicate what components of the system are available or not
-type serverAvailability struct {
-	http   bool // http server availability
-	fabric bool // stomp broker availability
+// ServerAvailability contains boolean fields to indicate what components of the system are available or not
+type ServerAvailability struct {
+	Http   bool // Http server availability
+	Fabric bool // stomp broker availability
 }

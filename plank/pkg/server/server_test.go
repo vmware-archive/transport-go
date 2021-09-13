@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -22,7 +23,7 @@ var ps PlatformServer
 
 func TestMain(m *testing.M) {
 	config = &PlatformServerConfig{
-		RootDir:                    "/tmp/",
+		RootDir:                    os.TempDir(),
 		Host:                       "localhost",
 		Port:                       9980,
 		RestBridgeTimeoutInMinutes: time.Minute,
@@ -64,23 +65,23 @@ func TestNewPlatformServer_EmptyRootDir(t *testing.T) {
 
 func TestNewPlatformServer_FileLog(t *testing.T) {
 	defer func() {
-		_ = os.Remove("/tmp/testlog.log")
+		_ = os.Remove(filepath.Join(os.TempDir(), "testlog.log"))
 	}()
 
 	newConfig := &PlatformServerConfig{
-		RootDir:                    "/tmp/",
+		RootDir:                    os.TempDir(),
 		Host:                       "localhost",
 		Port:                       80,
 		RestBridgeTimeoutInMinutes: time.Minute,
 		LogConfig: &utils.LogConfig{
-			OutputLog:     "/tmp/testlog.log",
+			OutputLog:     filepath.Join(os.TempDir(), "testlog.log"),
 			AccessLog:     "stdout",
 			ErrorLog:      "stderr",
 			FormatOptions: &utils.LogFormatOption{},
 		},
 	}
 	NewPlatformServer(newConfig)
-	assert.FileExists(t, "/tmp/testlog.log")
+	assert.FileExists(t, filepath.Join(os.TempDir(), "testlog.log"))
 }
 
 func TestPlatformServer_StartServer(t *testing.T) {

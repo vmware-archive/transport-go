@@ -58,6 +58,9 @@ func generatePlatformServerConfig(f *serverConfigFactory) (*PlatformServerConfig
 		// the raw value from the config.json needs to be multiplied by time.Minute otherwise it's interpreted as nanosecond
 		serverConfig.RestBridgeTimeoutInMinutes = serverConfig.RestBridgeTimeoutInMinutes * time.Minute
 
+		// convert map of cache control rules of SpaConfig into an array
+		serverConfig.SpaConfig.CollateCacheControlRules()
+
 		return &serverConfig, nil
 	}
 
@@ -108,7 +111,7 @@ func generatePlatformServerConfig(f *serverConfigFactory) (*PlatformServerConfig
 		}
 	}
 
-	// unless --no-fabric-broker flag is provided, set up a broker config
+	// unless --no-Fabric-broker flag is provided, set up a broker config
 	if !noFabricBroker {
 		serverConfig.FabricConfig = &FabricBrokerConfig{
 			FabricEndpoint: fabricEndpoint,

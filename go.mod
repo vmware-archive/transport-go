@@ -7,12 +7,12 @@ require (
 	github.com/fatih/color v1.12.0
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-stomp/stomp v2.1.4+incompatible
+	github.com/gobwas/glob v0.2.3
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
-	github.com/magefile/mage v1.11.0 // indirect
 	github.com/mattn/go-isatty v0.0.13 // indirect
 	github.com/prometheus/client_golang v1.6.0
 	github.com/robfig/cron/v3 v3.0.1
