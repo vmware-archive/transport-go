@@ -2,8 +2,6 @@ name: Transport Post-merge pipeline
 
 on:
   push:
-    paths-ignore:
-      - plank/**/*
     branches:
       - main
 
