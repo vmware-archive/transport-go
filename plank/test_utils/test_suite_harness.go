@@ -1,3 +1,6 @@
+// Copyright 2021 VMware, Inc.
+// SPDX-License-Identifier: BSD-2-Clause
+
 package test_utils
 
 import (
@@ -33,7 +36,7 @@ type PlankIntegrationTestSuite struct {
 }
 
 // PlankIntegrationTest allows test suites that use PlankIntegrationTestSuite as an embedded struct to set everything
-// we need on our test.
+// we need on our test. This is the only contract required to use this harness.
 type PlankIntegrationTest interface {
 	SetPlatformServer(server.PlatformServer)
 	SetSysChan(chan os.Signal)
@@ -49,6 +52,8 @@ func SetupPlankTestSuiteForTest(suite *PlankIntegrationTestSuite, test PlankInte
 	test.SetBus(suite.EventBus)
 }
 
+// SetupPlankTestSuite will boot a new instance of plank on your chosen port and will also fire up your service
+// Ready to be tested. This always runs on localhost.
 func SetupPlankTestSuite(service service.FabricService, serviceChannel string, port int) (*PlankIntegrationTestSuite, error) {
 
 	s := &PlankIntegrationTestSuite{}
