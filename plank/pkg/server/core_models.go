@@ -55,9 +55,11 @@ type PlatformServer interface {
 	RegisterService(svc service.FabricService, svcChannel string) error         // register a new service at given channel
 	SetHttpChannelBridge(bridgeConfig *service.RESTBridgeConfig)                // set up a REST bridge for a service
 	SetStaticRoute(prefix, fullpath string, middlewareFn ...mux.MiddlewareFunc) // set up a static content route
+	SetHttpPathPrefixChannelBridge(bridgeConfig *service.RESTBridgeConfig)      // set up a REST bridge for a path prefix for a service.
 	CustomizeTLSConfig(tls *tls.Config) error                                   // used to replace default tls.Config for HTTP server with a custom config
 	GetRestBridgeSubRoute(uri, method string) (*mux.Route, error)               // get *mux.Route that maps to the provided uri and method
 	GetMiddlewareManager() middleware.MiddlewareManager                         // get middleware manager
+
 }
 
 // platformServer is the main struct that holds all components together including servers, various managers etc.
@@ -76,10 +78,10 @@ type platformServer struct {
 	lock                         sync.Mutex                        // lock
 }
 
-// transportChannelResponse wraps Transport *message.Message with an error object for easier transfer
-type transportChannelResponse struct {
-	message *model.Message // wrapper object that contains the payload
-	err     error          // error object if there is any
+// TransportChannelResponse wraps Transport *Message.Message with an error object for easier transfer
+type TransportChannelResponse struct {
+	Message *model.Message // wrapper object that contains the payload
+	Err     error          // error object if there is any
 }
 
 // ServerAvailability contains boolean fields to indicate what components of the system are available or not

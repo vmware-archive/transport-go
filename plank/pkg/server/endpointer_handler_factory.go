@@ -35,11 +35,11 @@ func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, 
 
 		// set up a channel through which to receive the raw response from transport channel
 		// handler function runs in another thread so we need to utilize channel to use the correct writer.
-		chanReturn := make(chan *transportChannelResponse)
+		chanReturn := make(chan *TransportChannelResponse)
 		h.Handle(func(message *model.Message) {
-			chanReturn <- &transportChannelResponse{message: message}
+			chanReturn <- &TransportChannelResponse{Message: message}
 		}, func(err error) {
-			chanReturn <- &transportChannelResponse{err: err}
+			chanReturn <- &TransportChannelResponse{Err: err}
 		})
 
 		// relay the request to transport channel
@@ -52,16 +52,15 @@ func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, 
 		case <-ctx.Done():
 			http.Error(
 				w,
-				fmt.Sprintf("No response received from service channel in %s, request timed out", restBridgeTimeout.String(),
-			), 500)
+				fmt.Sprintf("No response received from service channel in %s, request timed out", restBridgeTimeout.String()), 500)
 		case chanResponse := <-chanReturn:
-			if chanResponse.err != nil {
-				utils.Log.WithError(chanResponse.err).Errorf(
+			if chanResponse.Err != nil {
+				utils.Log.WithError(chanResponse.Err).Errorf(
 					"Error received from channel %s:", svcChannel)
-				http.Error(w, chanResponse.err.Error(), 500)
+				http.Error(w, chanResponse.Err.Error(), 500)
 			} else {
 				// only send the actual user payload not wrapper information
-				response := chanResponse.message.Payload.(*model.Response)
+				response := chanResponse.Message.Payload.(*model.Response)
 				var respBody interface{}
 				if response.Error {
 					if response.Payload != nil {
@@ -77,7 +76,7 @@ func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, 
 					//"payload": respBody, // don't show this, we may be sending around big byte arrays
 				}).Debugf("Response received from channel %s:", svcChannel)
 
-				// if our message is an error and it has a code, lets send that back to the client.
+				// if our Message is an error and it has a code, lets send that back to the client.
 				if response.Error {
 
 					// we have to set the headers for the error response
@@ -123,4 +122,3 @@ func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, 
 		}
 	}
 }
-
