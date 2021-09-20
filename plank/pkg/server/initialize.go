@@ -153,9 +153,6 @@ func (ps *platformServer) configureFabric() {
 	}
 
 	var err error
-	utils.Log.Infof("[plank] Starting Transport broker at %s:%d%s",
-		ps.serverConfig.Host, ps.serverConfig.Port, ps.serverConfig.FabricConfig.FabricEndpoint)
-
 	// TODO: consider tightening access by allowing configuring allowedOrigins
 	ps.fabricConn, err = stompserver.NewWebSocketConnectionFromExistingHttpServer(
 		ps.HttpServer,
