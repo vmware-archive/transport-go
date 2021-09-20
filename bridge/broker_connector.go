@@ -4,11 +4,11 @@
 package bridge
 
 import (
-    "fmt"
-    "github.com/go-stomp/stomp"
-    "github.com/google/uuid"
-    "net/url"
-    "sync"
+	"fmt"
+	"github.com/go-stomp/stomp/v3"
+	"github.com/google/uuid"
+	"net/url"
+	"sync"
 )
 
 // BrokerConnector is used to connect to a message broker over TCP or WebSocket.
@@ -99,21 +99,21 @@ func (bc *brokerConnector) connectWs(config *BrokerConnectorConfig, enableLoggin
 		wsScheme += "s"
 	}
 
-    u := url.URL{Scheme: wsScheme, Host: config.ServerAddr, Path: config.WebSocketConfig.WSPath}
-    c := NewBridgeWsClient(enableLogging)
-    err := c.Connect(&u, config)
-    if err != nil {
-        return nil, fmt.Errorf("cannot connect to host '%s' via path '%s', stopping", config.ServerAddr, config.WebSocketConfig.WSPath)
-    }
-    id := uuid.New()
-    bcConn := &connection{
-        id:             &id,
-        wsConn:         c,
-        subscriptions:  make(map[string]Subscription),
-        useWs:          true,
-        connLock:       sync.Mutex{},
-        disconnectChan: make(chan bool)}
-    bc.c = bcConn
-    bc.connected = true
-    return bcConn, nil
+	u := url.URL{Scheme: wsScheme, Host: config.ServerAddr, Path: config.WebSocketConfig.WSPath}
+	c := NewBridgeWsClient(enableLogging)
+	err := c.Connect(&u, config)
+	if err != nil {
+		return nil, fmt.Errorf("cannot connect to host '%s' via path '%s', stopping", config.ServerAddr, config.WebSocketConfig.WSPath)
+	}
+	id := uuid.New()
+	bcConn := &connection{
+		id:             &id,
+		wsConn:         c,
+		subscriptions:  make(map[string]Subscription),
+		useWs:          true,
+		connLock:       sync.Mutex{},
+		disconnectChan: make(chan bool)}
+	bc.c = bcConn
+	bc.connected = true
+	return bcConn, nil
 }
