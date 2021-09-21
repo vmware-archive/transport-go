@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	imgcolor "image/color"
+	"os"
 	"runtime"
 
 	"github.com/eliukblau/pixterm/pkg/ansimage"
@@ -16,77 +17,80 @@ var logoFs embed.FS
 
 // printBanner prints out banner as well as brief server config
 func (ps *platformServer) printBanner() {
-	fmt.Printf("\n\n")
-	fs, _ := logoFs.Open("logo.png")
-	defer fs.Close()
-	img, err := ansimage.NewScaledFromReader(
-		fs,
-		40,
-		80,
-		imgcolor.Transparent,
-		ansimage.ScaleModeResize,
-		ansimage.NoDithering)
-	if err != nil {
-		panic(err)
+	// print out ascii art only if output is stdout
+	if ps.out == os.Stdout {
+		_, _ = fmt.Fprintf(ps.out, "\n\n")
+		fs, _ := logoFs.Open("logo.png")
+		defer fs.Close()
+		img, err := ansimage.NewScaledFromReader(
+			fs,
+			40,
+			80,
+			imgcolor.Transparent,
+			ansimage.ScaleModeResize,
+			ansimage.NoDithering)
+		if err != nil {
+			panic(err)
+		}
+		// print out logo in ASCII art
+		img.SetMaxProcs(runtime.NumCPU())
+		img.Draw()
 	}
-	// print out logo in ASCII art
-	img.SetMaxProcs(runtime.NumCPU())
-	img.Draw()
 
 	// display title and config summary
-	fmt.Println()
+	_, _ = fmt.Fprintln(ps.out)
 	color.Set(color.BgHiWhite, color.FgHiBlack, color.Bold)
-	fmt.Printf(" P L A N K ")
+	_, _ = fmt.Fprintf(ps.out, " P L A N K ")
 	color.Unset()
-	fmt.Println()
-	utils.Infof("Host\t\t\t")
-	fmt.Println(ps.serverConfig.Host)
-	utils.Infof("Port\t\t\t")
-	fmt.Println(ps.serverConfig.Port)
+	_, _ = fmt.Fprintln(ps.out)
+	utils.InfoFprintf(ps.out, "Host\t\t\t")
+	_, _ = fmt.Fprintln(ps.out, ps.serverConfig.Host)
+	utils.InfoFprintf(ps.out, "Port\t\t\t")
+	_, _ = fmt.Fprintln(ps.out, ps.serverConfig.Port)
 
 	if ps.serverConfig.FabricConfig != nil {
-		utils.Infof("Fabric endpoint\t\t")
-		fmt.Println(ps.serverConfig.FabricConfig.FabricEndpoint)
+		utils.InfoFprintf(ps.out, "Fabric endpoint\t\t")
+		_, _ = fmt.Fprintln(ps.out, ps.serverConfig.FabricConfig.FabricEndpoint)
 	}
 
 	if len(ps.serverConfig.StaticDir) > 0 {
-		utils.Infof("Static endpoints\t")
+		utils.InfoFprintf(ps.out, "Static endpoints\t")
 		for i, dir := range ps.serverConfig.StaticDir {
 			_, p := utils.DeriveStaticURIFromPath(dir)
-			fmt.Print(p)
+			_, _ = fmt.Fprint(ps.out, p)
 			if i < len(ps.serverConfig.StaticDir)-1 {
-				fmt.Print(", ")
+				_, _ = fmt.Fprint(ps.out, ", ")
 			} else {
-				fmt.Print("\n")
+				_, _ = fmt.Fprint(ps.out, "\n")
 			}
 		}
 	}
 
 	if ps.serverConfig.SpaConfig != nil {
-		utils.Infof("SPA endpoint\t\t")
-		fmt.Println(ps.serverConfig.SpaConfig.BaseUri)
-		utils.Infof("SPA static assets\t")
+		utils.InfoFprintf(ps.out, "SPA endpoint\t\t")
+		_, _ = fmt.Fprintln(ps.out, ps.serverConfig.SpaConfig.BaseUri)
+		utils.InfoFprintf(ps.out, "SPA static assets\t")
 		if len(ps.serverConfig.SpaConfig.StaticAssets) == 0 {
-			fmt.Print("-")
+			_, _ = fmt.Fprint(ps.out, "-")
 		}
 		for idx, asset := range ps.serverConfig.SpaConfig.StaticAssets {
 			_, uri := utils.DeriveStaticURIFromPath(asset)
-			fmt.Print(utils.SanitizeUrl(uri, false))
+			_, _ = fmt.Fprint(ps.out, utils.SanitizeUrl(uri, false))
 			if idx < len(ps.serverConfig.SpaConfig.StaticAssets)-1 {
-				fmt.Print(", ")
+				_, _ = fmt.Fprint(ps.out, ", ")
 			}
 		}
-		fmt.Println()
+		_, _ = fmt.Fprintln(ps.out)
 	}
 
-	utils.Infof("Health endpoint\t\t")
-	fmt.Println("/health")
+	utils.InfoFprintf(ps.out, "Health endpoint\t\t")
+	_, _ = fmt.Fprintln(ps.out, "/health")
 
 	if ps.serverConfig.EnablePrometheus {
-		utils.Infof("Prometheus endpoint\t")
-		fmt.Println("/prometheus")
+		utils.InfoFprintf(ps.out, "Prometheus endpoint\t")
+		_, _ = fmt.Fprintln(ps.out, "/prometheus")
 	}
 
-	fmt.Println()
+	_, _ = fmt.Fprintln(ps.out)
 
 }

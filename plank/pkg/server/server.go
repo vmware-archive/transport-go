@@ -109,7 +109,7 @@ func NewPlatformServerFromConfig(configPath string) (PlatformServer, error) {
 func CreateServerConfig() (*PlatformServerConfig, error) {
 	factory := &serverConfigFactory{}
 	factory.configureFlags(pflag.CommandLine)
-	factory.parseFlags()
+	factory.parseFlags(os.Args)
 	return generatePlatformServerConfig(factory)
 }
 
@@ -118,7 +118,7 @@ func CreateServerConfig() (*PlatformServerConfig, error) {
 func CreateServerConfigForCobraCommand(cmd *cobra.Command) (*PlatformServerConfig, error) {
 	factory := &serverConfigFactory{}
 	factory.configureFlags(cmd.Flags())
-	factory.parseFlags()
+	factory.parseFlags(os.Args)
 	return generatePlatformServerConfig(factory)
 }
 

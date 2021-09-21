@@ -24,11 +24,13 @@ import (
 func (ps *platformServer) initialize() {
 	var err error
 
-	// initialize service registry
-	service.GetServiceRegistry()
+	// initialize core components
+	var busInstance = bus.GetBus()
+	var serviceRegistryInstance = service.GetServiceRegistry()
+	var svcLifecycleManager = service.GetServiceLifecycleManager()
 
 	// create essential bus channels
-	bus.GetBus().GetChannelManager().CreateChannel(PLANK_SERVER_ONLINE_CHANNEL)
+	busInstance.GetChannelManager().CreateChannel(PLANK_SERVER_ONLINE_CHANNEL)
 
 	// initialize HTTP endpoint handlers map
 	ps.endpointHandlerMap = map[string]http.HandlerFunc{}
@@ -90,7 +92,7 @@ func (ps *platformServer) initialize() {
 	}
 
 	// set up a listener to receive REST bridge configs for services and set them up according to their specs
-	lcmChanHandler, err := bus.GetBus().ListenStreamForDestination(service.LifecycleManagerChannelName, bus.GetBus().GetId())
+	lcmChanHandler, err := busInstance.ListenStreamForDestination(service.LifecycleManagerChannelName, busInstance.GetId())
 	if err != nil {
 		utils.Log.Fatalln(err)
 	}
@@ -101,18 +103,9 @@ func (ps *platformServer) initialize() {
 			utils.Log.Errorf("failed to set up REST bridge ")
 		}
 
-		// REST bridge setup done. now wait for service to be ready
-		fabricSvc, _ := service.GetServiceRegistry().GetService(request.ServiceChannel)
-		lcm := service.GetServiceLifecycleManager()
-		svcReadyStore := bus.GetBus().GetStoreManager().GetStore(service.ServiceReadyStore)
-		hooks := lcm.GetServiceHooks(request.ServiceChannel)
-
-		if val, found := svcReadyStore.Get(request.ServiceChannel); !found || !val.(bool) {
-			readyChan := hooks.OnServiceReady()
-			svcReadyStore.Put(request.ServiceChannel, <-readyChan, service.ServiceInitStateChange)
-			utils.Log.Infof("[plank] Service '%s' initialized successfully", reflect.TypeOf(fabricSvc).String())
-			close(readyChan)
-		}
+		fabricSvc, _ := serviceRegistryInstance.GetService(request.ServiceChannel)
+		svcReadyStore := busInstance.GetStoreManager().GetStore(service.ServiceReadyStore)
+		hooks := svcLifecycleManager.GetServiceHooks(request.ServiceChannel)
 
 		if request.Override {
 			// clear old bridges affected by this override. there's a suboptimal workaround for mux.Router not
@@ -125,6 +118,14 @@ func (ps *platformServer) initialize() {
 			ps.SetHttpChannelBridge(config)
 		}
 
+		// REST bridge setup done. now wait for service to be ready
+		if val, found := svcReadyStore.Get(request.ServiceChannel); !found || !val.(bool) {
+			readyChan := hooks.OnServiceReady()
+			svcReadyStore.Put(request.ServiceChannel, <-readyChan, service.ServiceInitStateChange)
+			utils.Log.Infof("[plank] Service '%s' initialized successfully", reflect.TypeOf(fabricSvc).String())
+			close(readyChan)
+		}
+
 	}, func(err error) {
 		utils.Log.Errorln(err)
 	})
@@ -134,7 +135,7 @@ func (ps *platformServer) initialize() {
 
 	// create an internal bus channel to notify significant changes in sessions such as disconnect
 	if ps.serverConfig.FabricConfig != nil {
-		channelManager := bus.GetBus().GetChannelManager()
+		channelManager := busInstance.GetChannelManager()
 		channelManager.CreateChannel(bus.STOMP_SESSION_NOTIFY_CHANNEL)
 	}
 
@@ -153,9 +154,6 @@ func (ps *platformServer) configureFabric() {
 	}
 
 	var err error
-	utils.Log.Infof("[plank] Starting Transport broker at %s:%d%s",
-		ps.serverConfig.Host, ps.serverConfig.Port, ps.serverConfig.FabricConfig.FabricEndpoint)
-
 	// TODO: consider tightening access by allowing configuring allowedOrigins
 	ps.fabricConn, err = stompserver.NewWebSocketConnectionFromExistingHttpServer(
 		ps.HttpServer,
