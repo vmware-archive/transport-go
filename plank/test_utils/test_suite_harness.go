@@ -52,9 +52,29 @@ func SetupPlankTestSuiteForTest(suite *PlankIntegrationTestSuite, test PlankInte
 	test.SetBus(suite.EventBus)
 }
 
+// GetBasicTestServerConfig will generate a simple platform server config, ready to use in a test.
+func GetBasicTestServerConfig(rootDir, outLog, accessLog, errLog string, port int, noBanner bool) *server.PlatformServerConfig {
+	cfg := &server.PlatformServerConfig{
+		RootDir:                    rootDir,
+		Host:                       "localhost",
+		Port:                       port,
+		RestBridgeTimeoutInMinutes: time.Minute,
+		LogConfig: &utils.LogConfig{
+			OutputLog:     outLog,
+			AccessLog:     accessLog,
+			ErrorLog:      errLog,
+			FormatOptions: &utils.LogFormatOption{},
+		},
+		NoBanner:                 noBanner,
+		ShutdownTimeoutInMinutes: 1,
+	}
+	return cfg
+}
+
 // SetupPlankTestSuite will boot a new instance of plank on your chosen port and will also fire up your service
 // Ready to be tested. This always runs on localhost.
-func SetupPlankTestSuite(service service.FabricService, serviceChannel string, port int) (*PlankIntegrationTestSuite, error) {
+func SetupPlankTestSuite(service service.FabricService, serviceChannel string, port int,
+	config *server.PlatformServerConfig) (*PlankIntegrationTestSuite, error) {
 
 	s := &PlankIntegrationTestSuite{}
 
@@ -62,24 +82,12 @@ func SetupPlankTestSuite(service service.FabricService, serviceChannel string, p
 	utils.Log.SetFormatter(customFormatter)
 	customFormatter.DisableTimestamp = true
 
-	// instantiate a server config
-	serverConfig := &server.PlatformServerConfig{
-		Host:                       "localhost",
-		NoBanner:                   true,
-		Port:                       port,
-		RootDir:                    "/",
-		StaticDir:                  []string{"/static"},
-		RestBridgeTimeoutInMinutes: 30 * time.Second,
-		ShutdownTimeoutInMinutes:   1,
-		LogConfig: &utils.LogConfig{
-			OutputLog:     "stdout",
-			AccessLog:     "stdout",
-			ErrorLog:      "stderr",
-			FormatOptions: &utils.LogFormatOption{DisableTimestamp: true},
-		},
+	// check if config has been supplied, if not, generate default one.
+	if config == nil {
+		config = GetBasicTestServerConfig("/", "stdout", "stdout", "stderr", port, true)
 	}
 
-	s.PlatformServer = server.NewPlatformServer(serverConfig)
+	s.PlatformServer = server.NewPlatformServer(config)
 	if err := s.PlatformServer.RegisterService(service, serviceChannel); err != nil {
 		return nil, errors.New("cannot create printing press service, test failed")
 	}
