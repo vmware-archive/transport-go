@@ -51,15 +51,25 @@ func generatePlatformServerConfig(f *serverConfigFactory) (*PlatformServerConfig
 		}
 
 		// handle invalid duration by setting it to the default value of 1 minute
+		if serverConfig.ShutdownTimeoutInMinutes <= 0 {
+			serverConfig.ShutdownTimeoutInMinutes = 1
+		}
+
+		// handle invalid duration by setting it to the default value of 1 minute
 		if serverConfig.RestBridgeTimeoutInMinutes <= 0 {
 			serverConfig.RestBridgeTimeoutInMinutes = 1
 		}
 
 		// the raw value from the config.json needs to be multiplied by time.Minute otherwise it's interpreted as nanosecond
+		serverConfig.ShutdownTimeoutInMinutes = serverConfig.ShutdownTimeoutInMinutes * time.Minute
+
+		// the raw value from the config.json needs to be multiplied by time.Minute otherwise it's interpreted as nanosecond
 		serverConfig.RestBridgeTimeoutInMinutes = serverConfig.RestBridgeTimeoutInMinutes * time.Minute
 
 		// convert map of cache control rules of SpaConfig into an array
-		serverConfig.SpaConfig.CollateCacheControlRules()
+		if serverConfig.SpaConfig != nil {
+			serverConfig.SpaConfig.CollateCacheControlRules()
+		}
 
 		return &serverConfig, nil
 	}
@@ -75,7 +85,7 @@ func generatePlatformServerConfig(f *serverConfigFactory) (*PlatformServerConfig
 		Port:                     port,
 		RootDir:                  rootDir,
 		StaticDir:                static,
-		ShutdownTimeoutInMinutes: time.Duration(shutdownTimeoutInMinutes),
+		ShutdownTimeoutInMinutes: time.Duration(shutdownTimeoutInMinutes) * time.Minute,
 		LogConfig: &utils.LogConfig{
 			AccessLog:     accessLog,
 			ErrorLog:      errorLog,
