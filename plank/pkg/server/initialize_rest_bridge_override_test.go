@@ -51,35 +51,35 @@ func TestInitialize_RestBridgeOverride(t *testing.T) {
 	// register ping pong service with default bridge points of /rest/ping-pong, /rest/ping-pong2 and /rest/ping-pong/{from}/{to}/{message}
 	testServerInterface.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
 
-	// act
-	// replace existing rest bridges with a new config
-	oldRouter := testServer.router
-	time.Sleep(50 * time.Millisecond)
-	_ = bus.GetBus().SendResponseMessage(service.LifecycleManagerChannelName, &service.SetupRESTBridgeRequest{
-		ServiceChannel: services.PingPongServiceChan,
-		Override:       true,
-		Config: []*service.RESTBridgeConfig{
-			{
-				ServiceChannel: services.PingPongServiceChan,
-				Uri:            "/ping-new",
-				Method:         "GET",
-				FabricRequestBuilder: func(w http.ResponseWriter, r *http.Request) model.Request {
-					return model.Request{Id: &uuid.UUID{}, Request: "ping-get", Payload: r.URL.Query().Get("message")}
-				},
-			},
-		},
-	}, bus.GetBus().GetId())
-
 	// start server
 	syschan := make(chan os.Signal)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go testServerInterface.StartServer(syschan)
 
+	// act
+	// replace existing rest bridges with a new config
+	oldRouter := testServer.router
+
 	// assert
 	RunWhenServerReady(t, bus.GetBus(), func(t2 *testing.T) {
-		time.Sleep(time.Millisecond)
+		_ = bus.GetBus().SendResponseMessage(service.LifecycleManagerChannelName, &service.SetupRESTBridgeRequest{
+			ServiceChannel: services.PingPongServiceChan,
+			Override:       true,
+			Config: []*service.RESTBridgeConfig{
+				{
+					ServiceChannel: services.PingPongServiceChan,
+					Uri:            "/ping-new",
+					Method:         "GET",
+					FabricRequestBuilder: func(w http.ResponseWriter, r *http.Request) model.Request {
+						return model.Request{Id: &uuid.UUID{}, Request: "ping-get", Payload: r.URL.Query().Get("message")}
+					},
+				},
+			},
+		}, bus.GetBus().GetId())
+
 		// router instance should have been swapped
+		time.Sleep(1 * time.Second)
 		assert.NotEqual(t, testServer.router, oldRouter)
 
 		// old endpoints should 404

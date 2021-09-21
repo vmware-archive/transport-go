@@ -16,7 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"testing"
 )
 
@@ -69,7 +68,7 @@ func TestPlatformServer_StartServer(t *testing.T) {
 		_, err = ioutil.ReadAll(rsp.Body)
 		assert.Nil(t, err)
 		assert.Equal(t, 404, rsp.StatusCode)
-		syschan <- syscall.SIGINT
+		ps.StopServer()
 		wg.Done()
 	})
 
@@ -106,7 +105,7 @@ func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {
 		body, err := ioutil.ReadAll(rsp.Body)
 		assert.Nil(t, err)
 		assert.Contains(t, string(body), "hello")
-		syschan <- syscall.SIGINT
+		ps.StopServer()
 		service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
 		wg.Done()
 	})
@@ -136,7 +135,7 @@ func TestPlatformServer_UnknownRequest(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Contains(t, string(body), "unsupported request")
 
-		syschan <- syscall.SIGINT
+		ps.StopServer()
 		wg.Done()
 	})
 

@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"testing"
 )
 
@@ -57,7 +56,7 @@ func TestSmokeTests(t *testing.T) {
 			assert.EqualValues(t2, 400, rsp.StatusCode)
 		})
 
-		syschan <- syscall.SIGINT
+		testServer.StopServer()
 		wg.Done()
 	})
 	wg.Wait()
@@ -88,7 +87,7 @@ func TestSmokeTests_NoFabric(t *testing.T) {
 			assert.EqualValues(t2, 404, rsp.StatusCode)
 		})
 
-		syschan <- syscall.SIGINT
+		testServer.StopServer()
 		wg.Done()
 	})
 	wg.Wait()
@@ -120,7 +119,7 @@ func TestSmokeTests_HealthEndpoint(t *testing.T) {
 			assert.Contains(t, string(bodyBytes), "OK")
 		})
 
-		syschan <- syscall.SIGINT
+		testServer.StopServer()
 		wg.Done()
 	})
 	wg.Wait()
