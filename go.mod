@@ -6,7 +6,7 @@ require (
 	github.com/eliukblau/pixterm v1.3.1
 	github.com/fatih/color v1.12.0
 	github.com/go-git/go-git/v5 v5.4.2
-	github.com/go-stomp/stomp v2.1.4+incompatible
+	github.com/go-stomp/stomp/v3 v3.0.3
 	github.com/gobwas/glob v0.2.3
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.4.2

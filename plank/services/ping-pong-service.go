@@ -104,7 +104,7 @@ func (ps *PingPongService) GetRESTBridgeConfig() []*service.RESTBridgeConfig {
 			AllowOptions:   true,
 			FabricRequestBuilder: func(w http.ResponseWriter, r *http.Request) model.Request {
 				body, _ := ioutil.ReadAll(r.Body)
-				return createServiceRequest("ping-post", body)
+				return model.CreateServiceRequest("ping-post", body)
 			},
 		},
 		{
@@ -134,14 +134,4 @@ func (ps *PingPongService) GetRESTBridgeConfig() []*service.RESTBridgeConfig {
 			},
 		},
 	}
-}
-
-// createServiceRequest is a small utility function that takes request type and payload and
-// returns a new model.Request instance populated with them
-func createServiceRequest(requestType string, body []byte) model.Request {
-	id := uuid.New()
-	return model.Request{
-		Id:      &id,
-		Request: requestType,
-		Payload: body}
 }

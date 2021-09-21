@@ -32,17 +32,29 @@ import (
 )
 
 const PLANK_SERVER_ONLINE_CHANNEL = bus.TRANSPORT_INTERNAL_CHANNEL_PREFIX + "plank-online-notify"
+const AllMethodsWildcard = "*" // every method, open the gates!
 
 // NewPlatformServer configures and returns a new platformServer instance
 func NewPlatformServer(config *PlatformServerConfig) PlatformServer {
+	if !checkConfigForLogConfig(config) {
+		utils.Log.Error("unable to create new platform server, log config not found")
+		return nil
+	}
+
 	ps := new(platformServer)
 	sanitizeConfigRootPath(config)
 	ps.serverConfig = config
 	ps.ServerAvailability = &ServerAvailability{}
 	ps.routerConcurrencyProtection = new(int32)
 	ps.initialize()
-
 	return ps
+}
+
+func checkConfigForLogConfig(config *PlatformServerConfig) bool {
+	if config.LogConfig != nil {
+		return true
+	}
+	return false
 }
 
 // NewPlatformServerFromConfig returns a new instance of PlatformServer based on the config JSON file provided as configPath
@@ -131,10 +143,10 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 	go func() {
 		ps.ServerAvailability.Http = true
 		if ps.serverConfig.TLSCertConfig != nil {
-			utils.Log.Infof("Starting HTTP server at %s:%d with TLS", ps.serverConfig.Host, ps.serverConfig.Port)
+			utils.Log.Infof("[plank] Starting HTTP server at %s:%d with TLS", ps.serverConfig.Host, ps.serverConfig.Port)
 			_ = ps.HttpServer.ListenAndServeTLS(ps.serverConfig.TLSCertConfig.CertFile, ps.serverConfig.TLSCertConfig.KeyFile)
 		} else {
-			utils.Log.Infof("Starting HTTP server at %s:%d", ps.serverConfig.Host, ps.serverConfig.Port)
+			utils.Log.Infof("[plank] Starting HTTP server at %s:%d", ps.serverConfig.Host, ps.serverConfig.Port)
 			_ = ps.HttpServer.ListenAndServe()
 		}
 	}()
@@ -142,7 +154,7 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 	// if Fabric broker configuration is found, start the broker
 	if ps.serverConfig.FabricConfig != nil {
 		go func() {
-			utils.Log.Infof("Starting Fabric broker at %s:%d%s",
+			utils.Log.Infof("[plank] Starting Transport broker at %s:%d%s",
 				ps.serverConfig.Host, ps.serverConfig.Port, ps.serverConfig.FabricConfig.FabricEndpoint)
 			ps.ServerAvailability.Fabric = true
 			if err := bus.GetBus().StartFabricEndpoint(ps.fabricConn, *ps.serverConfig.FabricConfig.EndpointConfig); err != nil {
@@ -168,7 +180,7 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 
 // StopServer attempts to gracefully stop the HTTP and STOMP server if running
 func (ps *platformServer) StopServer() {
-	utils.Log.Infoln("Server shutting down")
+	utils.Log.Infoln("[plank] Server shutting down")
 	ps.ServerAvailability.Http = false
 
 	baseCtx := context.Background()
@@ -231,7 +243,7 @@ func (ps *platformServer) SetStaticRoute(prefix, fullpath string, middlewareFn .
 
 	ndir := NoDirFileSystem{http.Dir(fullpath)}
 	endpointHandlerMapKey := prefix + "*"
-	compositeHandler := http.StripPrefix(prefix,	middleware.BasicSecurityHeaderMiddleware()(http.FileServer(ndir)))
+	compositeHandler := http.StripPrefix(prefix, middleware.BasicSecurityHeaderMiddleware()(http.FileServer(ndir)))
 
 	for _, mw := range middlewareFn {
 		compositeHandler = mw(compositeHandler)
@@ -248,7 +260,7 @@ func (ps *platformServer) RegisterService(svc service.FabricService, svcChannel 
 	svcType := reflect.TypeOf(svc)
 
 	if err == nil {
-		utils.Log.Infof("Service '%s' registered at channel '%s'", svcType.String(), svcChannel)
+		utils.Log.Infof("[plank] Service '%s' registered at channel '%s'", svcType.String(), svcChannel)
 		svcLifecycleManager := service.GetServiceLifecycleManager()
 		var hooks service.ServiceLifecycleHookEnabled
 		if hooks = svcLifecycleManager.GetServiceHooks(svcChannel); hooks == nil {
@@ -256,7 +268,7 @@ func (ps *platformServer) RegisterService(svc service.FabricService, svcChannel 
 			storeManager := bus.GetBus().GetStoreManager()
 			store := storeManager.GetStore(service.ServiceReadyStore)
 			store.Put(svcChannel, true, service.ServiceInitStateChange)
-			utils.Log.Infof("Service '%s' initialized successfully", svcType.String())
+			utils.Log.Infof("[plank] Service '%s' initialized successfully", svcType.String())
 		}
 	}
 	return err
@@ -271,7 +283,7 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 	endpointHandlerKey := bridgeConfig.Uri + "-" + bridgeConfig.Method
 
 	if _, ok := ps.endpointHandlerMap[endpointHandlerKey]; ok {
-		utils.Log.Warnf("Endpoint '%s (%s)' is already associated with a handler. "+
+		utils.Log.Warnf("[plank] Endpoint '%s (%s)' is already associated with a handler. "+
 			"Try another endpoint or remove it before assigning a new handler", bridgeConfig.Uri, bridgeConfig.Method)
 		return
 	}
@@ -299,7 +311,7 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 	}
 
 	// NOTE: mux.Router does not have mutex or any locking mechanism so it could sometimes lead to concurrency write
-	// panics. following is to ensure the modification to ps.router can happen only once per thread
+	// panics. the following is to ensure the modification to ps.router can happen only once per thread
 	for !atomic.CompareAndSwapInt32(ps.routerConcurrencyProtection, 0, 1) {
 		time.Sleep(1 * time.Nanosecond)
 	}
@@ -310,12 +322,59 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 		Name(fmt.Sprintf("%s-%s", bridgeConfig.Uri, bridgeConfig.Method)).
 		Handler(ps.endpointHandlerMap[endpointHandlerKey])
 	if !atomic.CompareAndSwapInt32(ps.routerConcurrencyProtection, 1, 0) {
-		panic("Concurrency write detected!")
+		panic("Concurrency write on router detected when running ")
 	}
 
 	utils.Log.Infof(
-		"Service channel '%s' is now bridged to a REST endpoint %s (%s)",
+		"[plank] Service channel '%s' is now bridged to a REST endpoint %s (%s)",
 		bridgeConfig.ServiceChannel, bridgeConfig.Uri, bridgeConfig.Method)
+}
+
+// SetHttpPathPrefixChannelBridge establishes a conduit between the the transport service channel and a path prefix
+// every request on this prefix will be sent through to the target service, all methods, all sub paths, lock, stock and barrel.
+func (ps *platformServer) SetHttpPathPrefixChannelBridge(bridgeConfig *service.RESTBridgeConfig) {
+	ps.lock.Lock()
+	defer ps.lock.Unlock()
+
+	endpointHandlerKey := bridgeConfig.Uri + "-" + AllMethodsWildcard
+
+	if _, ok := ps.endpointHandlerMap[endpointHandlerKey]; ok {
+		utils.Log.Warnf("[plank] Path prefix '%s (%s)' is already being handled. "+
+			"Try another prefix or remove it before assigning a new handler", bridgeConfig.Uri, bridgeConfig.Method)
+		return
+	}
+
+	// create a map for service channel - bridges mapping if it does not exist
+	if ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel] == nil {
+		ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel] = make([]string, 0)
+	}
+
+	// build endpoint handler
+	ps.endpointHandlerMap[endpointHandlerKey] = buildEndpointHandler(
+		bridgeConfig.ServiceChannel,
+		bridgeConfig.FabricRequestBuilder,
+		ps.serverConfig.RestBridgeTimeoutInMinutes)
+
+	ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel] = append(
+		ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel], endpointHandlerKey)
+
+	// NOTE: mux.Router does not have mutex or any locking mechanism so it could sometimes lead to concurrency write
+	// panics. the following is to ensure the modification to ps.router can happen only once per thread
+	for !atomic.CompareAndSwapInt32(ps.routerConcurrencyProtection, 0, 1) {
+		time.Sleep(1 * time.Nanosecond)
+	}
+	ps.router.
+		PathPrefix(bridgeConfig.Uri).
+		Name(endpointHandlerKey).
+		Handler(ps.endpointHandlerMap[endpointHandlerKey])
+	if !atomic.CompareAndSwapInt32(ps.routerConcurrencyProtection, 1, 0) {
+		panic("Concurrency write on router detected when running SetHttpPathPrefixChannelBridge()")
+	}
+
+	utils.Log.Infof(
+		"[plank] Service channel '%s' is now bridged to a REST path prefix '%s'",
+		bridgeConfig.ServiceChannel, bridgeConfig.Uri)
+
 }
 
 // GetMiddlewareManager returns the MiddleManager instance
@@ -368,7 +427,7 @@ func (ps *platformServer) clearHttpChannelBridgesForService(serviceChannel strin
 		methods, _ := r.GetMethods()
 		// do not want to copy over the routes that will be overridden
 		if lookupMap[name] {
-			utils.Log.Debugf("route '%s' will be overridden so not copying over to the new router instance", name)
+			utils.Log.Debugf("[plank] route '%s' will be overridden so not copying over to the new router instance", name)
 		} else {
 			newRouter.Name(name).Path(path).Methods(methods...).Handler(handler)
 		}
@@ -379,7 +438,7 @@ func (ps *platformServer) clearHttpChannelBridgesForService(serviceChannel strin
 	existingMappings := ps.serviceChanToBridgeEndpoints[serviceChannel]
 	ps.serviceChanToBridgeEndpoints[serviceChannel] = make([]string, 0)
 	for _, handlerKey := range existingMappings {
-		utils.Log.Infof("Removing existing service - REST mapping '%s' for service '%s'", handlerKey, serviceChannel)
+		utils.Log.Infof("[plank] Removing existing service - REST mapping '%s' for service '%s'", handlerKey, serviceChannel)
 		delete(ps.endpointHandlerMap, handlerKey)
 	}
 	return newRouter

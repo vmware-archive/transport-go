@@ -110,7 +110,7 @@ func (ps *platformServer) initialize() {
 		if val, found := svcReadyStore.Get(request.ServiceChannel); !found || !val.(bool) {
 			readyChan := hooks.OnServiceReady()
 			svcReadyStore.Put(request.ServiceChannel, <-readyChan, service.ServiceInitStateChange)
-			utils.Log.Infof("Service '%s' initialized successfully", reflect.TypeOf(fabricSvc).String())
+			utils.Log.Infof("[plank] Service '%s' initialized successfully", reflect.TypeOf(fabricSvc).String())
 			close(readyChan)
 		}
 
@@ -153,7 +153,7 @@ func (ps *platformServer) configureFabric() {
 	}
 
 	var err error
-	utils.Log.Infof("Starting Fabric broker at %s:%d%s",
+	utils.Log.Infof("[plank] Starting Transport broker at %s:%d%s",
 		ps.serverConfig.Host, ps.serverConfig.Port, ps.serverConfig.FabricConfig.FabricEndpoint)
 
 	// TODO: consider tightening access by allowing configuring allowedOrigins
