@@ -148,17 +148,6 @@ func SimpleStream() []string {
 	// get a pointer to the channel manager
 	cm := b.GetChannelManager()
 
-	channel := "my-stream"
-	cm.CreateChannel(channel)
-
-	// listen to stream of messages coming in on channel, a handler is returned that allows you to add in
-	// lambdas that handle your
-	handler, err := b.ListenStream(channel)
-
-	if err != nil {
-		utils.Log.Panicf("unable to listen to channel stream, error: %v", err.Error())
-	}
-
 	// create a broker connector config and connect to transport-bus.io over WebSocket using TLS.
 	config := &bridge.BrokerConnectorConfig{
 		Username:   "guest",            // not required for demo, but our API requires it.
@@ -167,7 +156,9 @@ func SimpleStream() []string {
 		UseWS:      true,               // connect over websockets
 		WebSocketConfig: &bridge.WebSocketConfig{ // configure websocket
 			WSPath: "/ws", // websocket endpoint
-			UseTLS: true,  // use TLS/HTTPS
+			UseTLS: true,
+			// use TLS/HTTPS. When using TLS, you can supply your own TLSConfig value, or we can
+			// generate a basic one for you if you leave TLSConfig empty. In most cases, you won't need to supply one.
 		}}
 
 	// connect to transport-bus.io demo broker
@@ -176,8 +167,16 @@ func SimpleStream() []string {
 		utils.Log.Fatalf("unable to connect to transport-bus.io, error: %v", err.Error())
 	}
 
-	// mark our local channel as galactic and map it to our connection and the /topic/simple-stream service
-	err = cm.MarkChannelAsGalactic(channel, "/topic/simple-stream", c)
+	// create a local channel on the bus.
+	myLocalChan := "my-stream"
+	cm.CreateChannel(myLocalChan)
+
+	// listen to stream of messages coming in on channel, a handler is returned that allows you to add in
+	// lambdas that handle your success messages, and your errors.
+	handler, _ := b.ListenStream(myLocalChan)
+
+	// mark our local 'my-stream' myLocalChan as galactic and map it to our connection and the /topic/simple-stream service
+	err = cm.MarkChannelAsGalactic(myLocalChan, "/topic/simple-stream", c)
 	if err != nil {
 		utils.Log.Fatalf("unable to map local channel to broker destination: %e", err)
 	}
@@ -212,7 +211,7 @@ func SimpleStream() []string {
 			wg.Done()
 		},
 		func(err error) {
-			utils.Log.Errorf("error received on channel %e", err)
+			utils.Log.Errorf("error received on channel: %e", err)
 		})
 
 	// wait for 10 ticks of the stream, then we're done.
@@ -222,7 +221,7 @@ func SimpleStream() []string {
 	handler.Close()
 
 	// mark channel as local (unsubscribe from all mappings)
-	err = cm.MarkChannelAsLocal(channel)
+	err = cm.MarkChannelAsLocal(myLocalChan)
 	if err != nil {
 		utils.Log.Fatalf("unable to unsubscribe, error: %e", err)
 	}
