@@ -81,9 +81,9 @@ func TestPlatformServer_RegisterService(t *testing.T) {
 	port := GetTestPort()
 	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
 	ps := NewPlatformServer(config)
+
 	err := ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
 	assert.Nil(t, err)
-	service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
 }
 
 func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {

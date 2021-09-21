@@ -23,10 +23,11 @@ import (
 // log formatter, creating a router instance, and setting up an HttpServer instance.
 func (ps *platformServer) initialize() {
 	var err error
-	var busInstance = bus.GetBus()
 
-	// initialize service registry
-	service.GetServiceRegistry()
+	// initialize core components
+	var busInstance = bus.GetBus()
+	var serviceRegistryInstance = service.GetServiceRegistry()
+	var svcLifecycleManager = service.GetServiceLifecycleManager()
 
 	// create essential bus channels
 	busInstance.GetChannelManager().CreateChannel(PLANK_SERVER_ONLINE_CHANNEL)
@@ -102,18 +103,9 @@ func (ps *platformServer) initialize() {
 			utils.Log.Errorf("failed to set up REST bridge ")
 		}
 
-		// REST bridge setup done. now wait for service to be ready
-		fabricSvc, _ := service.GetServiceRegistry().GetService(request.ServiceChannel)
-		lcm := service.GetServiceLifecycleManager()
+		fabricSvc, _ := serviceRegistryInstance.GetService(request.ServiceChannel)
 		svcReadyStore := busInstance.GetStoreManager().GetStore(service.ServiceReadyStore)
-		hooks := lcm.GetServiceHooks(request.ServiceChannel)
-
-		if val, found := svcReadyStore.Get(request.ServiceChannel); !found || !val.(bool) {
-			readyChan := hooks.OnServiceReady()
-			svcReadyStore.Put(request.ServiceChannel, <-readyChan, service.ServiceInitStateChange)
-			utils.Log.Infof("[plank] Service '%s' initialized successfully", reflect.TypeOf(fabricSvc).String())
-			close(readyChan)
-		}
+		hooks := svcLifecycleManager.GetServiceHooks(request.ServiceChannel)
 
 		if request.Override {
 			// clear old bridges affected by this override. there's a suboptimal workaround for mux.Router not
@@ -124,6 +116,14 @@ func (ps *platformServer) initialize() {
 
 		for _, config := range request.Config {
 			ps.SetHttpChannelBridge(config)
+		}
+
+		// REST bridge setup done. now wait for service to be ready
+		if val, found := svcReadyStore.Get(request.ServiceChannel); !found || !val.(bool) {
+			readyChan := hooks.OnServiceReady()
+			svcReadyStore.Put(request.ServiceChannel, <-readyChan, service.ServiceInitStateChange)
+			utils.Log.Infof("[plank] Service '%s' initialized successfully", reflect.TypeOf(fabricSvc).String())
+			close(readyChan)
 		}
 
 	}, func(err error) {
