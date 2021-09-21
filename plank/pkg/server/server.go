@@ -173,7 +173,19 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 	}()
 
 	// notify subscribers that the server is ready to interact with
-	_ = bus.GetBus().SendResponseMessage(PLANK_SERVER_ONLINE_CHANNEL, true, nil)
+	httpReady := false
+	for {
+		_, err := net.Dial("tcp", fmt.Sprintf(":%d", ps.serverConfig.Port))
+		httpReady = err == nil
+		if !httpReady {
+			time.Sleep(1*time.Millisecond)
+			utils.Log.Debugln("waiting for http server to be ready to accept connections")
+			continue
+		}
+		_ = bus.GetBus().SendResponseMessage(PLANK_SERVER_ONLINE_CHANNEL, true, nil)
+		break
+	}
+
 
 	<-connClosed
 }
