@@ -4,34 +4,15 @@
 package server
 
 import (
-	"fmt"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/vmware/transport-go/plank/utils"
 	"os"
 )
 
-type stringSliceFlag []string
-
-func (f *stringSliceFlag) String() string {
-	return fmt.Sprint(*f)
-}
-
-func (f *stringSliceFlag) Type() string {
-	return "stringSlice"
-}
-
-func (f *stringSliceFlag) Set(value string) error {
-	if f == nil {
-		*f = make([]string, 0)
-	}
-	*f = append(*f, value)
-	return nil
-}
-
 type serverConfigFactory struct {
-	staticPtr stringSliceFlag
-	flagSet   *flag.FlagSet
+	statics     []string
+	flagSet     *flag.FlagSet
 	flagsParsed bool
 }
 
@@ -124,8 +105,8 @@ func (f *serverConfigFactory) RestBridgeTimeout() int64 {
 }
 
 // parseFlags reads OS arguments into the FlagSet in this factory instance
-func (f *serverConfigFactory) parseFlags() {
-	f.flagSet.Parse(os.Args[1:])
+func (f *serverConfigFactory) parseFlags(args []string) {
+	f.flagSet.Parse(args[1:])
 	f.flagsParsed = flag.Parsed()
 }
 
@@ -168,10 +149,12 @@ func (f *serverConfigFactory) configureFlagsInFlagSet(fs *flag.FlagSet) {
 		utils.PlatformServerFlagConstants["CertKey"]["FlagName"],
 		"",
 		utils.PlatformServerFlagConstants["CertKey"]["Description"])
-	fs.VarP(
-		&f.staticPtr,
+
+	fs.StringSliceVarP(
+		&f.statics,
 		utils.PlatformServerFlagConstants["Static"]["FlagName"],
 		utils.PlatformServerFlagConstants["Static"]["ShortFlag"],
+		[]string{},
 		utils.PlatformServerFlagConstants["Static"]["Description"])
 	fs.String(
 		utils.PlatformServerFlagConstants["SpaPath"]["FlagName"],

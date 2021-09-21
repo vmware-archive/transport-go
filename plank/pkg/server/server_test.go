@@ -83,8 +83,8 @@ func TestPlatformServer_RegisterService(t *testing.T) {
 	config := getBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
 	ps := NewPlatformServer(config)
 	err := ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
-	defer service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
 	assert.Nil(t, err)
+	service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
 }
 
 func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {
@@ -94,7 +94,6 @@ func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {
 	config := getBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
 	ps := NewPlatformServer(config)
 	_ = ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
-	defer service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
 
 	syschan := make(chan os.Signal, 1)
 	wg := sync.WaitGroup{}
@@ -108,6 +107,7 @@ func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Contains(t, string(body), "hello")
 		syschan <- syscall.SIGINT
+		service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
 		wg.Done()
 	})
 
