@@ -1,24 +1,34 @@
-# Transport - Golang
+# Transport. An event bus for Go
 
 ![Transport Post-merge pipeline](https://github.com/vmware/transport-go/workflows/Transport%20Post-merge%20pipeline/badge.svg)
 [![codecov](https://codecov.io/gh/vmware/transport-go/branch/main/graph/badge.svg?token=BgZhsCCZ0k)](https://codecov.io/gh/vmware/transport-go)
 
-Transport is a full stack, simple, fast, expandable application event bus for your applications. This is the golang version.
+Transport is a full stack, simple, fast, expandable application event bus for your applications. It can transport anything you want around your application,
+as well extend different channels to brokers and destinations. Transport makes it easy to move your bits around localized or distribiuted apps, without worrying 
+about all the wiring.
 
-### What does that mean?
+## What does that mean?
 
 Transport is an event bus, that allows application developers to build components that can talk to one another, really easily.
 It provides a standardized and simple API, implemented in multiple languages, to allow any individual component inside your 
 applications to talk to one another.
 
 It really comes to life when you use it to send messages, requests, responses and events around your backend and front-end. 
-Your backend can stream messages to your UI components, as if they were sitting right next to each other.
+Your backend can stream messages to your UI, or other services or agents, as if they were sitting right next to each other, 
+You can build one to one, many to one and many to many topologies with ease.
 
 Channels can be extended to major brokers like Kafka or RabbitMQ, so Transport becomes an 'on/off-ramp' for your main sources of truth.
 
 ### Watch this quick video for an overview
 
 [![Quick Transport Overview](https://img.youtube.com/vi/k-KDPtCQyls/0.jpg)](https://www.youtube.com/watch?v=k-KDPtCQyls)
+
+### Transport for Go also comes with plank
+
+**plank** is a micro platform for building just about anything you can think of, it exposes RESTful and AsyncAPI & Pub/Sub endpoints
+for services that can do just about anything. [Read more about `plank`](https://github.com/vmware/transport-go/tree/main/plank)
+
+---
 
 ## Getting Started
 
@@ -46,7 +56,7 @@ To create an instance of the bus
 ```go
 import 	"github.com/vmware/transport-go/bus"
 
-var transport EventBus = bus.GetBus()
+var transport = bus.GetBus()
 ```
 > Transport is a singleton, there is (should) only ever a single instance of the bus in your application.
 
@@ -235,7 +245,7 @@ You can [see this simple example here](https://github.com/vmware/transport-go/bl
 
 ### [What is `plank`?](https://github.com/vmware/transport-go/tree/main/plank)
 
-`plank` is 'just enough' of a platform for building just about anything you want. Run REST and Async APIs with the 
+`plank` is 'just enough' of a platform for building just about anything you want. Run RESTful and AsyncAPIs with the 
 same code, build simple or complex services that can be exposed to any client in any manner. Talk over WebSockets and pub/sub
 and streaming, or call the same APIs via REST mappings. `plank` can do it all. It's tiny, super-fast and runs on any platform. Runs in
 just a few megabytes of memory, and can be compiled down to the same. It can be used for micro-services, daemons, agents, 
