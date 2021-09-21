@@ -79,26 +79,26 @@ type transportEventBus struct {
 	fabEndpoint       FabricEndpoint
 	initStoreSync     sync.Once
 	storeSyncService  *storeSyncService
-	monitor           *bifrostMonitor
+	monitor           *transportMonitor
 }
 
 type MonitorEventListenerId int
 
-type bifrostMonitor struct {
+type transportMonitor struct {
 	lock                  sync.RWMutex
 	listenersByType       map[MonitorEventType]map[MonitorEventListenerId]MonitorEventHandler
 	listenersForAllEvents map[MonitorEventListenerId]MonitorEventHandler
 	subId                 MonitorEventListenerId
 }
 
-func newMonitor() *bifrostMonitor {
-	return &bifrostMonitor{
+func newMonitor() *transportMonitor {
+	return &transportMonitor{
 		listenersByType:       make(map[MonitorEventType]map[MonitorEventListenerId]MonitorEventHandler),
 		listenersForAllEvents: make(map[MonitorEventListenerId]MonitorEventHandler),
 	}
 }
 
-func (m *bifrostMonitor) addListener(listener MonitorEventHandler, eventTypes []MonitorEventType) MonitorEventListenerId {
+func (m *transportMonitor) addListener(listener MonitorEventHandler, eventTypes []MonitorEventType) MonitorEventListenerId {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -119,7 +119,7 @@ func (m *bifrostMonitor) addListener(listener MonitorEventHandler, eventTypes []
 	return m.subId
 }
 
-func (m *bifrostMonitor) removeListener(listenerId MonitorEventListenerId) {
+func (m *transportMonitor) removeListener(listenerId MonitorEventListenerId) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -129,7 +129,7 @@ func (m *bifrostMonitor) removeListener(listenerId MonitorEventListenerId) {
 	}
 }
 
-func (m *bifrostMonitor) sendEvent(event *MonitorEvent) {
+func (m *transportMonitor) sendEvent(event *MonitorEvent) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
@@ -162,12 +162,12 @@ func (bus *transportEventBus) GetStoreManager() StoreManager {
 	return bus.storeManager
 }
 
-// Get a pointer to the ChannelManager for managing Channels.
+// GetChannelManager Get a pointer to the ChannelManager for managing Channels.
 func (bus *transportEventBus) GetChannelManager() ChannelManager {
 	return bus.ChannelManager
 }
 
-// Send a ResponseDir type (inbound) message on Channel, with supplied Payload.
+// SendResponseMessage Send a ResponseDir type (inbound) message on Channel, with supplied Payload.
 // Throws error if the Channel does not exist.
 func (bus *transportEventBus) SendResponseMessage(channelName string, payload interface{}, destId *uuid.UUID) error {
 	channelObject, err := bus.ChannelManager.GetChannel(channelName)
@@ -180,7 +180,7 @@ func (bus *transportEventBus) SendResponseMessage(channelName string, payload in
 	return nil
 }
 
-// Send a RequestDir type message (outbound) message on Channel, with supplied Payload.
+// SendRequestMessage Send a RequestDir type message (outbound) message on Channel, with supplied Payload.
 // Throws error if the Channel does not exist.
 func (bus *transportEventBus) SendRequestMessage(channelName string, payload interface{}, destId *uuid.UUID) error {
 	channelObject, err := bus.ChannelManager.GetChannel(channelName)
@@ -193,7 +193,7 @@ func (bus *transportEventBus) SendRequestMessage(channelName string, payload int
 	return nil
 }
 
-// Send a ErrorDir type message (outbound) message on Channel, with supplied error
+// SendErrorMessage Send a ErrorDir type message (outbound) message on Channel, with supplied error
 // Throws error if the Channel does not exist.
 func (bus *transportEventBus) SendErrorMessage(channelName string, err error, destId *uuid.UUID) error {
 	channelObject, chanErr := bus.ChannelManager.GetChannel(channelName)
@@ -206,7 +206,7 @@ func (bus *transportEventBus) SendErrorMessage(channelName string, err error, de
 	return nil
 }
 
-// Listen to stream of ResponseDir (inbound) messages on Channel. Will keep on ticking until closed.
+// ListenStream Listen to stream of ResponseDir (inbound) messages on Channel. Will keep on ticking until closed.
 // Returns MessageHandler
 //  // To close an open stream.
 //  handler, Err := bus.ListenStream("my-Channel")
@@ -221,7 +221,7 @@ func (bus *transportEventBus) ListenStream(channelName string) (MessageHandler, 
 	return messageHandler, nil
 }
 
-// Adds new monitor event listener for the a given set of event types.
+// AddMonitorEventListener Adds new monitor event listener for the a given set of event types.
 // If eventTypes param is not provided, the listener will be called for all events.
 // Returns the id of the newly added event listener.
 func (bus *transportEventBus) AddMonitorEventListener(
@@ -230,12 +230,12 @@ func (bus *transportEventBus) AddMonitorEventListener(
 	return bus.monitor.addListener(listener, eventTypes)
 }
 
-// Removes a given event listener
+// RemoveMonitorEventListener Removes a given event listener
 func (bus *transportEventBus) RemoveMonitorEventListener(listenerId MonitorEventListenerId) {
 	bus.monitor.removeListener(listenerId)
 }
 
-// Listen to stream of ResponseDir (inbound) messages on Channel for a specific DestinationId.
+// ListenStreamForDestination Listen to stream of ResponseDir (inbound) messages on Channel for a specific DestinationId.
 // Will keep on ticking until closed, returns MessageHandler
 //  // To close an open stream.
 //  handler, Err := bus.ListenStream("my-Channel")
@@ -253,7 +253,7 @@ func (bus *transportEventBus) ListenStreamForDestination(channelName string, des
 	return messageHandler, nil
 }
 
-// Listen to a stream of RequestDir (outbound) messages on Channel. Will keep on ticking until closed.
+// ListenRequestStream Listen to a stream of RequestDir (outbound) messages on Channel. Will keep on ticking until closed.
 // Returns MessageHandler
 //  // To close an open stream.
 //  handler, Err := bus.ListenRequestStream("my-Channel")
@@ -268,7 +268,7 @@ func (bus *transportEventBus) ListenRequestStream(channelName string) (MessageHa
 	return messageHandler, nil
 }
 
-// Listen to a stream of RequestDir (outbound) messages on Channel for a specific DestinationId.
+// ListenRequestStreamForDestination Listen to a stream of RequestDir (outbound) messages on Channel for a specific DestinationId.
 // Will keep on ticking until closed, returns MessageHandler
 //  // To close an open stream.
 //  handler, Err := bus.ListenRequestStream("my-Channel")
@@ -288,7 +288,7 @@ func (bus *transportEventBus) ListenRequestStreamForDestination(
 	return messageHandler, nil
 }
 
-// Listen for a single RequestDir (outbound) messages on Channel. Handler is closed after a single event.
+// ListenRequestOnce Listen for a single RequestDir (outbound) messages on Channel. Handler is closed after a single event.
 // Returns MessageHandler
 func (bus *transportEventBus) ListenRequestOnce(channelName string) (MessageHandler, error) {
 	channel, err := getChannelFromManager(bus, channelName)
@@ -300,7 +300,7 @@ func (bus *transportEventBus) ListenRequestOnce(channelName string) (MessageHand
 	return messageHandler, nil
 }
 
-// Listen for a single RequestDir (outbound) messages on Channel with a specific DestinationId.
+// ListenRequestOnceForDestination Listen for a single RequestDir (outbound) messages on Channel with a specific DestinationId.
 // Handler is closed after a single event, returns MessageHandler
 func (bus *transportEventBus) ListenRequestOnceForDestination(
 	channelName string, destId *uuid.UUID) (MessageHandler, error) {
@@ -316,6 +316,7 @@ func (bus *transportEventBus) ListenRequestOnceForDestination(
 	return messageHandler, nil
 }
 
+// ListenFirehose pull in everything being fired on a channel.
 func (bus *transportEventBus) ListenFirehose(channelName string) (MessageHandler, error) {
 	channel, err := getChannelFromManager(bus, channelName)
 	if err != nil {
@@ -325,7 +326,7 @@ func (bus *transportEventBus) ListenFirehose(channelName string) (MessageHandler
 	return messageHandler, nil
 }
 
-// Will listen for a single ResponseDir message on the Channel before un-subscribing automatically.
+// ListenOnce Will listen for a single ResponseDir message on the Channel before un-subscribing automatically.
 func (bus *transportEventBus) ListenOnce(channelName string) (MessageHandler, error) {
 	channel, err := getChannelFromManager(bus, channelName)
 	if err != nil {
@@ -336,7 +337,7 @@ func (bus *transportEventBus) ListenOnce(channelName string) (MessageHandler, er
 	return messageHandler, nil
 }
 
-// Will listen for a single ResponseDir message on the Channel before un-subscribing automatically.
+// ListenOnceForDestination Will listen for a single ResponseDir message on the Channel before un-subscribing automatically.
 func (bus *transportEventBus) ListenOnceForDestination(channelName string, destId *uuid.UUID) (MessageHandler, error) {
 	channel, err := getChannelFromManager(bus, channelName)
 	if err != nil {
@@ -349,7 +350,7 @@ func (bus *transportEventBus) ListenOnceForDestination(channelName string, destI
 	return messageHandler, nil
 }
 
-// Send a request message with Payload and wait for and Handle a single response message.
+// RequestOnce Send a request message with Payload and wait for and Handle a single response message.
 // Returns MessageHandler or error if the Channel is unknown
 func (bus *transportEventBus) RequestOnce(channelName string, payload interface{}) (MessageHandler, error) {
 	channel, err := getChannelFromManager(bus, channelName)
@@ -364,7 +365,7 @@ func (bus *transportEventBus) RequestOnce(channelName string, payload interface{
 	return messageHandler, nil
 }
 
-// Send a request message with Payload and wait for and Handle a single response message for a targeted DestinationId
+// RequestOnceForDestination Send a request message with Payload and wait for and Handle a single response message for a targeted DestinationId
 // Returns MessageHandler or error if the Channel is unknown
 func (bus *transportEventBus) RequestOnceForDestination(
 	channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error) {
@@ -389,7 +390,7 @@ func getChannelFromManager(bus *transportEventBus, channelName string) (*Channel
 	return channel, err
 }
 
-// Send a request message with Payload and wait for and Handle all response messages.
+// RequestStream Send a request message with Payload and wait for and Handle all response messages.
 // Returns MessageHandler or error if Channel is unknown
 func (bus *transportEventBus) RequestStream(channelName string, payload interface{}) (MessageHandler, error) {
 	channel, err := getChannelFromManager(bus, channelName)
@@ -404,7 +405,7 @@ func (bus *transportEventBus) RequestStream(channelName string, payload interfac
 	return messageHandler, nil
 }
 
-// Send a request message with Payload and wait for and Handle all response messages with a supplied DestinationId
+// RequestStreamForDestination Send a request message with Payload and wait for and Handle all response messages with a supplied DestinationId
 // Returns MessageHandler or error if Channel is unknown
 func (bus *transportEventBus) RequestStreamForDestination(
 	channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error) {
@@ -423,7 +424,7 @@ func (bus *transportEventBus) RequestStreamForDestination(
 	return messageHandler, nil
 }
 
-// Connect to a message broker. If successful, you get a pointer to a Connection. If not, you will get an error.
+// ConnectBroker Connect to a message broker. If successful, you get a pointer to a Connection. If not, you will get an error.
 func (bus *transportEventBus) ConnectBroker(config *bridge.BrokerConnectorConfig) (conn bridge.Connection, err error) {
 	conn, err = bus.bc.Connect(config, enableLogging)
 	if conn != nil {

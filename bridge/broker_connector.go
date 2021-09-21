@@ -4,6 +4,7 @@
 package bridge
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/go-stomp/stomp/v3"
 	"github.com/google/uuid"
@@ -39,6 +40,22 @@ func checkConfig(config *BrokerConnectorConfig) error {
 	}
 	if config.Password == "" {
 		return fmt.Errorf("config invalid, config missing password")
+	}
+
+	// if TLS is being used and no default values are passed, use defaults, so we don't add
+	// cognitive load to using the client with just the basics.
+	if config.WebSocketConfig != nil && config.WebSocketConfig.UseTLS && config.WebSocketConfig.TLSConfig == nil {
+		var basicTLSConfig = &tls.Config{
+			InsecureSkipVerify: true,
+			MinVersion:         tls.VersionTLS12,
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+			},
+		}
+		config.WebSocketConfig.TLSConfig = basicTLSConfig
 	}
 	return nil
 }

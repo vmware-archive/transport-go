@@ -1,7 +1,7 @@
 // Copyright 2019-2021 VMware, Inc.
 // SPDX-License-Identifier: BSD-2-Clause
 
-package main
+package need_refactoring
 
 import (
 	"encoding/json"
@@ -154,11 +154,11 @@ func runDemoCal() {
 
 	// create a broker connector config, in this case, we will connect to the application fabric demo endpoint.
 	config := &bridge.BrokerConnectorConfig{
-		Username:   "guest",
-		Password:   "guest",
-		UseWS:      true,
+		Username: "guest",
+		Password: "guest",
+		UseWS:    true,
 		WebSocketConfig: &bridge.WebSocketConfig{
-			WSPath:     "/fabric",
+			WSPath: "/fabric",
 			UseTLS: false,
 		},
 		ServerAddr: "appfabric.vmware.com"}
@@ -249,12 +249,12 @@ func runDemoVmService(ctx *cli.Context) {
 
 	// create a broker connector config, in this case, we will connect to the application fabric demo endpoint.
 	config := &bridge.BrokerConnectorConfig{
-		Username:   "guest",
-		Password:   "guest",
-		UseWS:      true,
+		Username: "guest",
+		Password: "guest",
+		UseWS:    true,
 		WebSocketConfig: &bridge.WebSocketConfig{
-			WSPath:    "/fabric",
-			UseTLS:    false,
+			WSPath: "/fabric",
+			UseTLS: false,
 		},
 		ServerAddr: addr}
 
@@ -347,12 +347,12 @@ func runDemoStore(ctx *cli.Context) {
 
 	// create a broker connector config, in this case, we will connect to the application fabric demo endpoint.
 	config := &bridge.BrokerConnectorConfig{
-		Username:   "guest",
-		Password:   "guest",
-		UseWS:      true,
+		Username: "guest",
+		Password: "guest",
+		UseWS:    true,
 		WebSocketConfig: &bridge.WebSocketConfig{
-			WSPath:    "/fabric",
-			UseTLS:    false,
+			WSPath: "/fabric",
+			UseTLS: false,
 		},
 		ServerAddr: addr}
 
@@ -498,12 +498,12 @@ func runDemoApp(ctx *cli.Context) {
 			ServerAddr: addr}
 	} else {
 		config = &bridge.BrokerConnectorConfig{
-			Username:   "guest",
-			Password:   "guest",
-			UseWS:      true,
+			Username: "guest",
+			Password: "guest",
+			UseWS:    true,
 			WebSocketConfig: &bridge.WebSocketConfig{
-				WSPath:    "/fabric",
-				UseTLS:    false,
+				WSPath: "/fabric",
+				UseTLS: false,
 			},
 			ServerAddr: addr}
 	}

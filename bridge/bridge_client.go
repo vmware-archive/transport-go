@@ -20,7 +20,7 @@ import (
 	"sync"
 )
 
-// Bridge client encapsulates all subscriptions and io to and from brokers.
+// BridgeClient encapsulates all subscriptions and io to and from brokers.
 type BridgeClient struct {
 	WSc              *websocket.Conn // WebSocket connection
 	TCPc             *stomp.Conn     // STOMP TCP Connection
@@ -35,7 +35,7 @@ type BridgeClient struct {
 	sendLock         sync.Mutex
 }
 
-// Create a new WebSocket client.
+// NewBridgeWsClient Create a new WebSocket client.
 func NewBridgeWsClient(enableLogging bool) *BridgeClient {
 	return newBridgeWsClient(enableLogging)
 }
@@ -67,13 +67,17 @@ func (ws *BridgeClient) Connect(url *url.URL, config *BrokerConnectorConfig) err
 		ws.logger.Printf("connecting to fabric endpoint over %s", url.String())
 	}
 
-	// set TLS config if broker connector config demands that TLS be used
 	dialer := websocket.DefaultDialer
 	if config.WebSocketConfig.UseTLS {
-		if err := config.WebSocketConfig.LoadX509KeyPairFromFiles(
-			config.WebSocketConfig.CertFile,
-			config.WebSocketConfig.KeyFile); err != nil {
-			return err
+
+		// if the cert and key are not set, we're acting as a client, not a server so we have to
+		// allow these values to be empty when connecting vs serving over TLS.
+		if config.WebSocketConfig.CertFile != "" || config.WebSocketConfig.KeyFile != "" {
+			if err := config.WebSocketConfig.LoadX509KeyPairFromFiles(
+				config.WebSocketConfig.CertFile,
+				config.WebSocketConfig.KeyFile); err != nil {
+				return err
+			}
 		}
 		dialer.TLSClientConfig = config.WebSocketConfig.TLSConfig
 	}
@@ -147,7 +151,7 @@ func (ws *BridgeClient) Subscribe(destination string) *BridgeClientSub {
 	return s
 }
 
-// send a payload to a destination
+// Send a payload to a destination
 func (ws *BridgeClient) Send(destination, contentType string, payload []byte, opts ...func(fr *frame.Frame) error) {
 	ws.lock.Lock()
 	defer ws.lock.Unlock()
@@ -170,7 +174,7 @@ func (ws *BridgeClient) Send(destination, contentType string, payload []byte, op
 
 }
 
-// send a STOMP frame down the WebSocket
+// SendFrame fire a STOMP frame down the WebSocket
 func (ws *BridgeClient) SendFrame(f *frame.Frame) {
 	ws.sendLock.Lock()
 	defer ws.sendLock.Unlock()
