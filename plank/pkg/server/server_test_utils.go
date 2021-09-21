@@ -6,10 +6,12 @@ import (
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/plank/utils"
-	"sync"
+	"net"
 	"testing"
 	"time"
 )
+
+var testSuitePortMap = make(map[string]int)
 
 func getBasicTestServerConfig(rootDir, outLog, accessLog, errLog string, port int, noBanner bool) *PlatformServerConfig {
 	cfg := &PlatformServerConfig{
@@ -50,15 +52,30 @@ func runWhenServerReady(t *testing.T, eventBus bus.EventBus, fn func(t *testing.
 	})
 }
 
-func runTestMainWhenServerReady(m *testing.M, eventBus bus.EventBus) int {
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	var exitCode int
-	handler, _ := eventBus.ListenOnce(PLANK_SERVER_ONLINE_CHANNEL)
-	handler.Handle(func(message *model.Message) {
-		exitCode = m.Run()
-		wg.Done()
-	}, func(err error) {})
-	wg.Wait()
-	return exitCode
+func getTestPort() int {
+	minPort := 9980
+	fr := utils.GetCallerStackFrame()
+	port, exists := testSuitePortMap[fr.File]
+	if exists {
+		return port
+	}
+
+	// try 5 more times with every failure advancing port by one
+	tryPort := minPort
+	for i := 0; i <= 4; i++ {
+		tryPort = minPort + len(testSuitePortMap) + i
+		_, err := net.Dial("tcp", fmt.Sprintf(":%d", tryPort))
+		if err == nil { // port in use, try next one
+			continue
+		}
+
+		testSuitePortMap[fr.File] = tryPort
+		break
+	}
+
+	if testSuitePortMap[fr.File] == 0 { // port could not be assigned
+		panic(fmt.Errorf("could not assign a port for tests. last tried port is %d", tryPort))
+	}
+
+	return testSuitePortMap[fr.File]
 }

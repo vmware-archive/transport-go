@@ -56,6 +56,12 @@ func EnableLogging(enable bool) {
 var once sync.Once
 var busInstance EventBus
 
+// ResetBus destroys existing bus instance and creates a new one
+func ResetBus() EventBus {
+	once = sync.Once{}
+	return GetBus()
+}
+
 // Get a reference to the EventBus.
 func GetBus() EventBus {
 	once.Do(func() {

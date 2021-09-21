@@ -4,6 +4,7 @@
 package server
 
 import (
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/vmware/transport-go/bus"
@@ -14,26 +15,25 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
+	"syscall"
 	"testing"
 )
 
-var config *PlatformServerConfig
-var ps PlatformServer
-
-func TestMain(m *testing.M) {
-	config = getBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", 9980, true)
-	ps = NewPlatformServer(config)
-	syschan := make(chan os.Signal, 1)
-	go ps.StartServer(syschan)
-	os.Exit(runTestMainWhenServerReady(m, bus.GetBus()))
-}
-
 func TestNewPlatformServer(t *testing.T) {
+	bus.ResetBus()
+	service.ResetServiceRegistry()
+	port := getTestPort()
+	config := getBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config)
 	assert.NotNil(t, ps)
 }
 
 func TestNewPlatformServer_EmptyRootDir(t *testing.T) {
-	newConfig := getBasicTestServerConfig("", "stdout", "stdout", "stderr", 80, true)
+	bus.ResetBus()
+	service.ResetServiceRegistry()
+	port := getTestPort()
+	newConfig := getBasicTestServerConfig("", "stdout", "stdout", "stderr", port, true)
 	NewPlatformServer(newConfig)
 	wd, _ := os.Getwd()
 	assert.Equal(t, wd, newConfig.RootDir)
@@ -44,48 +44,103 @@ func TestNewPlatformServer_FileLog(t *testing.T) {
 		_ = os.Remove(filepath.Join(os.TempDir(), "testlog.log"))
 	}()
 
-	newConfig := getBasicTestServerConfig(os.TempDir(), filepath.Join(os.TempDir(), "testlog.log"), "stdout", "stderr", 80, true)
+	bus.ResetBus()
+	service.ResetServiceRegistry()
+	port := getTestPort()
+	newConfig := getBasicTestServerConfig(os.TempDir(), filepath.Join(os.TempDir(), "testlog.log"), "stdout", "stderr", port, true)
 	NewPlatformServer(newConfig)
 	assert.FileExists(t, filepath.Join(os.TempDir(), "testlog.log"))
 }
 
 func TestPlatformServer_StartServer(t *testing.T) {
-	rsp, err := http.Get("http://localhost:9980")
-	assert.Nil(t, err)
+	bus.ResetBus()
+	service.ResetServiceRegistry()
+	port := getTestPort()
+	config := getBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config)
+	syschan := make(chan os.Signal, 1)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go ps.StartServer(syschan)
+	runWhenServerReady(t, bus.GetBus(), func(t2 *testing.T) {
+		rsp, err := http.Get(fmt.Sprintf("http://localhost:%d", port))
+		assert.Nil(t, err)
 
-	_, err = ioutil.ReadAll(rsp.Body)
-	assert.Nil(t, err)
-	assert.Equal(t, 404, rsp.StatusCode)
+		_, err = ioutil.ReadAll(rsp.Body)
+		assert.Nil(t, err)
+		assert.Equal(t, 404, rsp.StatusCode)
+		syschan <- syscall.SIGINT
+		wg.Done()
+	})
 
+	wg.Wait()
 }
 
 func TestPlatformServer_RegisterService(t *testing.T) {
+	bus.ResetBus()
+	service.ResetServiceRegistry()
+	port := getTestPort()
+	config := getBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config)
 	err := ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
+	defer service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
 	assert.Nil(t, err)
 }
 
 func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {
+	bus.ResetBus()
+	service.ResetServiceRegistry()
+	port := getTestPort()
+	config := getBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config)
 	_ = ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
-	setupBridge(ps, "/pong", "GET", services.PingPongServiceChan, "ping-get")
+	defer service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
 
-	rsp, err := http.Get("http://localhost:9980/pong?msg=hello")
-	assert.Nil(t, err)
+	syschan := make(chan os.Signal, 1)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go ps.StartServer(syschan)
+	runWhenServerReady(t, bus.GetBus(), func(t2 *testing.T) {
+		rsp, err := http.Get(fmt.Sprintf("http://localhost:%d/rest/ping-pong2?message=hello", port))
+		assert.Nil(t, err)
 
-	body, err := ioutil.ReadAll(rsp.Body)
-	assert.Nil(t, err)
-	assert.Contains(t, string(body), "hello")
+		body, err := ioutil.ReadAll(rsp.Body)
+		assert.Nil(t, err)
+		assert.Contains(t, string(body), "hello")
+		syschan <- syscall.SIGINT
+		wg.Done()
+	})
+
+	wg.Wait()
 }
 
 func TestPlatformServer_UnknownRequest(t *testing.T) {
+	bus.ResetBus()
+	service.ResetServiceRegistry()
+	port := getTestPort()
+	config := getBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config)
 	_ = ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
+	defer service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
 	setupBridge(ps, "/ping", "GET", services.PingPongServiceChan, "bubble")
 
-	rsp, err := http.Get("http://localhost:9980/ping?msg=hello")
-	assert.Nil(t, err)
+	syschan := make(chan os.Signal, 1)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go ps.StartServer(syschan)
+	runWhenServerReady(t, bus.GetBus(), func(t2 *testing.T) {
+		rsp, err := http.Get(fmt.Sprintf("http://localhost:%d/ping?msg=hello", port))
+		assert.Nil(t, err)
 
-	body, err := ioutil.ReadAll(rsp.Body)
-	assert.Nil(t, err)
-	assert.Contains(t, string(body), "unsupported request")
+		body, err := ioutil.ReadAll(rsp.Body)
+		assert.Nil(t, err)
+		assert.Contains(t, string(body), "unsupported request")
+
+		syschan <- syscall.SIGINT
+		wg.Done()
+	})
+
+	wg.Wait()
 }
 
 func setupBridge(ps PlatformServer, endpoint, method, channel, request string) {

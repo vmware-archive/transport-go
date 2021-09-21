@@ -55,6 +55,12 @@ type serviceRegistry struct {
 var once sync.Once
 var registry ServiceRegistry
 
+// ResetServiceRegistry destroys existing service registry instance and creates a new one
+func ResetServiceRegistry() ServiceRegistry {
+	once = sync.Once{}
+	return GetServiceRegistry()
+}
+
 func GetServiceRegistry() ServiceRegistry {
 	once.Do(func() {
 		registry = newServiceRegistry(bus.GetBus())
