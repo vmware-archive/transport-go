@@ -193,7 +193,7 @@ handler.Handle(
         // unmarshal the message payload into a model.Response object
         // this is a wrapper transport uses when being used as a server, 
         // it encapsulates a rich set of data about the message, 
-    	// but you only really care about the payload (body)
+        // but you only really care about the payload (body)
         r := &model.Response{}
         d := msg.Payload.([]byte)
         err := json.Unmarshal(d, &r)
