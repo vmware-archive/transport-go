@@ -3,85 +3,67 @@
 ![Transport Post-merge pipeline](https://github.com/vmware/transport-go/workflows/Transport%20Post-merge%20pipeline/badge.svg)
 [![codecov](https://codecov.io/gh/vmware/transport-go/branch/main/graph/badge.svg?token=BgZhsCCZ0k)](https://codecov.io/gh/vmware/transport-go)
 
-Transport is a full stack, simple, fast, expandable application event bus for your applications.
+Transport is a full stack, simple, fast, expandable application event bus for your applications. This is the golang version.
 
 ### What does that mean?
 
 Transport is an event bus, that allows application developers to build components that can talk to one another, really easily.
+It provides a standardized and simple API, implemented in multiple languages, to allow any individual component inside your 
+applications to talk to one another.
 
-It provides a standardized and simple API, implemented in multiple languages, to allow any individual component inside your applications to talk to one another.
-
-It really comes to life when you use it to send messages, requests, responses and events around your backend and front-end. Your Java or Golang backend can stream messages to your UI components, as if they were sitting right next to each other.
+It really comes to life when you use it to send messages, requests, responses and events around your backend and front-end. 
+Your backend can stream messages to your UI components, as if they were sitting right next to each other.
 
 Channels can be extended to major brokers like Kafka or RabbitMQ, so Transport becomes an 'on/off-ramp' for your main sources of truth.
 
-### [View Transport Golang Documentation](https://vmware.github.io/transport/golang)
+### Watch this quick video for an overview
 
-#### [Transport Docs Repo](https://github.com/vmware/transport)
+[![Quick Transport Overview](https://img.youtube.com/vi/k-KDPtCQyls/0.jpg)](https://www.youtube.com/watch?v=k-KDPtCQyls)
 
+## Getting Started
+
+### [View All Transport (Golang) Documentation](https://transport-bus.io/golang)
+
+#### Other versions of Transport
+
+- [Transport TypeScript](https://github.com/vmware/transport-typescript)
+- [Transport Java](https://github.com/vmware/transport-java)
+
+### Transport Site
+[https://transport-bus.io](https://transport-bus.io)
+
+---
 ## Quick Start
+
+Install transport 
+
+```go
+go get -u github.com/vmware/transport-go
+```
 
 To create an instance of the bus
 
 ```go
+import 	"github.com/vmware/transport-go/bus"
+
 var transport EventBus = bus.GetBus()
 ```
+> Transport is a singleton, there is (should) only ever a single instance of the bus in your application.
 
-The API is pretty simple.
+----
 
-```go
-type EventBus interface {
-    GetId() *uuid.UUID
-    GetChannelManager() ChannelManager
-    SendRequestMessage(channelName string, payload interface{}, destinationId *uuid.UUID) error
-    SendResponseMessage(channelName string, payload interface{}, destinationId *uuid.UUID) error
-    SendErrorMessage(channelName string, err error, destinationId *uuid.UUID) error
-    ListenStream(channelName string) (MessageHandler, error)
-    ListenStreamForDestination(channelName string, destinationId *uuid.UUID) (MessageHandler, error)
-    ListenFirehose(channelName string) (MessageHandler, error)
-    ListenRequestStream(channelName string) (MessageHandler, error)
-    ListenRequestStreamForDestination(channelName string, destinationId *uuid.UUID) (MessageHandler, error)
-    ListenRequestOnce(channelName string) (MessageHandler, error)
-    ListenRequestOnceForDestination (channelName string, destinationId *uuid.UUID) (MessageHandler, error)
-    ListenOnce(channelName string) (MessageHandler, error)
-    ListenOnceForDestination(channelName string, destId *uuid.UUID) (MessageHandler, error)
-    RequestOnce(channelName string, payload interface{}) (MessageHandler, error)
-    RequestOnceForDestination(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error)
-    RequestStream(channelName string, payload interface{}) (MessageHandler, error)
-    RequestStreamForDestination(channelName string, payload interface{}, destId *uuid.UUID) (MessageHandler, error)
-}
-```
-
-- All methods throw an `error` if the channel does not yet exist.
-
-## Managing Channels
+## Managing / Creating Channels
 
 The `ChannelManager` interface on the `EventBus` interface facilitates all Channel operations.
 
 ```go
-channelManager := bf.GetChannelManager()
-```
-
-The `ChannelManager` interface is pretty simple.
-
-```go
-type ChannelManager interface {
-    Boot()
-    CreateChannel(channelName string) *Channel
-    DestroyChannel(channelName string)
-    CheckChannelExists(channelName string) bool
-    GetChannel(channelName string) (*Channel, error)
-    GetAllChannels() map[string]*Channel
-    SubscribeChannelHandler(channelName string, fn MessageHandlerFunction, runOnce bool) (*uuid.UUID, error)
-    UnsubscribeChannelHandler(channelName string, id *uuid.UUID) error
-    WaitForChannel(channelName string) error
-}
+channelManager := transport.GetChannelManager()
 ```
 
 ### Creating Channels
 
 The `CreateChannel` method will create a new channel with the name "some-channel". It will return a pointer to a
-`Channel` object. However you don't need to hold on to that pointer if you dont want.
+`Channel` object. You don't need to hold on to that pointer if you don't want to. The channel will still exist.
 
 ```go
 channel := channelManager.CreateChanel("some-channel")
@@ -93,26 +75,26 @@ A simple ping pong looks a little like this.
 
 ```go
 // listen for a single request on 'some-channel'
-tr := bus.GetBus()
+ts := bus.GetBus()
 channel := "some-channel"
-tr.GetChannelManager().CreateChannel(channel)
+ts.GetChannelManager().CreateChannel(channel)
 
 // listen for a single request on 'some-channel'
-requestHandler, _ := bf.ListenRequestStream(channel)
+requestHandler, _ := ts.ListenRequestStream(channel)
 requestHandler.Handle(
    func(msg *model.Message) {
        pingContent := msg.Payload.(string)
        fmt.Printf("\nPing: %s\n", pingContent)
 
        // send a response back.
-       tr.SendResponseMessage(channel, pingContent, msg.DestinationId)
+       ts.SendResponseMessage(channel, pingContent, msg.DestinationId)
    },
    func(err error) {
        // something went wrong...
    })
 
 // send a request to 'some-channel' and handle a single response
-responseHandler, _ := tr.RequestOnce(channel, "Woo!")
+responseHandler, _ := ts.RequestOnce(channel, "Woo!")
 responseHandler.Handle(
    func(msg *model.Message) {
        fmt.Printf("Pong: %s\n", msg.Payload.(string))
@@ -131,113 +113,151 @@ This will output:
 Ping: Woo!
 Pong: Woo!
 ```
+---
+## Connecting to a message broker and using galactic channels
 
-## Example connecting to a message broker and using galactic channels
+You can see this all working live in some of our interactive demos for [Transport TypeScript](https://transport-bus.io/ts/examples/joke-service).
+it shows Transport acting as both client and server, in which we use [Plank](https://github.com/vmware/transport-go/tree/main/plank) to run
+services, and the UI subscribes to those services and talks to them.
 
-If you would like to connect the bus to a broker and start streaming stuff, you can run the local demo broker
-by first building using `./build-transport.sh` and then starting the local broker (and a bunch of demo services) via `
-./transport-go service`
+We have a live and running instance of [Plank](https://github.com/vmware/transport-go/tree/main/plank) operating at
+[transport-bus.io](https://transport-bus.io). You can try the example code below to use the sample 
+[simple stream service](https://github.com/vmware/transport-go/blob/main/plank/services/simple-stream-service.go) and 
+see how simple it is for yourself.
 
-Once running, this example will connect to the broker and starts streaming over a local channel that is mapped to the live
-sample service that is broadcasting every few hundred milliseconds on `/topic/simple-stream`
+### Simple Stream Example
 
 ```go
-package main
-
 import (
-   "encoding/json"
-   "fmt"
-   "github.com/vmware/transport-go/bridge"
-   "github.com/vmware/transport-go/bus"
-   "github.com/vmware/transport-go/model"
-   "log"
+	"encoding/json"
+	"github.com/vmware/transport-go/bridge"
+	"github.com/vmware/transport-go/bus"
+	"github.com/vmware/transport-go/model"
+	"github.com/vmware/transport-go/plank/utils"
+	"sync"
 )
 
-func main() {
-   usingGalacticChannels()
-}
+// SimpleStream will connect to our demo broker running at transport-bus.io, listen to a simple stream that is being
+// broadcast on /topic/simple-stream. Every second a random word is broadcast on that channel to anyone listening.
+// This should take 10 seconds to run.
+func SimpleStream() []string {
 
-func usingGalacticChannels() {
+	// get a pointer to the bus.
+	b := bus.GetBus()
 
-   // get a pointer to the bus.
-   b := bus.GetBus()
+	// get a pointer to the channel manager
+	cm := b.GetChannelManager()
 
-   // get a pointer to the channel manager
-   cm := b.GetChannelManager()
+	channel := "my-stream"
+	cm.CreateChannel(channel)
 
-   channel := "my-stream"
-   cm.CreateChannel(channel)
+	// listen to stream of messages coming in on channel, a handler is returned that allows you to add in
+	// lambdas that handle your
+	handler, err := b.ListenStream(channel)
 
-   // create done signal
-   var done = make(chan bool)
+	if err != nil {
+		utils.Log.Panicf("unable to listen to channel stream, error: %v", err.Error())
+	}
 
-   // listen to stream of messages coming in on channel.
-   h, err := b.ListenStream(channel)
+	// create a broker connector config and connect to transport-bus.io over WebSocket using TLS.
+	config := &bridge.BrokerConnectorConfig{
+		Username:   "guest",            // not required for demo, but our API requires it.
+		Password:   "guest",            // ^^ same.
+		ServerAddr: "transport-bus.io", // our live broker running plank and demo services.
+		UseWS:      true,               // connect over websockets
+		WebSocketConfig: &bridge.WebSocketConfig{ // configure websocket
+			WSPath: "/ws", // websocket endpoint
+			UseTLS: true,  // use TLS/HTTPS
+		}}
 
-   if err != nil {
-      log.Panicf("unable to listen to channel stream, error: %e", err)
-   }
+	// connect to transport-bus.io demo broker
+	c, err := b.ConnectBroker(config)
+	if err != nil {
+		utils.Log.Fatalf("unable to connect to transport-bus.io, error: %v", err.Error())
+	}
 
-   count := 0
+	// mark our local channel as galactic and map it to our connection and the /topic/simple-stream service
+	err = cm.MarkChannelAsGalactic(channel, "/topic/simple-stream", c)
+	if err != nil {
+		utils.Log.Fatalf("unable to map local channel to broker destination: %e", err)
+	}
 
-   // listen for ten messages and then exit, send a completed signal on channel.
-   h.Handle(
-      func(msg *model.Message) {
+	// collect the streamed values in a slice
+	var streamedValues []string
 
-         // unmarshal the payload into a Response object (used by fabric services)
-         r := &model.Response{}
-         d := msg.Payload.([]byte)
-         json.Unmarshal(d, &r)
-         fmt.Printf("Stream Ticked: %s\n", r.Payload.(string))
-         count++
-         if count >=10 {
-            done <- true
-         }
-      },
-      func(err error) {
-         log.Panicf("error received on channel %e", err)
-      })
+	// create a wait group that will wait 10 times before completing.
+	var wg sync.WaitGroup
+	wg.Add(10)
 
-   // create a broker connector config, in this case, we will connect to the demo endpoint.
-   config := &bridge.BrokerConnectorConfig{
-      Username:   "guest",
-      Password:   "guest",
-      ServerAddr: "localhost:8090",
-      UseWS:      true,
-      WebSocketConfig: &bridge.WebSocketConfig{
-         WSPath:    "/fabric",
-      }}
+	// keep listening
+	handler.Handle(
+		func(msg *model.Message) {
 
-   // connect to broker.
-   c, err := b.ConnectBroker(config)
-   if err != nil {
-      log.Panicf("unable to connect to fabric, error: %e", err)
-   }
+			// unmarshal the message payload into a model.Response object
+			// this is a wrapper transport uses when being used as a server, it encapsulates a rich set of data
+			// about the message, but you only really care about the payload (body)
+			r := &model.Response{}
+			d := msg.Payload.([]byte)
+			err := json.Unmarshal(d, &r)
+			if err != nil {
+				utils.Log.Errorf("error unmarshalling request, server sent something strange!: %v", err.Error())
+				return
+			}
+			// the value we want is in the payload of our model.Response
+			value := r.Payload.(string)
 
-   // mark our local channel as galactic and map it to our connection and the /topic/simple-stream service
-   // running on localhost:8090
-   err = cm.MarkChannelAsGalactic(channel, "/topic/simple-stream", c)
-   if err != nil {
-      log.Panicf("unable to map local channel to broker destination: %e", err)
-   }
+			// log it and save it to our streamedValues
+			utils.Log.Infof("stream ticked: %s", value)
+			streamedValues = append(streamedValues, value)
+			wg.Done()
+		},
+		func(err error) {
+			utils.Log.Errorf("error received on channel %e", err)
+		})
 
-   // wait for done signal
-   <-done
+	// wait for 10 ticks of the stream, then we're done.
+	wg.Wait()
 
-   // mark channel as local (unsubscribe from all mappings)
-   err = cm.MarkChannelAsLocal(channel)
-   if err != nil {
-      log.Panicf("unable to unsubscribe, error: %e", err)
-   }
-   err = c.Disconnect()
-   if err != nil {
-      log.Panicf("unable to disconnect, error: %e", err)
-   }
+	// close our handler, we're done.
+	handler.Close()
+
+	// mark channel as local (unsubscribe from all mappings)
+	err = cm.MarkChannelAsLocal(channel)
+	if err != nil {
+		utils.Log.Fatalf("unable to unsubscribe, error: %e", err)
+	}
+
+	// disconnect
+	err = c.Disconnect()
+	if err != nil {
+		utils.Log.Fatalf("unable to disconnect, error: %e", err)
+	}
+
+	// return what we got from the stream.
+	return streamedValues
 }
 ```
 
-### [Read More Golang Documentation](https://vmware.github.io/transport/golang)
+You can [see this simple example here](https://github.com/vmware/transport-go/examples/simple_stream.go) 
 
+
+### [Read More Golang Documentation](https://transport-bus.io/golang)
+
+---
+
+### [What is `plank`?](https://github.com/vmware/transport-go/tree/main/plank)
+
+`plank` is 'just enough' of a platform for building just about anything you want. Run REST and Async APIs with the 
+same code, build simple or complex services that can be exposed to any client in any manner. Talk over WebSockets and pub/sub
+and streaming, or call the same APIs via REST mappings. `plank` can do it all. It's tiny, super-fast and runs on any platform. Runs in
+just a few megabytes of memory, and can be compiled down to the same. It can be used for micro-services, daemons, agents, 
+local UI helper applications... anything!
+
+`plank` is only available in transport-go
+
+[Take a look at plank](https://github.com/vmware/transport-go/tree/main/plank)
+
+---
 ## Contributing
 
 The transport-go project team welcomes contributions from the community. Before you start working with transport-go, please
