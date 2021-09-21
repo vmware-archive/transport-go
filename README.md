@@ -117,10 +117,10 @@ Pong: Woo!
 ## Connecting to a message broker and using galactic channels
 
 You can see this all working live in some of our interactive demos for [Transport TypeScript](https://transport-bus.io/ts/examples/joke-service).
-it shows Transport acting as both client and server, in which we use [Plank](https://github.com/vmware/transport-go/tree/main/plank) to run
+it shows Transport acting as both client and server, in which we use [`plank`](https://github.com/vmware/transport-go/tree/main/plank) to run
 services, and the UI subscribes to those services and talks to them.
 
-We have a live and running instance of [Plank](https://github.com/vmware/transport-go/tree/main/plank) operating at
+We have a live and running instance of [`plank`](https://github.com/vmware/transport-go/tree/main/plank) operating at
 [transport-bus.io](https://transport-bus.io). You can try the example code below to use the sample 
 [simple stream service](https://github.com/vmware/transport-go/blob/main/plank/services/simple-stream-service.go) and 
 see how simple it is for yourself.
@@ -128,15 +128,6 @@ see how simple it is for yourself.
 ### Simple Stream Example
 
 ```go
-import (
-	"encoding/json"
-	"github.com/vmware/transport-go/bridge"
-	"github.com/vmware/transport-go/bus"
-	"github.com/vmware/transport-go/model"
-	"github.com/vmware/transport-go/plank/utils"
-	"sync"
-)
-
 // get a pointer to the bus.
 b := bus.GetBus()
 
@@ -235,7 +226,7 @@ if err != nil {
 return streamedValues
 ```
 
-You can [see this simple example here](https://github.com/vmware/transport-go/examples/simple_stream.go) 
+You can [see this simple example here](https://github.com/vmware/transport-go/blob/main/examples/simple_stream.go) 
 
 
 ### [Read More Golang Documentation](https://transport-bus.io/golang)
