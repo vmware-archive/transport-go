@@ -44,9 +44,9 @@ func CreateServiceRequestWithValues(requestType string, vals url.Values) Request
 		Payload: vals}
 }
 
-// CreateServiceRequestWithPointer does the same as CreateServiceRequest, except the payload is a pointer to the
+// CreateServiceRequestWithHttpRequest does the same as CreateServiceRequest, except the payload is a pointer to the
 // Incoming http.Request, so you can essentially extract what ever you want from the incoming request within your service.
-func CreateServiceRequestWithPointer(requestType string, r *http.Request) Request {
+func CreateServiceRequestWithHttpRequest(requestType string, r *http.Request) Request {
 	id := uuid.New()
 	return Request{
 		Id:      &id,

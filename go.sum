@@ -126,6 +126,8 @@ github.com/go-stomp/stomp v2.1.4+incompatible h1:D3SheUVDOz9RsjVWkoh/1iCOwD0qWjy
 github.com/go-stomp/stomp v2.1.4+incompatible/go.mod h1:VqCtqNZv1226A1/79yh+rMiFUcfY3R109np+7ke4n0c=
 github.com/go-stomp/stomp/v3 v3.0.2 h1:Y+6IDI7LSosjUgPWxo5ruRVEEDL5JKTBkfuf5tUpGgA=
 github.com/go-stomp/stomp/v3 v3.0.2/go.mod h1:jTrybHBK20jPdM9iyh65m6GusX6aMf7atfEFZ1nIcgc=
+github.com/go-stomp/stomp/v3 v3.0.3 h1:7YQGJCDMkbA05Rw8dS00LxwU1mhzEHS69gMlPjMZGDk=
+github.com/go-stomp/stomp/v3 v3.0.3/go.mod h1:jTrybHBK20jPdM9iyh65m6GusX6aMf7atfEFZ1nIcgc=
 github.com/gobwas/glob v0.2.3 h1:A4xDbljILXROh+kObIiy5kIaPYD8e96x1tgBhUI5J+Y=
 github.com/gobwas/glob v0.2.3/go.mod h1:d3Ez4x06l9bZtSvzIay5+Yzi0fmZzPgnTbPcKjJAkT8=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
