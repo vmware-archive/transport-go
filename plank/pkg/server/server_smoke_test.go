@@ -19,8 +19,8 @@ func TestSmokeTests(t *testing.T) {
 	_ = os.MkdirAll(testRoot, 0755)
 	defer os.RemoveAll(testRoot)
 
-	port := getTestPort()
-	cfg := getBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", port, true)
+	port := GetTestPort()
+	cfg := GetBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", port, true)
 	cfg.NoBanner = true
 	cfg.FabricConfig = &FabricBrokerConfig{
 		FabricEndpoint: "/ws",
@@ -32,7 +32,7 @@ func TestSmokeTests(t *testing.T) {
 			Heartbeat:             30000,
 		},
 	}
-	baseUrl, _, testServer := createTestServer(cfg)
+	baseUrl, _, testServer := CreateTestServer(cfg)
 
 	assert.EqualValues(t, fmt.Sprintf("http://localhost:%d", port), baseUrl)
 
@@ -40,7 +40,7 @@ func TestSmokeTests(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go testServer.StartServer(syschan)
-	runWhenServerReady(t, bus.GetBus(), func(t *testing.T) {
+	RunWhenServerReady(t, bus.GetBus(), func(t *testing.T) {
 		// root url - 404
 		t.Run("404 on root", func(t2 *testing.T) {
 			cl := http.DefaultClient
@@ -68,10 +68,10 @@ func TestSmokeTests_NoFabric(t *testing.T) {
 	_ = os.MkdirAll(testRoot, 0755)
 	defer os.RemoveAll(testRoot)
 
-	port := getTestPort()
-	cfg := getBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", port, true)
+	port := GetTestPort()
+	cfg := GetBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", port, true)
 	cfg.FabricConfig = nil
-	baseUrl, _, testServer := createTestServer(cfg)
+	baseUrl, _, testServer := CreateTestServer(cfg)
 
 	assert.EqualValues(t, fmt.Sprintf("http://localhost:%d", port), baseUrl)
 
@@ -79,7 +79,7 @@ func TestSmokeTests_NoFabric(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go testServer.StartServer(syschan)
-	runWhenServerReady(t, bus.GetBus(), func(t *testing.T) {
+	RunWhenServerReady(t, bus.GetBus(), func(t *testing.T) {
 		// fabric - 404
 		t.Run("404 on fabric endpoint", func(t2 *testing.T) {
 			cl := http.DefaultClient
@@ -99,10 +99,10 @@ func TestSmokeTests_HealthEndpoint(t *testing.T) {
 	_ = os.MkdirAll(testRoot, 0755)
 	defer os.RemoveAll(testRoot)
 
-	port := getTestPort()
-	cfg := getBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", port, true)
+	port := GetTestPort()
+	cfg := GetBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", port, true)
 	cfg.FabricConfig = nil
-	baseUrl, _, testServer := createTestServer(cfg)
+	baseUrl, _, testServer := CreateTestServer(cfg)
 
 	assert.EqualValues(t, fmt.Sprintf("http://localhost:%d", port), baseUrl)
 
@@ -110,7 +110,7 @@ func TestSmokeTests_HealthEndpoint(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go testServer.StartServer(syschan)
-	runWhenServerReady(t, bus.GetBus(), func(t *testing.T) {
+	RunWhenServerReady(t, bus.GetBus(), func(*testing.T) {
 		t.Run("/health returns OK", func(t2 *testing.T) {
 			cl := http.DefaultClient
 			rsp, err := cl.Get(fmt.Sprintf("%s/health", baseUrl))

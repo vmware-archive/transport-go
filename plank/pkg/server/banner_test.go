@@ -14,8 +14,8 @@ func TestPrintBanner_BasicBootMessage(t *testing.T) {
 	_ = os.MkdirAll(testRoot, 0755)
 	defer os.RemoveAll(testRoot)
 
-	cfg := getBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", 9981, false)
-	_, _, testServerInterface := createTestServer(cfg)
+	cfg := GetBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", 9981, false)
+	_, _, testServerInterface := CreateTestServer(cfg)
 	testServer := testServerInterface.(*platformServer)
 	testServer.printBanner()
 
@@ -28,8 +28,8 @@ func TestPrintBanner_BasicBootMessage_NonStdout(t *testing.T) {
 	testLogFile := filepath.Join(testRoot, "testlog.log")
 	defer os.RemoveAll(testRoot)
 
-	cfg := getBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
-	_, _, testServerInterface := createTestServer(cfg)
+	cfg := GetBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
+	_, _, testServerInterface := CreateTestServer(cfg)
 	testServer := testServerInterface.(*platformServer)
 
 	// act
@@ -54,9 +54,9 @@ func TestPrintBanner_StaticConfig(t *testing.T) {
 	testLogFile := filepath.Join(testRoot, "testlog.log")
 	defer os.RemoveAll(testRoot)
 
-	cfg := getBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
+	cfg := GetBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
 	cfg.StaticDir = []string{"somewhere/over-the-rainbow"}
-	_, _, testServerInterface := createTestServer(cfg)
+	_, _, testServerInterface := CreateTestServer(cfg)
 	testServer := testServerInterface.(*platformServer)
 
 	// act
@@ -80,7 +80,7 @@ func TestPrintBanner_FabricConfig(t *testing.T) {
 	testLogFile := filepath.Join(testRoot, "testlog.log")
 	defer os.RemoveAll(testRoot)
 
-	cfg := getBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
+	cfg := GetBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
 	cfg.FabricConfig = &FabricBrokerConfig{
 		FabricEndpoint: "/ws",
 		EndpointConfig: &bus.EndpointConfig{
@@ -91,7 +91,7 @@ func TestPrintBanner_FabricConfig(t *testing.T) {
 			Heartbeat:             30000,
 		},
 	}
-	_, _, testServerInterface := createTestServer(cfg)
+	_, _, testServerInterface := CreateTestServer(cfg)
 	testServer := testServerInterface.(*platformServer)
 
 	// act
@@ -115,14 +115,14 @@ func TestPrintBanner_SpaConfig(t *testing.T) {
 	testLogFile := filepath.Join(testRoot, "testlog.log")
 	defer os.RemoveAll(testRoot)
 
-	cfg := getBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
+	cfg := GetBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
 	cfg.SpaConfig = &SpaConfig{
-		RootFolder:            testRoot,
-		BaseUri:               "/",
-		StaticAssets:          []string{"a", "b", "c:/public/c"},
-		CacheControlRules:     nil,
+		RootFolder:        testRoot,
+		BaseUri:           "/",
+		StaticAssets:      []string{"a", "b", "c:/public/c"},
+		CacheControlRules: nil,
 	}
-	_, _, testServerInterface := createTestServer(cfg)
+	_, _, testServerInterface := CreateTestServer(cfg)
 	testServer := testServerInterface.(*platformServer)
 
 	// act
@@ -147,9 +147,9 @@ func TestPrintBanner_Prometheus(t *testing.T) {
 	testLogFile := filepath.Join(testRoot, "testlog.log")
 	defer os.RemoveAll(testRoot)
 
-	cfg := getBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
+	cfg := GetBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
 	cfg.EnablePrometheus = true
-	_, _, testServerInterface := createTestServer(cfg)
+	_, _, testServerInterface := CreateTestServer(cfg)
 	testServer := testServerInterface.(*platformServer)
 
 	// act

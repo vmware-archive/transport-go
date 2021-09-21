@@ -85,7 +85,7 @@ func TestGeneratePlatformServerConfig_ConfigFile(t *testing.T) {
 	// arrange
 	f := &serverConfigFactory{}
 	pflag.CommandLine = pflag.NewFlagSet("", pflag.ExitOnError)
-	configFile, err := createConfigJsonForTest()
+	configFile, err := CreateConfigJsonForTest()
 	if err != nil {
 		assert.FailNow(t, err.Error())
 	}

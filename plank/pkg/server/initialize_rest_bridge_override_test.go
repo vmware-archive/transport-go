@@ -25,11 +25,11 @@ func TestInitialize_DebugLogging(t *testing.T) {
 	_ = os.MkdirAll(testRoot, 0755)
 	defer os.RemoveAll(testRoot)
 
-	cfg := getBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", getTestPort(), true)
+	cfg := GetBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", GetTestPort(), true)
 	cfg.Debug = true
 
 	// act
-	_, _, _ = createTestServer(cfg)
+	_, _, _ = CreateTestServer(cfg)
 
 	// assert
 	assert.EqualValues(t, logrus.DebugLevel, utils.Log.GetLevel())
@@ -44,8 +44,8 @@ func TestInitialize_RestBridgeOverride(t *testing.T) {
 	defer os.RemoveAll(testRoot)
 	defer service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
 
-	cfg := getBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", getTestPort(), true)
-	baseUrl, _, testServerInterface := createTestServer(cfg)
+	cfg := GetBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", GetTestPort(), true)
+	baseUrl, _, testServerInterface := CreateTestServer(cfg)
 	testServer := testServerInterface.(*platformServer)
 
 	// register ping pong service with default bridge points of /rest/ping-pong, /rest/ping-pong2 and /rest/ping-pong/{from}/{to}/{message}
@@ -58,11 +58,11 @@ func TestInitialize_RestBridgeOverride(t *testing.T) {
 	_ = bus.GetBus().SendResponseMessage(service.LifecycleManagerChannelName, &service.SetupRESTBridgeRequest{
 		ServiceChannel: services.PingPongServiceChan,
 		Override:       true,
-		Config:         []*service.RESTBridgeConfig{
+		Config: []*service.RESTBridgeConfig{
 			{
-				ServiceChannel:       services.PingPongServiceChan,
-				Uri:                  "/ping-new",
-				Method:               "GET",
+				ServiceChannel: services.PingPongServiceChan,
+				Uri:            "/ping-new",
+				Method:         "GET",
 				FabricRequestBuilder: func(w http.ResponseWriter, r *http.Request) model.Request {
 					return model.Request{Id: &uuid.UUID{}, Request: "ping-get", Payload: r.URL.Query().Get("message")}
 				},
@@ -77,7 +77,7 @@ func TestInitialize_RestBridgeOverride(t *testing.T) {
 	go testServerInterface.StartServer(syschan)
 
 	// assert
-	runWhenServerReady(t, bus.GetBus(), func(t2 *testing.T) {
+	RunWhenServerReady(t, bus.GetBus(), func(t2 *testing.T) {
 		time.Sleep(time.Millisecond)
 		// router instance should have been swapped
 		assert.NotEqual(t, testServer.router, oldRouter)

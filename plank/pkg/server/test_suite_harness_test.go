@@ -1,11 +1,10 @@
-package test_utils
+package server
 
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
-	"github.com/vmware/transport-go/plank/pkg/server"
 	"github.com/vmware/transport-go/service"
 	"os"
 	"testing"
@@ -22,7 +21,7 @@ type testPlankTestIntegration struct {
 	PlankIntegrationTestSuite
 }
 
-func (m *testPlankTestIntegration) SetPlatformServer(s server.PlatformServer) {
+func (m *testPlankTestIntegration) SetPlatformServer(s PlatformServer) {
 	m.PlatformServer = s
 }
 func (m *testPlankTestIntegration) SetSysChan(c chan os.Signal) {
