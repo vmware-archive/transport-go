@@ -228,6 +228,7 @@ func queryStockTickerAPI(symbol string) (map[string]interface{}, error) {
 		"highDayPrice":       tickerData.HighDayPrice,
 		"lowDayPrice":        tickerData.LowDayPrice,
 		"openPrice":          tickerData.OpenPrice,
+		"closePrice":         tickerData.PreviousClosePrice, // for backward compatible with UI examples
 		"previousClosePrice": tickerData.PreviousClosePrice,
 	}, nil
 }
