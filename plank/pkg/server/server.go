@@ -80,13 +80,21 @@ func NewPlatformServerFromConfig(configPath string) (PlatformServer, error) {
 	config.LogConfig.AccessLog = utils.JoinBasePathIfRelativeRegularFilePath(config.LogConfig.Root, config.LogConfig.AccessLog)
 	config.LogConfig.ErrorLog = utils.JoinBasePathIfRelativeRegularFilePath(config.LogConfig.Root, config.LogConfig.ErrorLog)
 
+	// handle invalid duration by setting it to the default value of 5 minutes
+	if config.ShutdownTimeout <= 0 {
+		config.ShutdownTimeout = 5
+	}
+
 	// handle invalid duration by setting it to the default value of 1 minute
-	if config.RestBridgeTimeoutInMinutes <= 0 {
-		config.RestBridgeTimeoutInMinutes = 1
+	if config.RestBridgeTimeout <= 0 {
+		config.RestBridgeTimeout = 1
 	}
 
 	// the raw value from the config.json needs to be multiplied by time.Minute otherwise it's interpreted as nanosecond
-	config.RestBridgeTimeoutInMinutes = config.RestBridgeTimeoutInMinutes * time.Minute
+	config.ShutdownTimeout = config.ShutdownTimeout * time.Minute
+
+	// the raw value from the config.json needs to be multiplied by time.Minute otherwise it's interpreted as nanosecond
+	config.RestBridgeTimeout = config.RestBridgeTimeout * time.Minute
 
 	if config.TLSCertConfig != nil {
 		if !path.IsAbs(config.TLSCertConfig.CertFile) {
@@ -178,14 +186,13 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 		_, err := net.Dial("tcp", fmt.Sprintf(":%d", ps.serverConfig.Port))
 		httpReady = err == nil
 		if !httpReady {
-			time.Sleep(1*time.Millisecond)
+			time.Sleep(1 * time.Millisecond)
 			utils.Log.Debugln("waiting for http server to be ready to accept connections")
 			continue
 		}
 		_ = bus.GetBus().SendResponseMessage(PLANK_SERVER_ONLINE_CHANNEL, true, nil)
 		break
 	}
-
 
 	<-connClosed
 }
@@ -196,7 +203,7 @@ func (ps *platformServer) StopServer() {
 	ps.ServerAvailability.Http = false
 
 	baseCtx := context.Background()
-	shutdownCtx, cancel := context.WithTimeout(baseCtx, ps.serverConfig.ShutdownTimeoutInMinutes*time.Minute)
+	shutdownCtx, cancel := context.WithTimeout(baseCtx, ps.serverConfig.ShutdownTimeout)
 
 	go func() {
 		select {
@@ -204,7 +211,7 @@ func (ps *platformServer) StopServer() {
 			if errors.Is(shutdownCtx.Err(), context.DeadlineExceeded) {
 				utils.Log.Fatalf(
 					"Server failed to gracefully shut down after %s",
-					(ps.serverConfig.ShutdownTimeoutInMinutes * time.Minute).String())
+					ps.serverConfig.ShutdownTimeout.String())
 			}
 		}
 	}()
@@ -309,7 +316,7 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 	ps.endpointHandlerMap[endpointHandlerKey] = buildEndpointHandler(
 		bridgeConfig.ServiceChannel,
 		bridgeConfig.FabricRequestBuilder,
-		ps.serverConfig.RestBridgeTimeoutInMinutes)
+		ps.serverConfig.RestBridgeTimeout)
 
 	ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel] = append(
 		ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel], endpointHandlerKey)
@@ -365,7 +372,7 @@ func (ps *platformServer) SetHttpPathPrefixChannelBridge(bridgeConfig *service.R
 	ps.endpointHandlerMap[endpointHandlerKey] = buildEndpointHandler(
 		bridgeConfig.ServiceChannel,
 		bridgeConfig.FabricRequestBuilder,
-		ps.serverConfig.RestBridgeTimeoutInMinutes)
+		ps.serverConfig.RestBridgeTimeout)
 
 	ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel] = append(
 		ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel], endpointHandlerKey)

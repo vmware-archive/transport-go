@@ -50,21 +50,21 @@ func generatePlatformServerConfig(f *serverConfigFactory) (*PlatformServerConfig
 			return nil, err
 		}
 
-		// handle invalid duration by setting it to the default value of 1 minute
-		if serverConfig.ShutdownTimeoutInMinutes <= 0 {
-			serverConfig.ShutdownTimeoutInMinutes = 1
+		// handle invalid duration by setting it to the default value of 5 minutes
+		if serverConfig.ShutdownTimeout <= 0 {
+			serverConfig.ShutdownTimeout = 5
 		}
 
 		// handle invalid duration by setting it to the default value of 1 minute
-		if serverConfig.RestBridgeTimeoutInMinutes <= 0 {
-			serverConfig.RestBridgeTimeoutInMinutes = 1
+		if serverConfig.RestBridgeTimeout <= 0 {
+			serverConfig.RestBridgeTimeout = 1
 		}
 
 		// the raw value from the config.json needs to be multiplied by time.Minute otherwise it's interpreted as nanosecond
-		serverConfig.ShutdownTimeoutInMinutes = serverConfig.ShutdownTimeoutInMinutes * time.Minute
+		serverConfig.ShutdownTimeout = serverConfig.ShutdownTimeout * time.Minute
 
 		// the raw value from the config.json needs to be multiplied by time.Minute otherwise it's interpreted as nanosecond
-		serverConfig.RestBridgeTimeoutInMinutes = serverConfig.RestBridgeTimeoutInMinutes * time.Minute
+		serverConfig.RestBridgeTimeout = serverConfig.RestBridgeTimeout * time.Minute
 
 		// convert map of cache control rules of SpaConfig into an array
 		if serverConfig.SpaConfig != nil {
@@ -79,13 +79,18 @@ func generatePlatformServerConfig(f *serverConfigFactory) (*PlatformServerConfig
 		restBridgeTimeout = 1
 	}
 
+	// handle invalid duration by setting it to the default value of 5 minutes
+	if shutdownTimeoutInMinutes <= 0 {
+		shutdownTimeoutInMinutes = 5
+	}
+
 	// instantiate a server config
 	serverConfig := &PlatformServerConfig{
-		Host:                     host,
-		Port:                     port,
-		RootDir:                  rootDir,
-		StaticDir:                static,
-		ShutdownTimeoutInMinutes: time.Duration(shutdownTimeoutInMinutes) * time.Minute,
+		Host:            host,
+		Port:            port,
+		RootDir:         rootDir,
+		StaticDir:       static,
+		ShutdownTimeout: time.Duration(shutdownTimeoutInMinutes) * time.Minute,
 		LogConfig: &utils.LogConfig{
 			AccessLog:     accessLog,
 			ErrorLog:      errorLog,
@@ -93,10 +98,10 @@ func generatePlatformServerConfig(f *serverConfigFactory) (*PlatformServerConfig
 			Root:          rootDir,
 			FormatOptions: &utils.LogFormatOption{},
 		},
-		Debug:                      debug,
-		NoBanner:                   noBanner,
-		EnablePrometheus:           prometheus,
-		RestBridgeTimeoutInMinutes: time.Duration(restBridgeTimeout) * time.Minute,
+		Debug:             debug,
+		NoBanner:          noBanner,
+		EnablePrometheus:  prometheus,
+		RestBridgeTimeout: time.Duration(restBridgeTimeout) * time.Minute,
 	}
 
 	if len(certKey) > 0 && len(certKey) > 0 {

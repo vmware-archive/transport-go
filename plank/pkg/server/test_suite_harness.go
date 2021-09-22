@@ -63,18 +63,18 @@ func SetupPlankTestSuiteForTest(suite *PlankIntegrationTestSuite, test PlankInte
 // GetBasicTestServerConfig will generate a simple platform server config, ready to use in a test.
 func GetBasicTestServerConfig(rootDir, outLog, accessLog, errLog string, port int, noBanner bool) *PlatformServerConfig {
 	cfg := &PlatformServerConfig{
-		RootDir:                    rootDir,
-		Host:                       "localhost",
-		Port:                       port,
-		RestBridgeTimeoutInMinutes: time.Minute,
+		RootDir:           rootDir,
+		Host:              "localhost",
+		Port:              port,
+		RestBridgeTimeout: time.Minute,
 		LogConfig: &utils.LogConfig{
 			OutputLog:     outLog,
 			AccessLog:     accessLog,
 			ErrorLog:      errLog,
 			FormatOptions: &utils.LogFormatOption{},
 		},
-		NoBanner:                 noBanner,
-		ShutdownTimeoutInMinutes: 1,
+		NoBanner:        noBanner,
+		ShutdownTimeout: time.Minute,
 	}
 	return cfg
 }

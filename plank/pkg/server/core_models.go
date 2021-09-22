@@ -20,19 +20,19 @@ import (
 
 // PlatformServerConfig holds all the core configuration needed for the functionality of Plank
 type PlatformServerConfig struct {
-	RootDir                    string              `json:"root_dir"`                       // root directory the server should base itself on
-	StaticDir                  []string            `json:"static_dir"`                     // static content folders that HTTP server should serve
-	SpaConfig                  *SpaConfig          `json:"spa_config"`                     // single page application configuration
-	Host                       string              `json:"host"`                           // hostname for the server
-	Port                       int                 `json:"port"`                           // port for the server
-	LogConfig                  *utils.LogConfig    `json:"log_config"`                     // log configuration (plank, Http access and error logs)
-	FabricConfig               *FabricBrokerConfig `json:"fabric_config"`                  // Fabric (websocket) configuration
-	TLSCertConfig              *TLSCertConfig      `json:"tls_config"`                     // TLS certificate configuration
-	EnablePrometheus           bool                `json:"enable_prometheus"`              // whether to enable Prometheus for runtime metrics
-	Debug                      bool                `json:"debug"`                          // enable debug logging
-	NoBanner                   bool                `json:"no_banner"`                      // start server without displaying the banner
-	ShutdownTimeoutInMinutes   time.Duration       `json:"shutdown_timeout_in_minutes"`    // graceful server shutdown timeout in minutes
-	RestBridgeTimeoutInMinutes time.Duration       `json:"rest_bridge_timeout_in_minutes"` // rest bridge timeout in minutes
+	RootDir           string              `json:"root_dir"`                       // root directory the server should base itself on
+	StaticDir         []string            `json:"static_dir"`                     // static content folders that HTTP server should serve
+	SpaConfig         *SpaConfig          `json:"spa_config"`                     // single page application configuration
+	Host              string              `json:"host"`                           // hostname for the server
+	Port              int                 `json:"port"`                           // port for the server
+	LogConfig         *utils.LogConfig    `json:"log_config"`                     // log configuration (plank, Http access and error logs)
+	FabricConfig      *FabricBrokerConfig `json:"fabric_config"`                  // Fabric (websocket) configuration
+	TLSCertConfig     *TLSCertConfig      `json:"tls_config"`                     // TLS certificate configuration
+	EnablePrometheus  bool                `json:"enable_prometheus"`              // whether to enable Prometheus for runtime metrics
+	Debug             bool                `json:"debug"`                          // enable debug logging
+	NoBanner          bool                `json:"no_banner"`                      // start server without displaying the banner
+	ShutdownTimeout   time.Duration       `json:"shutdown_timeout_in_minutes"`    // graceful server shutdown timeout in minutes
+	RestBridgeTimeout time.Duration       `json:"rest_bridge_timeout_in_minutes"` // rest bridge timeout in minutes
 }
 
 // TLSCertConfig wraps around key information for TLS configuration
