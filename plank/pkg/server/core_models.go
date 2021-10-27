@@ -76,12 +76,13 @@ type platformServer struct {
 	fabricConn                   stompserver.RawConnectionListener // WebSocket listener instance
 	ServerAvailability           *ServerAvailability               // server availability (not much used other than for internal monitoring for now)
 	lock                         sync.Mutex                        // lock
+	messageBridgeMap             map[string]*MessageBridge
 }
 
-// TransportChannelResponse wraps Transport *Message.Message with an error object for easier transfer
-type TransportChannelResponse struct {
-	Message *model.Message // wrapper object that contains the payload
-	Err     error          // error object if there is any
+// MessageBridge is a conduit used for returning service responses as HTTP responses
+type MessageBridge struct {
+	ServiceListenStream bus.MessageHandler  // message handler returned by bus.ListenStream responsible for relaying back messages as HTTP responses
+	payloadChannel      chan *model.Message // internal golang channel used for passing bus responses/errors across goroutines
 }
 
 // ServerAvailability contains boolean fields to indicate what components of the system are available or not

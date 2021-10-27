@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/vmware/transport-go/model"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -46,6 +47,7 @@ func NewPlatformServer(config *PlatformServerConfig) PlatformServer {
 	ps.serverConfig = config
 	ps.ServerAvailability = &ServerAvailability{}
 	ps.routerConcurrencyProtection = new(int32)
+	ps.messageBridgeMap = make(map[string]*MessageBridge)
 	ps.initialize()
 	return ps
 }
@@ -312,11 +314,24 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 		ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel] = make([]string, 0)
 	}
 
+	if _, exists := ps.messageBridgeMap[bridgeConfig.ServiceChannel]; !exists {
+		handler, _ := bus.GetBus().ListenStream(bridgeConfig.ServiceChannel)
+		handler.Handle(func(message *model.Message) {
+			ps.messageBridgeMap[bridgeConfig.ServiceChannel].payloadChannel <- message
+		}, func(err error) {})
+
+		ps.messageBridgeMap[bridgeConfig.ServiceChannel] = &MessageBridge{
+			ServiceListenStream: handler,
+			payloadChannel:      make(chan *model.Message, 100),
+		}
+	}
+
 	// build endpoint handler
 	ps.endpointHandlerMap[endpointHandlerKey] = buildEndpointHandler(
 		bridgeConfig.ServiceChannel,
 		bridgeConfig.FabricRequestBuilder,
-		ps.serverConfig.RestBridgeTimeout)
+		ps.serverConfig.RestBridgeTimeout,
+		ps.messageBridgeMap[bridgeConfig.ServiceChannel].payloadChannel)
 
 	ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel] = append(
 		ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel], endpointHandlerKey)
@@ -368,11 +383,24 @@ func (ps *platformServer) SetHttpPathPrefixChannelBridge(bridgeConfig *service.R
 		ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel] = make([]string, 0)
 	}
 
+	if _, exists := ps.messageBridgeMap[bridgeConfig.ServiceChannel]; !exists {
+		handler, _ := bus.GetBus().ListenStream(bridgeConfig.ServiceChannel)
+		handler.Handle(func(message *model.Message) {
+			ps.messageBridgeMap[bridgeConfig.ServiceChannel].payloadChannel <- message
+		}, func(err error) {})
+
+		ps.messageBridgeMap[bridgeConfig.ServiceChannel] = &MessageBridge{
+			ServiceListenStream: handler,
+			payloadChannel:      make(chan *model.Message, 100),
+		}
+	}
+
 	// build endpoint handler
 	ps.endpointHandlerMap[endpointHandlerKey] = buildEndpointHandler(
 		bridgeConfig.ServiceChannel,
 		bridgeConfig.FabricRequestBuilder,
-		ps.serverConfig.RestBridgeTimeout)
+		ps.serverConfig.RestBridgeTimeout,
+		ps.messageBridgeMap[bridgeConfig.ServiceChannel].payloadChannel)
 
 	ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel] = append(
 		ps.serviceChanToBridgeEndpoints[bridgeConfig.ServiceChannel], endpointHandlerKey)

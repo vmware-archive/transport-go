@@ -14,8 +14,10 @@ import (
 	"github.com/vmware/transport-go/stompserver"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"time"
 )
 
@@ -49,10 +51,18 @@ func (ps *platformServer) initialize() {
 	utils.Log.SetFormatter(formatter)
 	utils.Log.SetOutput(ps.out)
 
-	// if debug flag is provided enable extra logging
+	// if debug flag is provided enable extra logging. also, enable profiling at port 6060
 	if ps.serverConfig.Debug {
 		utils.Log.SetLevel(logrus.DebugLevel)
-		utils.Log.Debugln("Debug logging enabled")
+		go func() {
+			runtime.SetBlockProfileRate(1) // capture traces of all possible contended mutex holders
+			profilerRouter := mux.NewRouter()
+			profilerRouter.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
+			if err := http.ListenAndServe(":6060", profilerRouter); err != nil {
+				panic(err)
+			}
+		}()
+		utils.Log.Debugln("Debug logging and profiling enabled. Available types of profiles at http://localhost:6060/debug/pprof")
 	}
 
 	// set a new route handler
