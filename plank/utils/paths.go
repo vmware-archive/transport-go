@@ -55,7 +55,7 @@ func DeriveStaticURIFromPath(input string) (string, string) {
 
 func JoinBasePathIfRelativeRegularFilePath(base string, in string) (out string) {
 	out = in
-	if in == "stdout" || in == "stderr" {
+	if in == "stdout" || in == "stderr" || in == "null" {
 		return
 	}
 

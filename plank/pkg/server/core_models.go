@@ -12,6 +12,7 @@ import (
 	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/service"
 	"github.com/vmware/transport-go/stompserver"
+	"io"
 	"net/http"
 	"os"
 	"sync"
@@ -70,7 +71,7 @@ type platformServer struct {
 	middlewareManager            middleware.MiddlewareManager      // middleware maanger instance
 	router                       *mux.Router                       // *mux.Router instance
 	routerConcurrencyProtection  *int32                            // atomic int32 to protect the main router being concurrently written to
-	out                          *os.File                          // platform log output pointer
+	out                          io.Writer                         // platform log output pointer
 	endpointHandlerMap           map[string]http.HandlerFunc       // internal map to store rest endpoint -handler mappings
 	serviceChanToBridgeEndpoints map[string][]string               // internal map to store service channel - endpoint handler key mappings
 	fabricConn                   stompserver.RawConnectionListener // WebSocket listener instance

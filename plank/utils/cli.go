@@ -71,17 +71,17 @@ var PlatformServerFlagConstants = map[string]map[string]string{
 	"OutputLog": {
 		"FlagName":    "output-log",
 		"ShortFlag":   "l",
-		"Description": "Platform log output",
+		"Description": "Platform log output. Possible values: stdout, stderr, null, or path to a file",
 	},
 	"AccessLog": {
 		"FlagName":    "access-log",
 		"ShortFlag":   "a",
-		"Description": "HTTP server access log output",
+		"Description": "HTTP server access log output. Possible values: stdout, stderr, null, or path to a file",
 	},
 	"ErrorLog": {
 		"FlagName":    "error-log",
 		"ShortFlag":   "e",
-		"Description": "HTTP server error log output",
+		"Description": "HTTP server error log output. Possible values: stdout, stderr, null, or path to a file",
 	},
 	"Debug": {
 		"FlagName":    "debug",

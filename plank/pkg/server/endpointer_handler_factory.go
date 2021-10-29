@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/plank/utils"
@@ -58,10 +57,6 @@ func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, 
 				} else {
 					respBody = response.Payload
 				}
-
-				utils.Log.WithFields(logrus.Fields{
-					//"payload": respBody, // don't show this, we may be sending around big byte arrays
-				}).Debugf("Response received from channel %s:", svcChannel)
 
 				// if our Message is an error and it has a code, lets send that back to the client.
 				if response.Error {
