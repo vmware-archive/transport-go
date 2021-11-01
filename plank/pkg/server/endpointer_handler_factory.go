@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/service"
@@ -16,7 +14,7 @@ import (
 
 // buildEndpointHandler builds a http.HandlerFunc that wraps Transport Bus operations in an HTTP request-response cycle.
 // service channel, request builder and rest bridge timeout are passed as parameters.
-func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, restBridgeTimeout time.Duration) http.HandlerFunc {
+func (ps *platformServer) buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, restBridgeTimeout time.Duration, msgChan chan *model.Message) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -28,23 +26,10 @@ func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, 
 		// set context that expires after the provided amount of time in restBridgeTimeout to prevent requests from hanging forever
 		ctx, cancelFn := context.WithTimeout(context.Background(), restBridgeTimeout)
 		defer cancelFn()
-		h, err := bus.GetBus().ListenOnce(svcChannel)
-		if err != nil {
-			panic(err)
-		}
-
-		// set up a channel through which to receive the raw response from transport channel
-		// handler function runs in another thread so we need to utilize channel to use the correct writer.
-		chanReturn := make(chan *TransportChannelResponse)
-		h.Handle(func(message *model.Message) {
-			chanReturn <- &TransportChannelResponse{Message: message}
-		}, func(err error) {
-			chanReturn <- &TransportChannelResponse{Err: err}
-		})
 
 		// relay the request to transport channel
 		reqModel := reqBuilder(w, r)
-		err = bus.GetBus().SendRequestMessage(svcChannel, reqModel, reqModel.Id)
+		err := ps.eventbus.SendRequestMessage(svcChannel, reqModel, reqModel.Id)
 
 		// get a response from the channel, render the results using ResponseWriter and log the data/error
 		// to the console as well.
@@ -53,14 +38,14 @@ func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, 
 			http.Error(
 				w,
 				fmt.Sprintf("No response received from service channel in %s, request timed out", restBridgeTimeout.String()), 500)
-		case chanResponse := <-chanReturn:
-			if chanResponse.Err != nil {
-				utils.Log.WithError(chanResponse.Err).Errorf(
+		case msg := <-msgChan:
+			if msg.Error != nil {
+				utils.Log.WithError(msg.Error).Errorf(
 					"Error received from channel %s:", svcChannel)
-				http.Error(w, chanResponse.Err.Error(), 500)
+				http.Error(w, msg.Error.Error(), 500)
 			} else {
-				// only send the actual user payload not wrapper information
-				response := chanResponse.Message.Payload.(*model.Response)
+				// only send the actual user payloadChannel not wrapper information
+				response := msg.Payload.(*model.Response)
 				var respBody interface{}
 				if response.Error {
 					if response.Payload != nil {
@@ -71,10 +56,6 @@ func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, 
 				} else {
 					respBody = response.Payload
 				}
-
-				utils.Log.WithFields(logrus.Fields{
-					//"payload": respBody, // don't show this, we may be sending around big byte arrays
-				}).Debugf("Response received from channel %s:", svcChannel)
 
 				// if our Message is an error and it has a code, lets send that back to the client.
 				if response.Error {

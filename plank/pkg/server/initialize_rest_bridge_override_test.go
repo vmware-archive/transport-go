@@ -37,7 +37,7 @@ func TestInitialize_DebugLogging(t *testing.T) {
 
 func TestInitialize_RestBridgeOverride(t *testing.T) {
 	// arrange
-	bus.ResetBus()
+	newBus := bus.ResetBus()
 	service.ResetServiceRegistry()
 	testRoot := filepath.Join(os.TempDir(), "plank-tests")
 	_ = os.MkdirAll(testRoot, 0755)
@@ -47,6 +47,7 @@ func TestInitialize_RestBridgeOverride(t *testing.T) {
 	cfg := GetBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", GetTestPort(), true)
 	baseUrl, _, testServerInterface := CreateTestServer(cfg)
 	testServer := testServerInterface.(*platformServer)
+	testServer.eventbus = newBus
 
 	// register ping pong service with default bridge points of /rest/ping-pong, /rest/ping-pong2 and /rest/ping-pong/{from}/{to}/{message}
 	testServerInterface.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
@@ -62,8 +63,8 @@ func TestInitialize_RestBridgeOverride(t *testing.T) {
 	oldRouter := testServer.router
 
 	// assert
-	RunWhenServerReady(t, bus.GetBus(), func(t2 *testing.T) {
-		_ = bus.GetBus().SendResponseMessage(service.LifecycleManagerChannelName, &service.SetupRESTBridgeRequest{
+	RunWhenServerReady(t, newBus, func(t2 *testing.T) {
+		_ = newBus.SendResponseMessage(service.LifecycleManagerChannelName, &service.SetupRESTBridgeRequest{
 			ServiceChannel: services.PingPongServiceChan,
 			Override:       true,
 			Config: []*service.RESTBridgeConfig{
@@ -76,7 +77,7 @@ func TestInitialize_RestBridgeOverride(t *testing.T) {
 					},
 				},
 			},
-		}, bus.GetBus().GetId())
+		}, newBus.GetId())
 
 		// router instance should have been swapped
 		time.Sleep(1 * time.Second)

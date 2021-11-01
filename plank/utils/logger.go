@@ -5,6 +5,7 @@ package utils
 
 import (
 	"github.com/sirupsen/logrus"
+	"io"
 	"os"
 	"path"
 )
@@ -17,9 +18,9 @@ type LogConfig struct {
 	OutputLog     string           `json:"output_log"`
 	FormatOptions *LogFormatOption `json:"format_options"`
 	Root          string           `json:"root"`
-	accessLogFp   *os.File         `json:"-"`
-	errorLogFp    *os.File         `json:"-"`
-	outputLogFp   *os.File         `json:"-"`
+	accessLogFp   io.Writer        `json:"-"`
+	errorLogFp    io.Writer        `json:"-"`
+	outputLogFp   io.Writer        `json:"-"`
 }
 
 // LogFormatOption is merely a wrapper of logrus.TextFormatter because TextFormatter does not allow serializing
@@ -82,7 +83,7 @@ type LogFormatOption struct {
 }
 
 func (lc *LogConfig) PrepareLogFiles() error {
-	var fp *os.File
+	var fp io.Writer
 	var err error
 	if fp, err = lc.prepareLogFilePointer(lc.AccessLog); err != nil {
 		return err
@@ -102,23 +103,25 @@ func (lc *LogConfig) PrepareLogFiles() error {
 	return nil
 }
 
-func (lc *LogConfig) GetAccessLogFilePointer() *os.File {
+func (lc *LogConfig) GetAccessLogFilePointer() io.Writer {
 	return lc.accessLogFp
 }
 
-func (lc *LogConfig) GetErrorLogFilePointer() *os.File {
+func (lc *LogConfig) GetErrorLogFilePointer() io.Writer {
 	return lc.errorLogFp
 }
 
-func (lc *LogConfig) GetPlatformLogFilePointer() *os.File {
+func (lc *LogConfig) GetPlatformLogFilePointer() io.Writer {
 	return lc.outputLogFp
 }
 
-func (lc *LogConfig) prepareLogFilePointer(target string) (fp *os.File, err error) {
+func (lc *LogConfig) prepareLogFilePointer(target string) (fp io.Writer, err error) {
 	if target == "stdout" {
 		fp = os.Stdout
 	} else if target == "stderr" {
 		fp = os.Stderr
+	} else if target == "null" {
+		fp = &noopWriter{}
 	} else {
 		logFilePath := JoinBasePathIfRelativeRegularFilePath(lc.Root, target)
 		fp, err = GetNewLogFilePointer(logFilePath)
@@ -211,6 +214,17 @@ func (l *PlankLogger) Panicln(args ...interface{}) {
 
 func (l *PlankLogger) Panicf(format string, args ...interface{}) {
 	l.setCommonFields().Panicf(format, args...)
+}
+
+// noopWriter does absolutely nothing and return immediately. for references
+// to those who wonder why this is here then in the first place, this is so
+// this no-op writer instance can be passed as an access logger to not bother
+// logging HTTP access logs which may not be necessary for some applications
+// that want as lowest IO bottlenecks as possible.
+type noopWriter struct{}
+
+func (noopWriter *noopWriter) Write(p []byte) (n int, err error) {
+	return 0, nil
 }
 
 func init() {

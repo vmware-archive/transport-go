@@ -12,6 +12,7 @@ import (
 	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/service"
 	"github.com/vmware/transport-go/stompserver"
+	"io"
 	"net/http"
 	"os"
 	"sync"
@@ -66,22 +67,24 @@ type PlatformServer interface {
 type platformServer struct {
 	HttpServer                   *http.Server                      // Http server instance
 	SyscallChan                  chan os.Signal                    // syscall channel to receive SIGINT, SIGKILL events
+	eventbus                     bus.EventBus                      // event bus pointer
 	serverConfig                 *PlatformServerConfig             // server config instance
 	middlewareManager            middleware.MiddlewareManager      // middleware maanger instance
 	router                       *mux.Router                       // *mux.Router instance
 	routerConcurrencyProtection  *int32                            // atomic int32 to protect the main router being concurrently written to
-	out                          *os.File                          // platform log output pointer
+	out                          io.Writer                         // platform log output pointer
 	endpointHandlerMap           map[string]http.HandlerFunc       // internal map to store rest endpoint -handler mappings
 	serviceChanToBridgeEndpoints map[string][]string               // internal map to store service channel - endpoint handler key mappings
 	fabricConn                   stompserver.RawConnectionListener // WebSocket listener instance
 	ServerAvailability           *ServerAvailability               // server availability (not much used other than for internal monitoring for now)
 	lock                         sync.Mutex                        // lock
+	messageBridgeMap             map[string]*MessageBridge
 }
 
-// TransportChannelResponse wraps Transport *Message.Message with an error object for easier transfer
-type TransportChannelResponse struct {
-	Message *model.Message // wrapper object that contains the payload
-	Err     error          // error object if there is any
+// MessageBridge is a conduit used for returning service responses as HTTP responses
+type MessageBridge struct {
+	ServiceListenStream bus.MessageHandler  // message handler returned by bus.ListenStream responsible for relaying back messages as HTTP responses
+	payloadChannel      chan *model.Message // internal golang channel used for passing bus responses/errors across goroutines
 }
 
 // ServerAvailability contains boolean fields to indicate what components of the system are available or not

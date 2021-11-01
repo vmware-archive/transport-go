@@ -35,7 +35,8 @@ func (m *testPlankTestIntegration) SetBus(eventBus bus.EventBus) {
 }
 
 func TestSetupPlankTestSuiteForTest(t *testing.T) {
-	b := bus.GetBus()
+	b := bus.ResetBus()
+	service.ResetServiceRegistry()
 	cm := b.GetChannelManager()
 	pit := &PlankIntegrationTestSuite{
 		Suite:          suite.Suite{},
