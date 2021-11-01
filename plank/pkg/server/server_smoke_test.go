@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/vmware/transport-go/bus"
+	"github.com/vmware/transport-go/service"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -13,6 +14,8 @@ import (
 )
 
 func TestSmokeTests(t *testing.T) {
+	newBus := bus.ResetBus()
+	service.ResetServiceRegistry()
 	testRoot := filepath.Join(os.TempDir(), "plank-tests")
 	//testOutFile := filepath.Join(testRoot, "plank-server-tests.log")
 	_ = os.MkdirAll(testRoot, 0755)
@@ -32,6 +35,7 @@ func TestSmokeTests(t *testing.T) {
 		},
 	}
 	baseUrl, _, testServer := CreateTestServer(cfg)
+	testServer.(*platformServer).eventbus = newBus
 
 	assert.EqualValues(t, fmt.Sprintf("http://localhost:%d", port), baseUrl)
 
@@ -39,7 +43,7 @@ func TestSmokeTests(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go testServer.StartServer(syschan)
-	RunWhenServerReady(t, bus.GetBus(), func(t *testing.T) {
+	RunWhenServerReady(t, newBus, func(t *testing.T) {
 		// root url - 404
 		t.Run("404 on root", func(t2 *testing.T) {
 			cl := http.DefaultClient
@@ -63,6 +67,8 @@ func TestSmokeTests(t *testing.T) {
 }
 
 func TestSmokeTests_NoFabric(t *testing.T) {
+	newBus := bus.ResetBus()
+	service.ResetServiceRegistry()
 	testRoot := filepath.Join(os.TempDir(), "plank-tests")
 	_ = os.MkdirAll(testRoot, 0755)
 	defer os.RemoveAll(testRoot)
@@ -71,6 +77,7 @@ func TestSmokeTests_NoFabric(t *testing.T) {
 	cfg := GetBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", port, true)
 	cfg.FabricConfig = nil
 	baseUrl, _, testServer := CreateTestServer(cfg)
+	testServer.(*platformServer).eventbus = newBus
 
 	assert.EqualValues(t, fmt.Sprintf("http://localhost:%d", port), baseUrl)
 
@@ -78,7 +85,7 @@ func TestSmokeTests_NoFabric(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go testServer.StartServer(syschan)
-	RunWhenServerReady(t, bus.GetBus(), func(t *testing.T) {
+	RunWhenServerReady(t, newBus, func(t *testing.T) {
 		// fabric - 404
 		t.Run("404 on fabric endpoint", func(t2 *testing.T) {
 			cl := http.DefaultClient
@@ -94,6 +101,8 @@ func TestSmokeTests_NoFabric(t *testing.T) {
 }
 
 func TestSmokeTests_HealthEndpoint(t *testing.T) {
+	newBus := bus.ResetBus()
+	service.ResetServiceRegistry()
 	testRoot := filepath.Join(os.TempDir(), "plank-tests")
 	_ = os.MkdirAll(testRoot, 0755)
 	defer os.RemoveAll(testRoot)
@@ -102,6 +111,7 @@ func TestSmokeTests_HealthEndpoint(t *testing.T) {
 	cfg := GetBasicTestServerConfig(testRoot, "stdout", "stdout", "stderr", port, true)
 	cfg.FabricConfig = nil
 	baseUrl, _, testServer := CreateTestServer(cfg)
+	testServer.(*platformServer).eventbus = newBus
 
 	assert.EqualValues(t, fmt.Sprintf("http://localhost:%d", port), baseUrl)
 
@@ -109,7 +119,7 @@ func TestSmokeTests_HealthEndpoint(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go testServer.StartServer(syschan)
-	RunWhenServerReady(t, bus.GetBus(), func(*testing.T) {
+	RunWhenServerReady(t, newBus, func(*testing.T) {
 		t.Run("/health returns OK", func(t2 *testing.T) {
 			cl := http.DefaultClient
 			rsp, err := cl.Get(fmt.Sprintf("%s/health", baseUrl))

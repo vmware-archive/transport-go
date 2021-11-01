@@ -67,6 +67,7 @@ type PlatformServer interface {
 type platformServer struct {
 	HttpServer                   *http.Server                      // Http server instance
 	SyscallChan                  chan os.Signal                    // syscall channel to receive SIGINT, SIGKILL events
+	eventbus                     bus.EventBus                      // event bus pointer
 	serverConfig                 *PlatformServerConfig             // server config instance
 	middlewareManager            middleware.MiddlewareManager      // middleware maanger instance
 	router                       *mux.Router                       // *mux.Router instance

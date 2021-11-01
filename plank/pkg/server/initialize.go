@@ -27,12 +27,11 @@ func (ps *platformServer) initialize() {
 	var err error
 
 	// initialize core components
-	var busInstance = bus.GetBus()
 	var serviceRegistryInstance = service.GetServiceRegistry()
 	var svcLifecycleManager = service.GetServiceLifecycleManager()
 
 	// create essential bus channels
-	busInstance.GetChannelManager().CreateChannel(PLANK_SERVER_ONLINE_CHANNEL)
+	ps.eventbus.GetChannelManager().CreateChannel(PLANK_SERVER_ONLINE_CHANNEL)
 
 	// initialize HTTP endpoint handlers map
 	ps.endpointHandlerMap = map[string]http.HandlerFunc{}
@@ -102,7 +101,7 @@ func (ps *platformServer) initialize() {
 	}
 
 	// set up a listener to receive REST bridge configs for services and set them up according to their specs
-	lcmChanHandler, err := busInstance.ListenStreamForDestination(service.LifecycleManagerChannelName, busInstance.GetId())
+	lcmChanHandler, err := ps.eventbus.ListenStreamForDestination(service.LifecycleManagerChannelName, ps.eventbus.GetId())
 	if err != nil {
 		utils.Log.Fatalln(err)
 	}
@@ -114,7 +113,7 @@ func (ps *platformServer) initialize() {
 		}
 
 		fabricSvc, _ := serviceRegistryInstance.GetService(request.ServiceChannel)
-		svcReadyStore := busInstance.GetStoreManager().GetStore(service.ServiceReadyStore)
+		svcReadyStore := ps.eventbus.GetStoreManager().GetStore(service.ServiceReadyStore)
 		hooks := svcLifecycleManager.GetServiceHooks(request.ServiceChannel)
 
 		if request.Override {
@@ -145,7 +144,7 @@ func (ps *platformServer) initialize() {
 
 	// create an internal bus channel to notify significant changes in sessions such as disconnect
 	if ps.serverConfig.FabricConfig != nil {
-		channelManager := busInstance.GetChannelManager()
+		channelManager := ps.eventbus.GetChannelManager()
 		channelManager.CreateChannel(bus.STOMP_SESSION_NOTIFY_CHANNEL)
 	}
 

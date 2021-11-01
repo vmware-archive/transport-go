@@ -4,6 +4,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -11,10 +12,12 @@ import (
 	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/plank/services"
 	"github.com/vmware/transport-go/service"
+	"golang.org/x/net/context/ctxhttp"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -43,25 +46,27 @@ func TestNewPlatformServer_FileLog(t *testing.T) {
 		_ = os.Remove(filepath.Join(os.TempDir(), "testlog.log"))
 	}()
 
-	bus.ResetBus()
+	newBus := bus.ResetBus()
 	service.ResetServiceRegistry()
 	port := GetTestPort()
 	newConfig := GetBasicTestServerConfig(os.TempDir(), filepath.Join(os.TempDir(), "testlog.log"), "stdout", "stderr", port, true)
-	NewPlatformServer(newConfig)
+	ps := NewPlatformServer(newConfig)
+	ps.(*platformServer).eventbus = newBus
 	assert.FileExists(t, filepath.Join(os.TempDir(), "testlog.log"))
 }
 
 func TestPlatformServer_StartServer(t *testing.T) {
-	bus.ResetBus()
+	newBus := bus.ResetBus()
 	service.ResetServiceRegistry()
 	port := GetTestPort()
 	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
 	ps := NewPlatformServer(config)
+	ps.(*platformServer).eventbus = newBus
 	syschan := make(chan os.Signal, 1)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go ps.StartServer(syschan)
-	RunWhenServerReady(t, bus.GetBus(), func(t2 *testing.T) {
+	RunWhenServerReady(t, newBus, func(t2 *testing.T) {
 		rsp, err := http.Get(fmt.Sprintf("http://localhost:%d", port))
 		assert.Nil(t, err)
 
@@ -76,29 +81,92 @@ func TestPlatformServer_StartServer(t *testing.T) {
 }
 
 func TestPlatformServer_RegisterService(t *testing.T) {
-	bus.ResetBus()
+	newBus := bus.ResetBus()
 	service.ResetServiceRegistry()
 	port := GetTestPort()
 	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
 	ps := NewPlatformServer(config)
+	ps.(*platformServer).eventbus = newBus
 
 	err := ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
 	assert.Nil(t, err)
 }
 
-func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {
-	bus.ResetBus()
+func TestPlatformServer_SetHttpPathPrefixChannelBridge(t *testing.T) {
+	// get a new bus instance and create a new platform server instance
+	newBus := bus.ResetBus()
 	service.ResetServiceRegistry()
 	port := GetTestPort()
 	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
 	ps := NewPlatformServer(config)
+	ps.(*platformServer).eventbus = newBus
+
+	// register a service
+	_ = ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
+
+	// set PathPrefix bridge
+	bridgeConfig := &service.RESTBridgeConfig{
+		ServiceChannel: services.PingPongServiceChan,
+		Uri:            "/ping-pong",
+		FabricRequestBuilder: func(w http.ResponseWriter, r *http.Request) model.Request {
+			return model.Request{
+				Payload: "hello",
+				Request: "ping-get",
+			}
+		},
+	}
+	ps.SetHttpPathPrefixChannelBridge(bridgeConfig)
+
+	syschan := make(chan os.Signal, 1)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go ps.StartServer(syschan)
+	RunWhenServerReady(t, newBus, func(t2 *testing.T) {
+		// GET
+		rsp, err := http.Get(fmt.Sprintf("http://localhost:%d/ping-pong", port))
+		assert.Nil(t, err)
+
+		body, err := ioutil.ReadAll(rsp.Body)
+		assert.Nil(t, err)
+		assert.Contains(t, string(body), "hello")
+
+		// POST
+		rsp, err = http.Post(fmt.Sprintf("http://localhost:%d/ping-pong", port), "application/json", strings.NewReader(""))
+		assert.Nil(t, err)
+		body, err = ioutil.ReadAll(rsp.Body)
+		assert.Nil(t, err)
+		assert.Contains(t, string(body), "hello")
+
+		// DELETE
+		req, _ := http.NewRequest("DELETE", fmt.Sprintf("http://localhost:%d/ping-pong", port), strings.NewReader(""))
+		rsp, err = ctxhttp.Do(context.Background(), http.DefaultClient, req)
+		assert.Nil(t, err)
+		body, err = ioutil.ReadAll(rsp.Body)
+		assert.Nil(t, err)
+		assert.Contains(t, string(body), "hello")
+
+		ps.StopServer()
+		service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
+		wg.Done()
+	})
+
+	wg.Wait()
+}
+
+func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {
+	newBus := bus.ResetBus()
+	service.ResetServiceRegistry()
+	port := GetTestPort()
+	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config)
+	ps.(*platformServer).eventbus = newBus
 	_ = ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
 
 	syschan := make(chan os.Signal, 1)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go ps.StartServer(syschan)
-	RunWhenServerReady(t, bus.GetBus(), func(t2 *testing.T) {
+	RunWhenServerReady(t, newBus, func(t2 *testing.T) {
 		rsp, err := http.Get(fmt.Sprintf("http://localhost:%d/rest/ping-pong2?message=hello", port))
 		assert.Nil(t, err)
 
@@ -114,11 +182,12 @@ func TestPlatformServer_SetHttpChannelBridge(t *testing.T) {
 }
 
 func TestPlatformServer_UnknownRequest(t *testing.T) {
-	bus.ResetBus()
+	newBus := bus.ResetBus()
 	service.ResetServiceRegistry()
 	port := GetTestPort()
 	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
 	ps := NewPlatformServer(config)
+	ps.(*platformServer).eventbus = newBus
 	_ = ps.RegisterService(services.NewPingPongService(), services.PingPongServiceChan)
 	defer service.GetServiceRegistry().UnregisterService(services.PingPongServiceChan)
 	setupBridge(ps, "/ping", "GET", services.PingPongServiceChan, "bubble")
@@ -127,7 +196,7 @@ func TestPlatformServer_UnknownRequest(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go ps.StartServer(syschan)
-	RunWhenServerReady(t, bus.GetBus(), func(t2 *testing.T) {
+	RunWhenServerReady(t, newBus, func(t2 *testing.T) {
 		rsp, err := http.Get(fmt.Sprintf("http://localhost:%d/ping?msg=hello", port))
 		assert.Nil(t, err)
 

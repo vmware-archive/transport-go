@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/plank/utils"
 	"github.com/vmware/transport-go/service"
@@ -15,7 +14,7 @@ import (
 
 // buildEndpointHandler builds a http.HandlerFunc that wraps Transport Bus operations in an HTTP request-response cycle.
 // service channel, request builder and rest bridge timeout are passed as parameters.
-func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, restBridgeTimeout time.Duration, msgChan chan *model.Message) http.HandlerFunc {
+func (ps *platformServer) buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, restBridgeTimeout time.Duration, msgChan chan *model.Message) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -30,7 +29,7 @@ func buildEndpointHandler(svcChannel string, reqBuilder service.RequestBuilder, 
 
 		// relay the request to transport channel
 		reqModel := reqBuilder(w, r)
-		err := bus.GetBus().SendRequestMessage(svcChannel, reqModel, reqModel.Id)
+		err := ps.eventbus.SendRequestMessage(svcChannel, reqModel, reqModel.Id)
 
 		// get a response from the channel, render the results using ResponseWriter and log the data/error
 		// to the console as well.

@@ -9,6 +9,7 @@ import (
 	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/service"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 )
@@ -18,7 +19,11 @@ func TestBuildEndpointHandler_Timeout(t *testing.T) {
 	service.ResetServiceRegistry()
 	msgChan := make(chan *model.Message, 1)
 	_ = b.GetChannelManager().CreateChannel("test-chan")
-	assert.HTTPBodyContains(t, buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
+	port := GetTestPort()
+	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config).(*platformServer)
+	ps.eventbus = b
+	assert.HTTPBodyContains(t, ps.buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
 		return model.Request{
 			Payload: nil,
 			Request: "test-request",
@@ -31,7 +36,11 @@ func TestBuildEndpointHandler_ChanResponseErr(t *testing.T) {
 	service.ResetServiceRegistry()
 	msgChan := make(chan *model.Message, 1)
 	_ = b.GetChannelManager().CreateChannel("test-chan")
-	assert.HTTPErrorf(t, buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
+	port := GetTestPort()
+	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config).(*platformServer)
+	ps.eventbus = b
+	assert.HTTPErrorf(t, ps.buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
 		uId := &uuid.UUID{}
 		msgChan <- &model.Message{Error: fmt.Errorf("test error")}
 		return model.Request{
@@ -47,7 +56,11 @@ func TestBuildEndpointHandler_SuccessResponse(t *testing.T) {
 	service.ResetServiceRegistry()
 	msgChan := make(chan *model.Message, 1)
 	_ = b.GetChannelManager().CreateChannel("test-chan")
-	assert.HTTPBodyContains(t, buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
+	port := GetTestPort()
+	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config).(*platformServer)
+	ps.eventbus = b
+	assert.HTTPBodyContains(t, ps.buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
 		uId := &uuid.UUID{}
 		msgChan <- &model.Message{Payload: &model.Response{
 			Id:      uId,
@@ -65,6 +78,10 @@ func TestBuildEndpointHandler_ErrorResponse(t *testing.T) {
 	b := bus.ResetBus()
 	service.ResetServiceRegistry()
 	_ = b.GetChannelManager().CreateChannel("test-chan")
+	port := GetTestPort()
+	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config).(*platformServer)
+	ps.eventbus = b
 
 	msgChan := make(chan *model.Message, 1)
 	uId := &uuid.UUID{}
@@ -76,7 +93,7 @@ func TestBuildEndpointHandler_ErrorResponse(t *testing.T) {
 	}
 	expected, _ := json.Marshal(rsp.Payload)
 
-	assert.HTTPBodyContains(t, buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
+	assert.HTTPBodyContains(t, ps.buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
 		msgChan <- &model.Message{Payload: rsp}
 		return model.Request{
 			Id:      uId,
@@ -92,6 +109,10 @@ func TestBuildEndpointHandler_ErrorResponseAlternative(t *testing.T) {
 	service.ResetServiceRegistry()
 	msgChan := make(chan *model.Message, 1)
 	_ = b.GetChannelManager().CreateChannel("test-chan")
+	port := GetTestPort()
+	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config).(*platformServer)
+	ps.eventbus = b
 
 	uId := &uuid.UUID{}
 	rsp := &model.Response{
@@ -100,7 +121,7 @@ func TestBuildEndpointHandler_ErrorResponseAlternative(t *testing.T) {
 		Error:     true,
 	}
 
-	assert.HTTPBodyContains(t, buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
+	assert.HTTPBodyContains(t, ps.buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
 		msgChan <- &model.Message{Payload: rsp}
 		return model.Request{
 			Id:      uId,
@@ -116,7 +137,11 @@ func TestBuildEndpointHandler_CatchPanic(t *testing.T) {
 	service.ResetServiceRegistry()
 	msgChan := make(chan *model.Message, 1)
 	_ = b.GetChannelManager().CreateChannel("test-chan")
-	assert.HTTPBodyContains(t, buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
+	port := GetTestPort()
+	config := GetBasicTestServerConfig(os.TempDir(), "stdout", "stdout", "stderr", port, true)
+	ps := NewPlatformServer(config).(*platformServer)
+	ps.eventbus = b
+	assert.HTTPBodyContains(t, ps.buildEndpointHandler("test-chan", func(w http.ResponseWriter, r *http.Request) model.Request {
 		panic("peekaboo")
 		return model.Request{
 			Payload: nil,

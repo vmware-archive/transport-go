@@ -12,7 +12,7 @@ import (
 	"github.com/vmware/transport-go/bus"
 	"github.com/vmware/transport-go/model"
 	"github.com/vmware/transport-go/plank/utils"
-	"github.com/vmware/transport-go/service"
+	svc "github.com/vmware/transport-go/service"
 	"io/ioutil"
 	"net"
 	"os"
@@ -81,7 +81,7 @@ func GetBasicTestServerConfig(rootDir, outLog, accessLog, errLog string, port in
 
 // SetupPlankTestSuite will boot a new instance of plank on your chosen port and will also fire up your service
 // Ready to be tested. This always runs on localhost.
-func SetupPlankTestSuite(service service.FabricService, serviceChannel string, port int,
+func SetupPlankTestSuite(service svc.FabricService, serviceChannel string, port int,
 	config *PlatformServerConfig) (*PlankIntegrationTestSuite, error) {
 
 	s := &PlankIntegrationTestSuite{}
@@ -103,7 +103,8 @@ func SetupPlankTestSuite(service service.FabricService, serviceChannel string, p
 	s.Syschan = make(chan os.Signal, 1)
 	go s.PlatformServer.StartServer(s.Syschan)
 
-	s.EventBus = bus.GetBus()
+	s.EventBus = bus.ResetBus()
+	svc.ResetServiceRegistry()
 
 	// get a pointer to the channel manager
 	s.ChannelManager = s.EventBus.GetChannelManager()
