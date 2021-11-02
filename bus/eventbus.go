@@ -22,6 +22,7 @@ type EventBus interface {
 	GetChannelManager() ChannelManager
 	SendRequestMessage(channelName string, payload interface{}, destinationId *uuid.UUID) error
 	SendResponseMessage(channelName string, payload interface{}, destinationId *uuid.UUID) error
+	SendBroadcastMessage(channelName string, payload interface{}) error
 	SendErrorMessage(channelName string, err error, destinationId *uuid.UUID) error
 	ListenStream(channelName string) (MessageHandler, error)
 	ListenStreamForDestination(channelName string, destinationId *uuid.UUID) (MessageHandler, error)
@@ -181,6 +182,19 @@ func (bus *transportEventBus) SendResponseMessage(channelName string, payload in
 		return err
 	}
 	config := buildConfig(channelName, payload, destId)
+	message := model.GenerateResponse(config)
+	sendMessageToChannel(channelObject, message)
+	return nil
+}
+
+// SendBroadcastMessage sends the payload as an outbound broadcast message to channelName. Since it is a broadcast,
+// the payload does not require a destination ID. Throws an error if the channel does not exist.
+func (bus *transportEventBus) SendBroadcastMessage(channelName string, payload interface{}) error {
+	channelObject, err := bus.ChannelManager.GetChannel(channelName)
+	if err != nil {
+		return err
+	}
+	config := buildConfig(channelName, payload, nil)
 	message := model.GenerateResponse(config)
 	sendMessageToChannel(channelObject, message)
 	return nil
