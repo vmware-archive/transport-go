@@ -87,6 +87,11 @@ func TestEventBus_SendRequestMessageNoChannel(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
+func TestTransportEventBus_SendBroadcastMessageNoChannel(t *testing.T) {
+	err := evtBusTest.SendBroadcastMessage("Channel-not-here", "hello melody")
+	assert.NotNil(t, err)
+}
+
 func TestEventBus_ListenStream(t *testing.T) {
 	createTestChannel()
 	handler, err := evtBusTest.ListenStream(evtbusTestChannelName)
@@ -105,6 +110,30 @@ func TestEventBus_ListenStream(t *testing.T) {
 
 		// send requests to make sure we're only getting requests
 		//evtBusTest.SendRequestMessage(evtbusTestChannelName, 0, nil)
+		evtBusTest.SendRequestMessage(evtbusTestChannelName, 1, nil)
+	}
+	evtbusTestManager.WaitForChannel(evtbusTestChannelName)
+	assert.Equal(t, int32(3), count)
+	destroyTestChannel()
+}
+
+func TestTransportEventBus_ListenStreamForBroadcast(t *testing.T) {
+	createTestChannel()
+	handler, err := evtBusTest.ListenStream(evtbusTestChannelName)
+	assert.Nil(t, err)
+	assert.NotNil(t, handler)
+	var count int32 = 0
+	handler.Handle(
+		func(msg *model.Message) {
+			assert.Equal(t, "hello melody", msg.Payload.(string))
+			inc(&count)
+		},
+		func(err error) {})
+
+	for i := 0; i < 3; i++ {
+		evtBusTest.SendBroadcastMessage(evtbusTestChannelName, "hello melody")
+
+		// send requests to make sure we're only getting requests
 		evtBusTest.SendRequestMessage(evtbusTestChannelName, 1, nil)
 	}
 	evtbusTestManager.WaitForChannel(evtbusTestChannelName)
@@ -596,11 +625,11 @@ func TestChannelManager_TestConnectBroker(t *testing.T) {
 
 	// connect to broker
 	cf := &bridge.BrokerConnectorConfig{
-		Username:   "test",
-		Password:   "test",
-		UseWS:      true,
+		Username: "test",
+		Password: "test",
+		UseWS:    true,
 		WebSocketConfig: &bridge.WebSocketConfig{
-			WSPath:     "/",
+			WSPath: "/",
 		},
 		ServerAddr: "broker-url"}
 
