@@ -109,6 +109,43 @@ func TestPrintBanner_FabricConfig(t *testing.T) {
 	assert.Contains(t, string(logContents), "Fabric endpoint\t\t/ws")
 }
 
+func TestPrintBanner_FabricConfig_TCP(t *testing.T) {
+	testRoot := filepath.Join(os.TempDir(), "plank-tests")
+	_ = os.MkdirAll(testRoot, 0755)
+	testLogFile := filepath.Join(testRoot, "testlog.log")
+	defer os.RemoveAll(testRoot)
+
+	cfg := GetBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
+	cfg.FabricConfig = &FabricBrokerConfig{
+		FabricEndpoint: "/ws",
+		UseTCP:         true,
+		TCPPort:        61613,
+		EndpointConfig: &bus.EndpointConfig{
+			TopicPrefix:           "/topic",
+			UserQueuePrefix:       "/queue",
+			AppRequestPrefix:      "/pub/topic",
+			AppRequestQueuePrefix: "/pub/queue",
+			Heartbeat:             30000,
+		},
+	}
+	_, _, testServerInterface := CreateTestServer(cfg)
+	testServer := testServerInterface.(*platformServer)
+
+	// act
+	testServer.printBanner()
+
+	// assert
+	logContents, err := ioutil.ReadFile(testLogFile)
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	assert.FileExists(t, testLogFile)
+	assert.Contains(t, string(logContents), "Host\t\t\tlocalhost")
+	assert.Contains(t, string(logContents), "Port\t\t\t9981")
+	assert.Contains(t, string(logContents), "Fabric endpoint\t\t:61613 (TCP)")
+}
+
 func TestPrintBanner_SpaConfig(t *testing.T) {
 	testRoot := filepath.Join(os.TempDir(), "plank-tests")
 	_ = os.MkdirAll(testRoot, 0755)

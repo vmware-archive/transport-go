@@ -166,9 +166,17 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 	// if Fabric broker configuration is found, start the broker
 	if ps.serverConfig.FabricConfig != nil {
 		go func() {
-			utils.Log.Infof("[plank] Starting Transport broker at %s:%d%s",
-				ps.serverConfig.Host, ps.serverConfig.Port, ps.serverConfig.FabricConfig.FabricEndpoint)
+			fabricPort := ps.serverConfig.Port
+			fabricEndpoint := ps.serverConfig.FabricConfig.FabricEndpoint
+			if ps.serverConfig.FabricConfig.UseTCP {
+				// if using TCP adjust port accordingly and drop endpoint
+				fabricPort = ps.serverConfig.FabricConfig.TCPPort
+				fabricEndpoint = ""
+			}
+			brokerLocation := fmt.Sprintf("%s:%d%s", ps.serverConfig.Host, fabricPort, fabricEndpoint)
+			utils.Log.Infof("[plank] Starting Transport broker at %s", brokerLocation)
 			ps.ServerAvailability.Fabric = true
+
 			if err := ps.eventbus.StartFabricEndpoint(ps.fabricConn, *ps.serverConfig.FabricConfig.EndpointConfig); err != nil {
 				panic(err)
 			}
@@ -246,7 +254,7 @@ func (ps *platformServer) StopServer() {
 	}
 
 	if ps.fabricConn != nil {
-		err = ps.fabricConn.Close()
+		err = ps.eventbus.StopFabricEndpoint()
 		if err != nil {
 			utils.Log.Errorln(err)
 		}

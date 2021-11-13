@@ -163,12 +163,15 @@ func (ps *platformServer) configureFabric() {
 	}
 
 	var err error
-	// TODO: consider tightening access by allowing configuring allowedOrigins
-	ps.fabricConn, err = stompserver.NewWebSocketConnectionFromExistingHttpServer(
-		ps.HttpServer,
-		ps.router,
-		ps.serverConfig.FabricConfig.FabricEndpoint,
-		nil)
+	if ps.serverConfig.FabricConfig.UseTCP {
+		ps.fabricConn, err = stompserver.NewTcpConnectionListener(fmt.Sprintf(":%d", ps.serverConfig.FabricConfig.TCPPort))
+	} else {
+		ps.fabricConn, err = stompserver.NewWebSocketConnectionFromExistingHttpServer(
+			ps.HttpServer,
+			ps.router,
+			ps.serverConfig.FabricConfig.FabricEndpoint,
+			nil) // TODO: consider tightening access by allowing configuring allowedOrigins
+	}
 
 	// if creation of listener fails, crash and burn
 	if err != nil {
