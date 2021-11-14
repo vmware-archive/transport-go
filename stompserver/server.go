@@ -317,8 +317,6 @@ func (s *stompServer) handleConnectionEvent(e *ConnEvent) {
 		}
 
 	case IncomingMessage:
-		s.sendFrame(e.destination, e.frame)
-
 		if s.config.IsAppRequestDestination(e.destination) && e.conn != nil {
 			// notify app listeners
 			for _, callback := range s.applicationRequestCallbacks {
