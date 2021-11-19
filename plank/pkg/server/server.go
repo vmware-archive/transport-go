@@ -9,9 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"github.com/vmware/transport-go/model"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -23,6 +20,10 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"github.com/vmware/transport-go/model"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -156,10 +157,18 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 		ps.ServerAvailability.Http = true
 		if ps.serverConfig.TLSCertConfig != nil {
 			utils.Log.Infof("[plank] Starting HTTP server at %s:%d with TLS", ps.serverConfig.Host, ps.serverConfig.Port)
-			_ = ps.HttpServer.ListenAndServeTLS(ps.serverConfig.TLSCertConfig.CertFile, ps.serverConfig.TLSCertConfig.KeyFile)
+			if err := ps.HttpServer.ListenAndServeTLS(ps.serverConfig.TLSCertConfig.CertFile, ps.serverConfig.TLSCertConfig.KeyFile); err != nil {
+				if !errors.Is(err, http.ErrServerClosed) {
+					utils.Log.Fatalln(wrapError(errServerInit, err))
+				}
+			}
 		} else {
 			utils.Log.Infof("[plank] Starting HTTP server at %s:%d", ps.serverConfig.Host, ps.serverConfig.Port)
-			_ = ps.HttpServer.ListenAndServe()
+			if err := ps.HttpServer.ListenAndServe(); err != nil {
+				if !errors.Is(err, http.ErrServerClosed) {
+					utils.Log.Fatalln(wrapError(errServerInit, err))
+				}
+			}
 		}
 	}()
 
@@ -178,7 +187,7 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 			ps.ServerAvailability.Fabric = true
 
 			if err := ps.eventbus.StartFabricEndpoint(ps.fabricConn, *ps.serverConfig.FabricConfig.EndpointConfig); err != nil {
-				panic(err)
+				utils.Log.Fatalln(wrapError(errServerInit, err))
 			}
 		}()
 	}
