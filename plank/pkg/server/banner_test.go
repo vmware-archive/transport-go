@@ -178,6 +178,39 @@ func TestPrintBanner_SpaConfig(t *testing.T) {
 	assert.Contains(t, string(logContents), "SPA static assets\t/a, /b, /public/c")
 }
 
+func TestPrintBanner_SpaConfig_NoStaticAssets(t *testing.T) {
+	testRoot := filepath.Join(os.TempDir(), "plank-tests")
+	_ = os.MkdirAll(testRoot, 0755)
+	testLogFile := filepath.Join(testRoot, "testlog.log")
+	defer os.RemoveAll(testRoot)
+
+	cfg := GetBasicTestServerConfig(testRoot, testLogFile, testLogFile, testLogFile, 9981, false)
+	cfg.SpaConfig = &SpaConfig{
+		RootFolder:        testRoot,
+		BaseUri:           "/",
+		StaticAssets:      make([]string, 0),
+		CacheControlRules: nil,
+	}
+
+	_, _, testServerInterface := CreateTestServer(cfg)
+	testServer := testServerInterface.(*platformServer)
+
+	// act
+	testServer.printBanner()
+
+	// assert
+	logContents, err := ioutil.ReadFile(testLogFile)
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+
+	assert.FileExists(t, testLogFile)
+	assert.Contains(t, string(logContents), "Host\t\t\tlocalhost")
+	assert.Contains(t, string(logContents), "Port\t\t\t9981")
+	assert.Contains(t, string(logContents), "SPA endpoint\t\t/")
+	assert.Contains(t, string(logContents), "SPA static assets\t-")
+}
+
 func TestPrintBanner_Prometheus(t *testing.T) {
 	testRoot := filepath.Join(os.TempDir(), "plank-tests")
 	_ = os.MkdirAll(testRoot, 0755)

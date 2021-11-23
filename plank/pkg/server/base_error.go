@@ -23,7 +23,7 @@ func (e baseError) Error() string {
 	return fmt.Sprintf("[plank] Error: %s: %s\n", e.baseErr.message, e.wrappedErr.Error())
 }
 
-func wrapError(baseType *baseError, err error) error {
+func wrapError(baseType error, err error) error {
 	switch baseType {
 	case errServerInit:
 		return &baseError{baseErr: errServerInit, wrappedErr: err}
@@ -32,5 +32,5 @@ func wrapError(baseType *baseError, err error) error {
 	case errHttp:
 		return &baseError{baseErr: errHttp, wrappedErr: err}
 	}
-	return errUndefined
+	return &baseError{baseErr: errUndefined, wrappedErr: err}
 }
