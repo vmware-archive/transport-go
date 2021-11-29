@@ -14,6 +14,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.13 // indirect
+	github.com/mitchellh/mapstructure v1.4.2 // indirect
 	github.com/prometheus/client_golang v1.6.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sirupsen/logrus v1.8.0
