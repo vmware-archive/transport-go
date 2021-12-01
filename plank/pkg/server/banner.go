@@ -50,6 +50,10 @@ func (ps *platformServer) printBanner() {
 
 	if ps.serverConfig.FabricConfig != nil {
 		utils.InfoFprintf(ps.out, "Fabric endpoint\t\t")
+		if ps.serverConfig.FabricConfig.UseTCP {
+			_, _ = fmt.Fprintln(ps.out, fmt.Sprintf(":%d (TCP)", ps.serverConfig.FabricConfig.TCPPort))
+			return
+		}
 		_, _ = fmt.Fprintln(ps.out, ps.serverConfig.FabricConfig.FabricEndpoint)
 	}
 

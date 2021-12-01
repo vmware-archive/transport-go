@@ -46,6 +46,8 @@ type TLSCertConfig struct {
 // FabricBrokerConfig defines the endpoint for WebSocket as well as detailed endpoint configuration
 type FabricBrokerConfig struct {
 	FabricEndpoint string              `json:"fabric_endpoint"` // URI to WebSocket endpoint
+	UseTCP         bool                `json:"use_tcp"`         // Use TCP instead of WebSocket
+	TCPPort        int                 `json:"tcp_port"`        // TCP port to use if UseTCP is true
 	EndpointConfig *bus.EndpointConfig `json:"endpoint_config"` // STOMP configuration
 }
 

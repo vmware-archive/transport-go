@@ -174,6 +174,35 @@ func GetTestPort() int {
 	return testSuitePortMap[fr.File]
 }
 
+// GetTestTLSCertConfig returns a new &TLSCertConfig for testing.
+func GetTestTLSCertConfig(testRootPath string) *TLSCertConfig {
+	crtFile := filepath.Join(testRootPath, "test_server.crt")
+	keyFile := filepath.Join(testRootPath, "test_server.key")
+	_ = ioutil.WriteFile(crtFile, []byte(testServerCertTmpl), 0700)
+	_ = ioutil.WriteFile(keyFile, []byte(testServerKeyTmpl), 0700)
+	return &TLSCertConfig{
+		CertFile:                  crtFile,
+		KeyFile:                   keyFile,
+		SkipCertificateValidation: true,
+	}
+}
+
+// GetTestFabricBrokerConfig returns a basic fabric broker config.
+func GetTestFabricBrokerConfig() *FabricBrokerConfig {
+	return &FabricBrokerConfig{
+		FabricEndpoint: "/ws",
+		UseTCP:         false,
+		TCPPort:        61613,
+		EndpointConfig: &bus.EndpointConfig{
+			TopicPrefix:           "/topic",
+			UserQueuePrefix:       "/queue",
+			AppRequestPrefix:      "/pub",
+			AppRequestQueuePrefix: "/pub/queue",
+			Heartbeat:             30000,
+		},
+	}
+}
+
 // CreateConfigJsonForTest creates and returns the path to a file containing the plank configuration in JSON format
 func CreateConfigJsonForTest() (string, error) {
 	configJsonContent := `{

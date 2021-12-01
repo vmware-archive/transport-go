@@ -198,17 +198,24 @@ func (s *stompServer) Stop() {
 
 func (s *stompServer) waitForConnections() {
 	for {
+		if !s.running {
+			return
+		}
+
 		rawConn, err := s.connectionListener.Accept()
 		if err != nil {
-			log.Println("Failed to establish client connection:", err)
-		} else {
-			c := NewStompConn(rawConn, s.config, s.connectionEvents)
-
-			s.connectionEvents <- &ConnEvent{
-				ConnId:    c.GetId(),
-				conn:      c,
-				eventType: ConnectionStarting,
+			if s.running {
+				log.Println("Failed to establish client connection:", err)
 			}
+			continue
+		}
+
+		c := NewStompConn(rawConn, s.config, s.connectionEvents)
+
+		s.connectionEvents <- &ConnEvent{
+			ConnId:    c.GetId(),
+			conn:      c,
+			eventType: ConnectionStarting,
 		}
 	}
 }
@@ -310,8 +317,6 @@ func (s *stompServer) handleConnectionEvent(e *ConnEvent) {
 		}
 
 	case IncomingMessage:
-		s.sendFrame(e.destination, e.frame)
-
 		if s.config.IsAppRequestDestination(e.destination) && e.conn != nil {
 			// notify app listeners
 			for _, callback := range s.applicationRequestCallbacks {

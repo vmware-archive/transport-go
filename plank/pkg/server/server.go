@@ -9,9 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"github.com/vmware/transport-go/model"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -23,6 +20,10 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"github.com/vmware/transport-go/model"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -156,21 +157,37 @@ func (ps *platformServer) StartServer(syschan chan os.Signal) {
 		ps.ServerAvailability.Http = true
 		if ps.serverConfig.TLSCertConfig != nil {
 			utils.Log.Infof("[plank] Starting HTTP server at %s:%d with TLS", ps.serverConfig.Host, ps.serverConfig.Port)
-			_ = ps.HttpServer.ListenAndServeTLS(ps.serverConfig.TLSCertConfig.CertFile, ps.serverConfig.TLSCertConfig.KeyFile)
+			if err := ps.HttpServer.ListenAndServeTLS(ps.serverConfig.TLSCertConfig.CertFile, ps.serverConfig.TLSCertConfig.KeyFile); err != nil {
+				if !errors.Is(err, http.ErrServerClosed) {
+					utils.Log.Fatalln(wrapError(errServerInit, err))
+				}
+			}
 		} else {
 			utils.Log.Infof("[plank] Starting HTTP server at %s:%d", ps.serverConfig.Host, ps.serverConfig.Port)
-			_ = ps.HttpServer.ListenAndServe()
+			if err := ps.HttpServer.ListenAndServe(); err != nil {
+				if !errors.Is(err, http.ErrServerClosed) {
+					utils.Log.Fatalln(wrapError(errServerInit, err))
+				}
+			}
 		}
 	}()
 
 	// if Fabric broker configuration is found, start the broker
 	if ps.serverConfig.FabricConfig != nil {
 		go func() {
-			utils.Log.Infof("[plank] Starting Transport broker at %s:%d%s",
-				ps.serverConfig.Host, ps.serverConfig.Port, ps.serverConfig.FabricConfig.FabricEndpoint)
+			fabricPort := ps.serverConfig.Port
+			fabricEndpoint := ps.serverConfig.FabricConfig.FabricEndpoint
+			if ps.serverConfig.FabricConfig.UseTCP {
+				// if using TCP adjust port accordingly and drop endpoint
+				fabricPort = ps.serverConfig.FabricConfig.TCPPort
+				fabricEndpoint = ""
+			}
+			brokerLocation := fmt.Sprintf("%s:%d%s", ps.serverConfig.Host, fabricPort, fabricEndpoint)
+			utils.Log.Infof("[plank] Starting Transport broker at %s", brokerLocation)
 			ps.ServerAvailability.Fabric = true
+
 			if err := ps.eventbus.StartFabricEndpoint(ps.fabricConn, *ps.serverConfig.FabricConfig.EndpointConfig); err != nil {
-				panic(err)
+				utils.Log.Fatalln(wrapError(errServerInit, err))
 			}
 		}()
 	}
@@ -246,7 +263,7 @@ func (ps *platformServer) StopServer() {
 	}
 
 	if ps.fabricConn != nil {
-		err = ps.fabricConn.Close()
+		err = ps.eventbus.StopFabricEndpoint()
 		if err != nil {
 			utils.Log.Errorln(err)
 		}

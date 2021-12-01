@@ -16,7 +16,7 @@ import (
 
 // main app to test drive transport's broker APIs. provide LISTEN_METHOD and PRODUCE_MESSAGE_ON_RABBITMQ as
 // environment variables to control the behavior of this app.
-// LISTEN_METHOD: decides how/where the demo app should receive possible values from (plank_ws, rbmq_amqp, rbmq_stomp)
+// LISTEN_METHOD: decides how/where the demo app should receive messages from (plank_ws, plank_stomp, rbmq_amqp, rbmq_stomp)
 // PRODUCE_MESSAGE_ON_RABBITMQ: when set to 1 it sends a dummy message every two seconds
 // WS_USE_TLS: when set to 1, connection to Plank WebSocket will be made through wss protocol instead of ws
 func main() {
@@ -57,6 +57,9 @@ func main() {
 		// need to have a Plank instance running at default port (30080)
 		plank.ListenViaWS(c, wsUseTls)
 		break
+	case "plank_stomp":
+		// listen to the sample channel on Plank through STOMP exposed at TCP port 61613
+		plank.ListenViaStomp(c)
 	case "rbmq_amqp":
 		// listen to the sample channel through AMQP
 		// need to have a RabbitMQ instance running at default port
