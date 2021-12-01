@@ -1,11 +1,9 @@
 package plank
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/vmware/transport-go/bridge"
 	"github.com/vmware/transport-go/bus"
-	"github.com/vmware/transport-go/model"
 	"os"
 	"syscall"
 	"time"
@@ -34,14 +32,13 @@ func ListenViaStomp(c chan os.Signal) {
 		for {
 			select {
 			case msg := <-sub.GetMsgChannel():
-				// messages passed are of model.Response type JSON-encoded, so we need to unpack the Payload
-				// into a byte slice, then unmarshal it using the json package.
-				var response model.Response
-				if err := json.Unmarshal(msg.Payload.([]byte), &response); err != nil {
-					fmt.Printf("message unmarshal failed: %s\n", err.Error())
+				// extract payload (of string type) from the Message object
+				var payload string
+				if err := msg.CastPayloadToType(&payload); err != nil {
+					fmt.Printf("failed to cast payload: %s\n", err.Error())
 					continue
 				}
-				fmt.Printf("msg ID: %s, body: %v\n", response.Id, response.Payload)
+				fmt.Printf("msg body: %s\n", payload)
 				break
 			case <-tenSecTimer.C:
 				fmt.Println(disconnectInTime.String() + " elapsed. Disconnecting")
