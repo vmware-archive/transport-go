@@ -6,7 +6,12 @@ package services
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"sync"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/vmware/transport-go/bus"
@@ -15,33 +20,23 @@ import (
 	"github.com/vmware/transport-go/service"
 	"github.com/vmware/transport-go/stompserver"
 	"golang.org/x/net/context/ctxhttp"
-	"io/ioutil"
-	"net/http"
-	"net/url"
-	"strconv"
-	"sync"
-	"time"
 )
 
 const (
 	StockTickerServiceChannel = "stock-ticker-service"
-	StockTickerAPI            = "https://www.alphavantage.co/query"
+	StockTickerAPI            = "https://finnhub.io/api/v1/quote"
 )
 
-// TickerSnapshotData and TickerMetadata ares the data structures for this demo service
+// TickerSnapshotData is the data structure for this demo service
 type TickerSnapshotData struct {
-	MetaData   *TickerMetadata                   `json:"Meta Data"`
-	TimeSeries map[string]map[string]interface{} `json:"Time Series (1min)"`
-	Note string `json:"Note"`
-}
-
-type TickerMetadata struct {
-	Information   string `json:"1. Information"`
-	Symbol        string `json:"2. Symbol"`
-	LastRefreshed string `json:"3. Last Refreshed"`
-	Interval      string `json:"4. Interval"`
-	OutputSize    string `json:"5. Output Size"`
-	TimeZone      string `json:"6. Time Zone"`
+	CurrentPrice       float64 `json:"c"`
+	Change             float64 `json:"d"`
+	PercentChange      float64 `json:"dp"`
+	HighDayPrice       float64 `json:"h"`
+	LowDayPrice        float64 `json:"l"`
+	OpenPrice          float64 `json:"o"`
+	PreviousClosePrice float64 `json:"pc"`
+	LastUpdated        int64   `json:"t"`
 }
 
 // StockTickerService is a more complex real life example where its job is to subscribe clients
@@ -186,16 +181,14 @@ func (ps *StockTickerService) GetRESTBridgeConfig() []*service.RESTBridgeConfig 
 // a new HTTP request object along with any error
 func newTickerRequest(symbol string) (*http.Request, error) {
 	uv := url.Values{}
-	uv.Set("function", "TIME_SERIES_INTRADAY")
 	uv.Set("symbol", symbol)
-	uv.Set("interval", "1min")
-	uv.Set("apikey", "XPVMLSLINKN27RWA")
 
 	req, err := http.NewRequest("GET", StockTickerAPI, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.URL.RawQuery = uv.Encode()
+	req.Header.Set("X-Finnhub-Token", "sandbox_c4l951aad3iftk6rfja0")
 	return req, nil
 }
 
@@ -227,26 +220,15 @@ func queryStockTickerAPI(symbol string) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	// Alpha Vantage which is the provider of this API limits API calls to 5 calls per minute and 500 a day, and when
-	// the quota has been reached it will return a message in the Note field.
-	if len(tickerData.Note) > 0 {
-		return nil, fmt.Errorf(tickerData.Note)
-	}
-
-	if tickerData == nil || tickerData.TimeSeries == nil {
-		return nil, err
-	}
-
-	// extract the data we need.
-	latestClosePriceStr := tickerData.TimeSeries[tickerData.MetaData.LastRefreshed]["4. close"].(string)
-	latestClosePrice, err := strconv.ParseFloat(latestClosePriceStr, 32)
-	if err != nil {
-		return nil, err
-	}
-
 	return map[string]interface{}{
-		"symbol":        symbol,
-		"lastRefreshed": tickerData.MetaData.LastRefreshed,
-		"closePrice":    latestClosePrice,
+		"symbol":             symbol,
+		"lastRefreshed":      time.Unix(tickerData.LastUpdated, 0).String(),
+		"currentPrice":       tickerData.CurrentPrice,
+		"change":             tickerData.Change,
+		"highDayPrice":       tickerData.HighDayPrice,
+		"lowDayPrice":        tickerData.LowDayPrice,
+		"openPrice":          tickerData.OpenPrice,
+		"closePrice":         tickerData.PreviousClosePrice, // for backward compatible with UI examples
+		"previousClosePrice": tickerData.PreviousClosePrice,
 	}, nil
 }
