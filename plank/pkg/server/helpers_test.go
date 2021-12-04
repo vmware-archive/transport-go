@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"os"
@@ -123,4 +124,21 @@ func TestGeneratePlatformServerConfig_ConfigFile(t *testing.T) {
 	assert.EqualValues(t, "public/", config.SpaConfig.RootFolder)
 	assert.EqualValues(t, "/", config.SpaConfig.BaseUri)
 	assert.EqualValues(t, "public/assets:/assets", config.SpaConfig.StaticAssets[0])
+}
+
+func TestMarshalResponseBody_byteSlice(t *testing.T) {
+	payload := []byte("hello")
+	results, err := ensureResponseInByteSlice(payload)
+
+	assert.Nil(t, err)
+	assert.EqualValues(t, payload, results)
+}
+
+func TestMarshalResponseBody_nonByteSlice(t *testing.T) {
+	payload := PlatformServerConfig{}
+	jsonMarshalled, _ := json.Marshal(payload)
+	results, err := ensureResponseInByteSlice(payload)
+
+	assert.Nil(t, err)
+	assert.EqualValues(t, jsonMarshalled, results)
 }

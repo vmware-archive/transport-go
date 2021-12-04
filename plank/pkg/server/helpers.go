@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -142,17 +141,16 @@ func generatePlatformServerConfig(f *serverConfigFactory) (*PlatformServerConfig
 	return serverConfig, nil
 }
 
-// marshalResponseBody takes body as an interface not knowing whether it is already converted to []byte or not.
-// if it is of a map type then it marshals it using json.Marshal to get the byte representation of it. otherwise
-// the input is cast to []byte and returned.
-func marshalResponseBody(body interface{}) (bytes []byte, err error) {
-	vt := reflect.TypeOf(body)
-	if vt == reflect.TypeOf([]byte{}) {
+// ensureResponseInByteSlice takes body as an interface not knowing whether it is already converted to []byte or not.
+// if it is not of []byte type it marshals the payload using json.Marshal. otherwise, the input
+// byte slice is returned as-is.
+func ensureResponseInByteSlice(body interface{}) (bytes []byte, err error) {
+	switch body.(type) {
+	case []byte:
 		bytes, err = body.([]byte), nil
-	} else {
+	default:
 		bytes, err = json.Marshal(body)
 	}
-
 	return
 }
 
