@@ -16,16 +16,16 @@ import (
 // are served from /app/static, BaseUri can be set to /app and StaticAssets to "/app/assets". see config.json
 // for details.
 type SpaConfig struct {
-	RootFolder        string            `json:"root_folder"`   // location where Plank will serve SPA
-	BaseUri           string            `json:"base_uri"`      // base URI for the SPA
-	StaticAssets      []string          `json:"static_assets"` // locations for static assets used by the SPA
+	RootFolder        string            `json:"root_folder"`         // location where Plank will serve SPA
+	BaseUri           string            `json:"base_uri"`            // base URI for the SPA
+	StaticAssets      []string          `json:"static_assets"`       // locations for static assets used by the SPA
 	CacheControlRules map[string]string `json:"cache_control_rules"` // map holding glob pattern - cache-control header value
 
 	cacheControlRulePairs []middleware.CacheControlRulePair
 }
 
 type regexCacheControlRulePair struct {
-	regex      *regexp.Regexp
+	regex            *regexp.Regexp
 	cacheControlRule string
 }
 
@@ -34,9 +34,9 @@ type regexCacheControlRulePair struct {
 func NewSpaConfig(input string) (spaConfig *SpaConfig, err error) {
 	p, uri := utils.DeriveStaticURIFromPath(input)
 	spaConfig = &SpaConfig{
-		RootFolder:                p,
-		BaseUri:                   uri,
-		CacheControlRules:         make(map[string]string),
+		RootFolder:            p,
+		BaseUri:               uri,
+		CacheControlRules:     make(map[string]string),
 		cacheControlRulePairs: make([]middleware.CacheControlRulePair, 0),
 	}
 

@@ -7,10 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/go-stomp/stomp/v3/frame"
-	"github.com/go-stomp/stomp/v3/server"
-	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
 	"log"
 	"net"
 	"net/http"
@@ -18,6 +14,11 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/go-stomp/stomp/v3/frame"
+	"github.com/go-stomp/stomp/v3/server"
+	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
 )
 
 var upgrader = websocket.Upgrader{}

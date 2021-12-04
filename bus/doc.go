@@ -3,5 +3,5 @@
 
 /*
 Package bus contains all things bus.
- */
+*/
 package bus

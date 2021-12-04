@@ -29,7 +29,6 @@ func TestServiceLifecycleManager_GetServiceHooks(t *testing.T) {
 	// act
 	hooks := lcm.GetServiceHooks("another-test-channel")
 
-
 	// assert
 	assert.NotNil(t, hooks)
 }
