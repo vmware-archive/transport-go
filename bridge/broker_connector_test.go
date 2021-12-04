@@ -279,7 +279,7 @@ func TestBrokerConnector_Subscribe(t *testing.T) {
 
 			// check re-subscribe returns same sub
 			s2, _ := c.Subscribe("/topic/test")
-			assert.Equal(t, s.GetId().ID(), s2.GetId().ID())
+			assert.Equal(t, s.GetId().String(), s2.GetId().String())
 
 			c.Disconnect()
 		})

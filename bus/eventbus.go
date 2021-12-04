@@ -556,7 +556,7 @@ func (bus *transportEventBus) wrapMessageHandler(
 			if msg.Direction == dir {
 				// if we're checking for specific traffic, check a DestinationId match is required.
 				if !messageHandler.ignoreId &&
-					(msg.DestinationId != nil && id != nil) && (id.ID() == msg.DestinationId.ID()) {
+					(msg.DestinationId != nil && id != nil) && (id.String() == msg.DestinationId.String()) {
 					successHandler(msg)
 				}
 				if messageHandler.ignoreId {

@@ -112,7 +112,7 @@ func (channel *Channel) unsubscribeHandler(uuid *uuid.UUID) bool {
 	defer channel.channelLock.Unlock()
 
 	for i, handler := range channel.eventHandlers {
-		if handler.uuid.ID() == uuid.ID() {
+		if handler.uuid.String() == uuid.String() {
 			channel.removeEventHandler(i)
 			return true
 		}
@@ -152,7 +152,7 @@ func (channel *Channel) isBrokerSubscribed(sub bridge.Subscription) bool {
 	defer channel.channelLock.Unlock()
 
 	for _, cs := range channel.brokerSubs {
-		if sub.GetId().ID() == cs.s.GetId().ID() {
+		if sub.GetId().String() == cs.s.GetId().String() {
 			return true
 		}
 	}
@@ -206,7 +206,7 @@ func (channel *Channel) removeBrokerSubscription(sub bridge.Subscription) {
 	defer channel.channelLock.Unlock()
 
 	for i, cs := range channel.brokerSubs {
-		if sub.GetId().ID() == cs.s.GetId().ID() {
+		if sub.GetId().String() == cs.s.GetId().String() {
 			channel.brokerSubs = removeSub(channel.brokerSubs, i)
 		}
 	}
