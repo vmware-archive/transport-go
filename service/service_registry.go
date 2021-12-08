@@ -20,7 +20,7 @@ const (
 	LifecycleManagerChannelName = bus.TRANSPORT_INTERNAL_CHANNEL_PREFIX + "service-lifecycle-manager"
 
 	// store constants
-	ServiceReadyStore = "service-ready-notification-store"
+	ServiceReadyStore      = "service-ready-notification-store"
 	ServiceInitStateChange = "service-init-state-change"
 )
 
@@ -46,9 +46,9 @@ type ServiceRegistry interface {
 }
 
 type serviceRegistry struct {
-	lock     sync.Mutex
-	services map[string]*fabricServiceWrapper
-	bus      bus.EventBus
+	lock             sync.Mutex
+	services         map[string]*fabricServiceWrapper
+	bus              bus.EventBus
 	lifecycleManager *serviceLifecycleManager
 }
 

@@ -1,8 +1,8 @@
 // Copyright 2019-2021 VMware, Inc.
 // SPDX-License-Identifier: BSD-2-Clause
 
-// +build !js
-// +build !wasm
+//go:build !js && !wasm
+// +build !js,!wasm
 
 package server
 

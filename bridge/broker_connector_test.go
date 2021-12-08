@@ -7,10 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/go-stomp/stomp/v3/frame"
-	"github.com/go-stomp/stomp/v3/server"
-	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
 	"log"
 	"net"
 	"net/http"
@@ -18,6 +14,11 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/go-stomp/stomp/v3/frame"
+	"github.com/go-stomp/stomp/v3/server"
+	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
 )
 
 var upgrader = websocket.Upgrader{}
@@ -278,7 +279,7 @@ func TestBrokerConnector_Subscribe(t *testing.T) {
 
 			// check re-subscribe returns same sub
 			s2, _ := c.Subscribe("/topic/test")
-			assert.Equal(t, s.GetId().ID(), s2.GetId().ID())
+			assert.Equal(t, s.GetId().String(), s2.GetId().String())
 
 			c.Disconnect()
 		})

@@ -4,220 +4,220 @@
 package bus
 
 import (
-    "github.com/google/uuid"
-    "github.com/vmware/transport-go/bridge"
-    "github.com/vmware/transport-go/model"
-    "sync"
-    "sync/atomic"
+	"github.com/google/uuid"
+	"github.com/vmware/transport-go/bridge"
+	"github.com/vmware/transport-go/model"
+	"sync"
+	"sync/atomic"
 )
 
 // Channel represents the stream and the subscribed event handlers waiting for ticks on the stream
 type Channel struct {
-    Name                      string `json:"string"`
-    eventHandlers             []*channelEventHandler
-    galactic                  bool
-    galacticMappedDestination string
-    private                   bool
-    channelLock               sync.Mutex
-    wg                        sync.WaitGroup
-    brokerSubs                []*connectionSub
-    brokerConns               []bridge.Connection
-    brokerMappedEvent         chan bool
+	Name                      string `json:"string"`
+	eventHandlers             []*channelEventHandler
+	galactic                  bool
+	galacticMappedDestination string
+	private                   bool
+	channelLock               sync.Mutex
+	wg                        sync.WaitGroup
+	brokerSubs                []*connectionSub
+	brokerConns               []bridge.Connection
+	brokerMappedEvent         chan bool
 }
 
 // Create a new Channel with the supplied Channel name. Returns a pointer to that Channel.
 func NewChannel(channelName string) *Channel {
-    c := &Channel{
-        Name:              channelName,
-        eventHandlers:     []*channelEventHandler{},
-        channelLock:       sync.Mutex{},
-        galactic:          false,
-        private:           false,
-        wg:                sync.WaitGroup{},
-        brokerMappedEvent: make(chan bool, 10),
-        brokerConns:       []bridge.Connection{},
-        brokerSubs:        []*connectionSub{}}
-    return c
+	c := &Channel{
+		Name:              channelName,
+		eventHandlers:     []*channelEventHandler{},
+		channelLock:       sync.Mutex{},
+		galactic:          false,
+		private:           false,
+		wg:                sync.WaitGroup{},
+		brokerMappedEvent: make(chan bool, 10),
+		brokerConns:       []bridge.Connection{},
+		brokerSubs:        []*connectionSub{}}
+	return c
 }
 
 // Mark the Channel as private
 func (channel *Channel) SetPrivate(private bool) {
-    channel.private = private
+	channel.private = private
 }
 
 // Mark the Channel as galactic
 func (channel *Channel) SetGalactic(mappedDestination string) {
-    channel.galactic = true
-    channel.galacticMappedDestination = mappedDestination
+	channel.galactic = true
+	channel.galacticMappedDestination = mappedDestination
 }
 
 // Mark the Channel as local
 func (channel *Channel) SetLocal() {
-    channel.galactic = false
-    channel.galacticMappedDestination = ""
+	channel.galactic = false
+	channel.galacticMappedDestination = ""
 }
 
 // Returns true is the Channel is marked as galactic
 func (channel *Channel) IsGalactic() bool {
-    return channel.galactic
+	return channel.galactic
 }
 
 // Returns true if the Channel is marked as private
 func (channel *Channel) IsPrivate() bool {
-    return channel.private
+	return channel.private
 }
 
 // Send a new message on this Channel, to all event handlers.
 func (channel *Channel) Send(message *model.Message) {
-    channel.channelLock.Lock()
-    defer channel.channelLock.Unlock()
-    if eventHandlers := channel.eventHandlers; len(eventHandlers) > 0 {
+	channel.channelLock.Lock()
+	defer channel.channelLock.Unlock()
+	if eventHandlers := channel.eventHandlers; len(eventHandlers) > 0 {
 
-        // if a handler is run once only, then the slice will be mutated mid cycle.
-        // copy slice to ensure that removed handler is still fired.
-        handlerDuplicate := make([]*channelEventHandler, 0, len(eventHandlers))
-        handlerDuplicate = append(handlerDuplicate, eventHandlers...)
-        for n, eventHandler := range handlerDuplicate {
-            if eventHandler.runOnce && atomic.LoadInt64(&eventHandler.runCount) > 0 {
-                channel.removeEventHandler(n) // remove from slice.
-                continue
-            }
-            channel.wg.Add(1)
-            go channel.sendMessageToHandler(eventHandler, message)
-        }
-    }
+		// if a handler is run once only, then the slice will be mutated mid cycle.
+		// copy slice to ensure that removed handler is still fired.
+		handlerDuplicate := make([]*channelEventHandler, 0, len(eventHandlers))
+		handlerDuplicate = append(handlerDuplicate, eventHandlers...)
+		for n, eventHandler := range handlerDuplicate {
+			if eventHandler.runOnce && atomic.LoadInt64(&eventHandler.runCount) > 0 {
+				channel.removeEventHandler(n) // remove from slice.
+				continue
+			}
+			channel.wg.Add(1)
+			go channel.sendMessageToHandler(eventHandler, message)
+		}
+	}
 }
 
 // Check if the Channel has any registered subscribers
 func (channel *Channel) ContainsHandlers() bool {
-    return len(channel.eventHandlers) > 0
+	return len(channel.eventHandlers) > 0
 }
 
 // Send message to handler function
 func (channel *Channel) sendMessageToHandler(handler *channelEventHandler, message *model.Message) {
-    handler.callBackFunction(message)
-    atomic.AddInt64(&handler.runCount, 1)
-    channel.wg.Done()
+	handler.callBackFunction(message)
+	atomic.AddInt64(&handler.runCount, 1)
+	channel.wg.Done()
 }
 
 // Subscribe a new handler function.
 func (channel *Channel) subscribeHandler(handler *channelEventHandler) {
-    channel.channelLock.Lock()
-    defer channel.channelLock.Unlock()
-    channel.eventHandlers = append(channel.eventHandlers, handler)
+	channel.channelLock.Lock()
+	defer channel.channelLock.Unlock()
+	channel.eventHandlers = append(channel.eventHandlers, handler)
 }
 
 func (channel *Channel) unsubscribeHandler(uuid *uuid.UUID) bool {
-    channel.channelLock.Lock()
-    defer channel.channelLock.Unlock()
+	channel.channelLock.Lock()
+	defer channel.channelLock.Unlock()
 
-    for i, handler := range channel.eventHandlers {
-        if handler.uuid.ID() == uuid.ID() {
-            channel.removeEventHandler(i)
-            return true
-        }
-    }
-    return false
+	for i, handler := range channel.eventHandlers {
+		if handler.uuid.String() == uuid.String() {
+			channel.removeEventHandler(i)
+			return true
+		}
+	}
+	return false
 }
 
 // Remove handler function from being subscribed to the Channel.
 func (channel *Channel) removeEventHandler(index int) {
-    numHandlers := len(channel.eventHandlers)
-    if numHandlers <= 0 {
-        return
-    }
-    if index >= numHandlers {
-        return
-    }
+	numHandlers := len(channel.eventHandlers)
+	if numHandlers <= 0 {
+		return
+	}
+	if index >= numHandlers {
+		return
+	}
 
-    // delete from event handler slice.
-    copy(channel.eventHandlers[index:], channel.eventHandlers[index+1:])
-    channel.eventHandlers[numHandlers-1] = nil
-    channel.eventHandlers = channel.eventHandlers[:numHandlers-1]
+	// delete from event handler slice.
+	copy(channel.eventHandlers[index:], channel.eventHandlers[index+1:])
+	channel.eventHandlers[numHandlers-1] = nil
+	channel.eventHandlers = channel.eventHandlers[:numHandlers-1]
 }
 
 func (channel *Channel) listenToBrokerSubscription(sub bridge.Subscription) {
-    for {
-        msg, m := <-sub.GetMsgChannel()
-        if m {
-            channel.Send(msg)
-        } else {
-            break
-        }
-    }
+	for {
+		msg, m := <-sub.GetMsgChannel()
+		if m {
+			channel.Send(msg)
+		} else {
+			break
+		}
+	}
 }
 
 func (channel *Channel) isBrokerSubscribed(sub bridge.Subscription) bool {
-    channel.channelLock.Lock()
-    defer channel.channelLock.Unlock()
+	channel.channelLock.Lock()
+	defer channel.channelLock.Unlock()
 
-    for _, cs := range channel.brokerSubs {
-        if sub.GetId().ID() == cs.s.GetId().ID() {
-            return true
-        }
-    }
-    return false
+	for _, cs := range channel.brokerSubs {
+		if sub.GetId().String() == cs.s.GetId().String() {
+			return true
+		}
+	}
+	return false
 }
 
 func (channel *Channel) isBrokerSubscribedToDestination(c bridge.Connection, dest string) bool {
-    channel.channelLock.Lock()
-    defer channel.channelLock.Unlock()
+	channel.channelLock.Lock()
+	defer channel.channelLock.Unlock()
 
-    for _, cs := range channel.brokerSubs {
-        if cs.s != nil && cs.s.GetDestination() == dest && cs.c != nil && cs.c.GetId() == c.GetId() {
-            return true
-        }
-    }
-    return false
+	for _, cs := range channel.brokerSubs {
+		if cs.s != nil && cs.s.GetDestination() == dest && cs.c != nil && cs.c.GetId() == c.GetId() {
+			return true
+		}
+	}
+	return false
 }
 
 func (channel *Channel) addBrokerConnection(c bridge.Connection) {
-    channel.channelLock.Lock()
-    defer channel.channelLock.Unlock()
+	channel.channelLock.Lock()
+	defer channel.channelLock.Unlock()
 
-    for _, brCon := range channel.brokerConns {
-        if brCon.GetId() == c.GetId() {
-            return
-        }
-    }
+	for _, brCon := range channel.brokerConns {
+		if brCon.GetId() == c.GetId() {
+			return
+		}
+	}
 
-    channel.brokerConns = append(channel.brokerConns, c)
+	channel.brokerConns = append(channel.brokerConns, c)
 }
 
 func (channel *Channel) removeBrokerConnections() {
-    channel.channelLock.Lock()
-    defer channel.channelLock.Unlock()
+	channel.channelLock.Lock()
+	defer channel.channelLock.Unlock()
 
-    channel.brokerConns = []bridge.Connection{}
+	channel.brokerConns = []bridge.Connection{}
 }
 
 func (channel *Channel) addBrokerSubscription(conn bridge.Connection, sub bridge.Subscription) {
-    cs := &connectionSub{c: conn, s: sub}
+	cs := &connectionSub{c: conn, s: sub}
 
-    channel.channelLock.Lock()
-    channel.brokerSubs = append(channel.brokerSubs, cs)
-    channel.channelLock.Unlock()
+	channel.channelLock.Lock()
+	channel.brokerSubs = append(channel.brokerSubs, cs)
+	channel.channelLock.Unlock()
 
-    go channel.listenToBrokerSubscription(sub)
+	go channel.listenToBrokerSubscription(sub)
 }
 
 func (channel *Channel) removeBrokerSubscription(sub bridge.Subscription) {
-    channel.channelLock.Lock()
-    defer channel.channelLock.Unlock()
+	channel.channelLock.Lock()
+	defer channel.channelLock.Unlock()
 
-    for i, cs := range channel.brokerSubs {
-        if sub.GetId().ID() == cs.s.GetId().ID() {
-            channel.brokerSubs = removeSub(channel.brokerSubs, i)
-        }
-    }
+	for i, cs := range channel.brokerSubs {
+		if sub.GetId().String() == cs.s.GetId().String() {
+			channel.brokerSubs = removeSub(channel.brokerSubs, i)
+		}
+	}
 }
 
 func removeSub(s []*connectionSub, i int) []*connectionSub {
-    s[len(s)-1], s[i] = s[i], s[len(s)-1]
-    return s[:len(s)-1]
+	s[len(s)-1], s[i] = s[i], s[len(s)-1]
+	return s[:len(s)-1]
 }
 
 type connectionSub struct {
-    c bridge.Connection
-    s bridge.Subscription
+	c bridge.Connection
+	s bridge.Subscription
 }

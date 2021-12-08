@@ -17,8 +17,8 @@ import (
 // for the matching pattern and the compiled glob pattern for use in runtime. see https://github.com/gobwas/glob for
 // detailed examples of glob patterns.
 type CacheControlRulePair struct {
-	GlobPattern      string
-	CacheControlRule string
+	GlobPattern         string
+	CacheControlRule    string
 	CompiledGlobPattern glob.Glob
 }
 
@@ -27,8 +27,8 @@ type CacheControlRulePair struct {
 func NewCacheControlRulePair(globPattern string, cacheControlRule string) (CacheControlRulePair, error) {
 	var err error
 	pair := CacheControlRulePair{
-		GlobPattern:         globPattern,
-		CacheControlRule:    cacheControlRule,
+		GlobPattern:      globPattern,
+		CacheControlRule: cacheControlRule,
 	}
 
 	pair.CompiledGlobPattern, err = glob.Compile(globPattern)
