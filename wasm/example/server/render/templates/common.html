@@ -1,0 +1,34 @@
+{{- define "transport_typescript_lib" }}
+<script src="https://cdn.jsdelivr.net/npm/rxjs@6.6.3/bundles/rxjs.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vmw/transport@latest/transport.umd.min.js"></script>
+<script>
+   transport.TransportEventBus.bootWithOptions(1, false, true);
+</script>
+{{- end }}
+
+{{- define "go_wasm_exec_script" }}
+<script src="/assets/wasm_exec.js"></script>
+<script>
+    if (!WebAssembly.instantiateStreaming) { // polyfill
+        WebAssembly.instantiateStreaming = async (resp, importObject) => {
+            const source = await (await resp).arrayBuffer();
+            return await WebAssembly.instantiate(source, importObject);
+        };
+    }
+
+    const go = new Go();
+    let mod, inst;
+    WebAssembly.instantiateStreaming(fetch("{{ . }}"), go.importObject).then((result) => {
+        mod = result.module;
+        inst = result.instance;
+        AppEventBus.sendResponseMessage('wasm_loaded_chan', true);
+    }).catch((err) => {
+        console.error(err);
+    });
+
+    async function run() {
+        await go.run(inst);
+        inst = await WebAssembly.instantiate(mod, go.importObject); // reset instance
+    }
+</script>
+{{- end }}

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Transport Go WASM Playground</title>
+    <base href="/">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    {{- template "transport_typescript_lib" -}}
+    {{- template "go_wasm_exec_script" "/assets/main.wasm" -}}
+</head>
+<body>
+<h1>WASM Playground</h1>
+<script>
+    // set up a channel that wasm_exec will send a signal to once our WASM application is loaded
+    // and ready to be executed. note that if you try to run(), it will fail because the file will most likely
+    // has not yet loaded. see templates/common.html as well to see how and when the message is sent down the channel.
+    const wasmLoadedHandler = AppEventBus.listenOnce('wasm_loaded_chan');
+    wasmLoadedHandler.handle(async () => {
+        console.log('wasm bundle downloaded and loaded. executing');
+        await run();
+    });
+
+</script>
+</body>
+</html>
