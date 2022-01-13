@@ -24,7 +24,10 @@ func NewTransportWasmBridge(busRef bus.EventBus) *TransportWasmBridge {
 }
 
 func (t *TransportWasmBridge) sendRequestMessageWrapper() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	jsFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// release the resources allocated for js.Func once this closure goes out of scope
+		defer jsFunc.Release()
+
 		var destId *uuid.UUID
 		channel := args[0].String()
 		payload := args[1].JSValue()
@@ -40,10 +43,14 @@ func (t *TransportWasmBridge) sendRequestMessageWrapper() js.Func {
 		t.busRef.SendRequestMessage(channel, payload, destId)
 		return nil
 	})
+	return jsFunc
 }
 
 func (t *TransportWasmBridge) sendResponseMessageWrapper() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	jsFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// release the resources allocated for js.Func once this closure goes out of scope
+		defer jsFunc.Release()
+
 		var destId *uuid.UUID
 		channel := args[0].String()
 		payload := args[1].JSValue()
@@ -59,28 +66,41 @@ func (t *TransportWasmBridge) sendResponseMessageWrapper() js.Func {
 		t.busRef.SendResponseMessage(channel, payload, destId)
 		return nil
 	})
+	return jsFunc
 }
 
 func (t *TransportWasmBridge) listenStreamWrapper() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	jsFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		handler, err := t.busRef.ListenStream(args[0].String())
 		if err != nil {
 			errCtor := js.Global().Get("Error")
 			return errCtor.New(err.Error())
 		}
 
+		closerFuncRef := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			handler.Close()
+
+			// release the resources allocated for js.Func when closing the subscription
+			for _, ref := range jsFuncRefs {
+				ref.Release()
+			}
+
+			return nil
+		})
+
+		// store js.Func handles for resource cleanup later
+		jsFuncRefs := []js.Func{jsFunc, getResponseHandlerJsCallbackFunc(handler), closerFuncRef}
+
 		return map[string]interface{}{
-			"handle": getResponseHandlerJsCallbackFunc(handler),
-			"close": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				handler.Close()
-				return nil
-			}),
+			"handle": jsFuncRefs[1],
+			"close":  jsFuncRefs[2],
 		}
 	})
+	return jsFunc
 }
 
 func (t *TransportWasmBridge) listenStreamWithIdWrapper() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	jsFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) <= 1 {
 			errCtor := js.Global().Get("Error")
 			js.Global().Get("console").Call("error", errCtor.New("cannot listen to channel. missing destination ID"))
@@ -99,12 +119,23 @@ func (t *TransportWasmBridge) listenStreamWithIdWrapper() js.Func {
 			return errCtor.New(err.Error())
 		}
 
+		closerFuncRef := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			handler.Close()
+
+			// release the resources allocated for js.Func when closing the subscription
+			for _, ref := range jsFuncRefs {
+				ref.Release()
+			}
+
+			return nil
+		})
+
+		// store js.Func handles for resource cleanup later
+		jsFuncRefs := []js.Func{jsFunc, getResponseHandlerJsCallbackFunc(handler), closerFuncRef}
+
 		return map[string]interface{}{
-			"handle": getResponseHandlerJsCallbackFunc(handler),
-			"close": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				handler.Close()
-				return nil
-			}),
+			"handle": jsFuncRefs[1],
+			"close":  jsFuncRefs[2],
 		}
 	})
 }
