@@ -1,7 +1,6 @@
 package server
 
 import (
-	"embed"
 	"fmt"
 	imgcolor "image/color"
 	"os"
@@ -12,16 +11,16 @@ import (
 	"github.com/vmware/transport-go/plank/utils"
 )
 
-//go:embed logo.png
-var logoFs embed.FS
-
 // printBanner prints out banner as well as brief server config
 func (ps *platformServer) printBanner() {
 	// print out ascii art only if output is stdout
 	if ps.out == os.Stdout {
-		_, _ = fmt.Fprintf(ps.out, "\n\n")
-		fs, _ := logoFs.Open("logo.png")
+		fs, err := logoFs.Open("logo.png")
+		if err != nil {
+			goto bannerBody
+		}
 		defer fs.Close()
+		_, _ = fmt.Fprintf(ps.out, "\n\n")
 		img, err := ansimage.NewScaledFromReader(
 			fs,
 			40,
@@ -38,6 +37,7 @@ func (ps *platformServer) printBanner() {
 	}
 
 	// display title and config summary
+bannerBody:
 	_, _ = fmt.Fprintln(ps.out)
 	color.Set(color.BgHiWhite, color.FgHiBlack, color.Bold)
 	_, _ = fmt.Fprintf(ps.out, " P L A N K ")
