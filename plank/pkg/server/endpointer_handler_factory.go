@@ -89,9 +89,9 @@ func (ps *platformServer) buildEndpointHandler(svcChannel string, reqBuilder ser
 					}
 
 					var respBodyBytes []byte
-					// ensure respBody is properly converted to a byte array as Content-Type header might not be
-					// set in the request and the restBody could be in a format that can be json marshalled.
-					respBodyBytes, err = marshalResponseBody(respBody)
+					// ensure respBody is properly converted to a byte slice as Content-Type header might not be
+					// set in the request and the restBody could be in a format that is not a byte slice.
+					respBodyBytes, err = ensureResponseInByteSlice(respBody)
 
 					// write the non-error payload back.
 					if _, err = w.Write(respBodyBytes); err != nil {
