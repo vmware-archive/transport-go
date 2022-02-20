@@ -345,6 +345,13 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 		}
 	}
 
+	// NOTE: mux.Router does not have mutex or any locking mechanism so it could sometimes lead to concurrency write
+	// panics. the following is to ensure the modification to ps.router can happen only once per thread, this atomic
+	// counter also protects against concurrent writing to ps.endpointHandlerMap
+	for !atomic.CompareAndSwapInt32(ps.routerConcurrencyProtection, 0, 1) {
+		time.Sleep(1 * time.Nanosecond)
+	}
+
 	// build endpoint handler
 	ps.endpointHandlerMap[endpointHandlerKey] = ps.buildEndpointHandler(
 		bridgeConfig.ServiceChannel,
@@ -361,12 +368,6 @@ func (ps *platformServer) SetHttpChannelBridge(bridgeConfig *service.RESTBridgeC
 	}
 	if bridgeConfig.AllowOptions {
 		permittedMethods = append(permittedMethods, http.MethodOptions)
-	}
-
-	// NOTE: mux.Router does not have mutex or any locking mechanism so it could sometimes lead to concurrency write
-	// panics. the following is to ensure the modification to ps.router can happen only once per thread
-	for !atomic.CompareAndSwapInt32(ps.routerConcurrencyProtection, 0, 1) {
-		time.Sleep(1 * time.Nanosecond)
 	}
 
 	ps.router.
