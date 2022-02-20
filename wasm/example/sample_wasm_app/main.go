@@ -4,7 +4,7 @@
 // Copyright 2021 VMware, Inc.
 // SPDX-License-Identifier: BSD-2-Clause
 
-package main
+package sample_wasm_app
 
 import (
 	"crypto/x509"
