@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"reflect"
 	"testing"
 )
 
@@ -63,6 +64,47 @@ func TestMessage_CastPayloadToType_NilPointer(t *testing.T) {
 	assert.Nil(t, dest)
 }
 
+func TestMessage_CastPayloadToType_UnmarshalledResponse_ByteSlice(t *testing.T) {
+	// arrange
+	msg := getUnmarshalledResponseMessage([]byte("I am a teapot"))
+	dest := make([]byte, 0)
+
+	// act
+	err := msg.CastPayloadToType(&dest)
+
+	// assert
+	assert.Nil(t, err)
+	assert.EqualValues(t, []byte("I am a teapot"), dest)
+}
+
+func TestMessage_CastPayloadToType_UnmarshalledResponse_Map(t *testing.T) {
+	// arrange
+	msg := getUnmarshalledResponseMessage(map[string]interface{}{"418": "I am a teapot"})
+	dest := make(map[string]string)
+
+	// act
+	err := msg.CastPayloadToType(&dest)
+	val, keyFound := dest["418"]
+
+	// assert
+	assert.Nil(t, err)
+	assert.True(t, keyFound)
+	assert.EqualValues(t, "I am a teapot", val)
+}
+
+func TestMessage_CastPayloadToType_ErrorResponse(t *testing.T) {
+	// arrange
+	msg := getErrorResponseMessage()
+	dest := make([]byte, 0)
+
+	// act
+	err := msg.CastPayloadToType(&dest)
+
+	// assert
+	assert.NotNil(t, err)
+	assert.EqualValues(t, "Bad Request", err.Error())
+}
+
 func getNewTestMessage() *Message {
 	rspPayload := &Response{
 		Id:      &uuid.UUID{},
@@ -74,5 +116,32 @@ func getNewTestMessage() *Message {
 		Id:      &uuid.UUID{},
 		Channel: "test",
 		Payload: jsonEncoded,
+	}
+}
+
+func getUnmarshalledResponseMessage(payload interface{}) *Message {
+	rspPayload := &Response{
+		Id:      &uuid.UUID{},
+		Payload: payload,
+	}
+
+	return &Message{
+		Id:      &uuid.UUID{},
+		Channel: "test",
+		Payload: reflect.ValueOf(rspPayload).Interface(),
+	}
+}
+
+func getErrorResponseMessage() *Message {
+	rspPayload := &Response{
+		Id:           &uuid.UUID{},
+		Error:        true,
+		ErrorCode:    400,
+		ErrorMessage: "Bad Request",
+	}
+	return &Message{
+		Id:      &uuid.UUID{},
+		Channel: "test",
+		Payload: reflect.ValueOf(rspPayload).Interface(),
 	}
 }
