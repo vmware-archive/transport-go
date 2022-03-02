@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strings"
 )
 
 const (
@@ -92,6 +93,15 @@ func (rs *restService) HandleServiceRequest(request *model.Request, core FabricS
 	// add default Content-Type header if such is not provided in the request
 	if httpReq.Header.Get("Content-Type") == "" {
 		httpReq.Header.Add("Content-Type", "application/merge-patch+json")
+	}
+
+	contentType := httpReq.Header.Get("Content-Type")
+	if strings.Contains(contentType, "json") {
+		// leaving restReq.ResponseType empty is equivalent to treating the response as JSON. see deserializeResponse().
+	} else {
+		// otherwise default to byte slice. note that we have an arm for the string type, but defaulting to the byte
+		// slice makes the payload more flexible to handle in downstream consumers
+		restReq.ResponseType = reflect.TypeOf([]byte{})
 	}
 
 	httpResp, err := rs.httpClient.Do(httpReq)

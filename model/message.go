@@ -5,6 +5,7 @@ package model
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
@@ -44,20 +45,34 @@ type MessageHeader struct {
 func (m *Message) CastPayloadToType(typ interface{}) error {
 	var unwrappedResponse Response
 
-	// nil-check
+	// assert pointer type
 	typVal := reflect.ValueOf(typ)
 	if typVal.Kind() != reflect.Ptr {
 		return fmt.Errorf("CastPayloadToType: invalid argument. argument should be the address of an object")
 	}
 
+	// nil-check
 	if typVal.IsNil() {
 		return fmt.Errorf("CastPayloadToType: cannot cast to nil")
 	}
 
-	// unwrap payload first
+	// if message.Payload is already of *Response type, handle it here.
+	if resp, ok := m.Payload.(*Response); ok {
+		return decodeResponsePaylod(resp, typ)
+	}
+
+	// otherwise, unmrashal message.Payload into Response, then decode response.Payload
 	if err := json.Unmarshal(m.Payload.([]byte), &unwrappedResponse); err != nil {
 		return fmt.Errorf("CastPayloadToType: failed to unmarshal payload %v: %w", m.Payload, err)
 	}
 
-	return mapstructure.Decode(unwrappedResponse.Payload, typ)
+	return decodeResponsePaylod(&unwrappedResponse, typ)
+}
+
+// decodeResponsePaylod tries to unpack Response.Payload into typ.
+func decodeResponsePaylod(resp *Response, typ interface{}) error {
+	if resp.Error {
+		return errors.New(resp.ErrorMessage)
+	}
+	return mapstructure.Decode(resp.Payload, typ)
 }
