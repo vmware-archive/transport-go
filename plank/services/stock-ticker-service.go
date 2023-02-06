@@ -6,7 +6,7 @@ package services
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"sync"
@@ -88,31 +88,7 @@ func (ps *StockTickerService) HandleServiceRequest(request *model.Request, core 
 		core.SendResponse(request, response)
 
 		// set a ticker that fires every 30 seconds and keep it in a map for later disposal
-		ps.lock.Lock()
-		ticker := time.NewTicker(30 * time.Second)
-		ps.tickerListenersMap[request.BrokerDestination.ConnectionId] = ticker
-		ps.lock.Unlock()
-
-		// set up a handler for every time a ticker fires.
-		go func() {
-			for {
-				select {
-				case <-ticker.C:
-					response, err = queryStockTickerAPI(symbol)
-					if err != nil {
-						core.SendErrorResponse(request, 500, err.Error())
-						continue
-					}
-
-					// log message to demonstrate that once the client disconnects
-					// the server disposes of the ticker to prevent memory leak.
-					utils.Log.Infoln("sending...")
-
-					// send the response back to the client
-					core.SendResponse(request, response)
-				}
-			}
-		}()
+		ps.subscribeToTickerUpdates(symbol, request, core)
 	default:
 		core.HandleUnknownRequest(request)
 	}
@@ -177,6 +153,44 @@ func (ps *StockTickerService) GetRESTBridgeConfig() []*service.RESTBridgeConfig 
 	}
 }
 
+func (ps *StockTickerService) subscribeToTickerUpdates(symbol string, request *model.Request, core service.FabricServiceCore) {
+	ps.lock.Lock()
+	ticker, hasSubscription := ps.tickerListenersMap[request.BrokerDestination.ConnectionId]
+
+	// if the client already subbed for ticker updates, cancel the timer first to prevent memory leaks
+	if hasSubscription {
+		utils.Log.Infoln("clearing an existing sub for client")
+		ticker.Stop()
+	}
+	ticker = time.NewTicker(30 * time.Second)
+	ps.tickerListenersMap[request.BrokerDestination.ConnectionId] = ticker
+	ps.lock.Unlock()
+
+	var response map[string]any
+	var err error
+
+	// set up a handler for every time a ticker fires.
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				response, err = queryStockTickerAPI(symbol)
+				if err != nil {
+					core.SendErrorResponse(request, 500, err.Error())
+					continue
+				}
+
+				// log message to demonstrate that once the client disconnects
+				// the server disposes of the ticker to prevent memory leak.
+				utils.Log.Infoln("sending...")
+
+				// send the response back to the client
+				core.SendResponse(request, response)
+			}
+		}
+	}()
+}
+
 // newTickerRequest is a convenient function that takes symbol as an input and returns
 // a new HTTP request object along with any error
 func newTickerRequest(symbol string) (*http.Request, error) {
@@ -211,7 +225,7 @@ func queryStockTickerAPI(symbol string) (map[string]interface{}, error) {
 	// parse the response from the HTTP call
 	defer rsp.Body.Close()
 	tickerData := &TickerSnapshotData{}
-	b, err := ioutil.ReadAll(rsp.Body)
+	b, err := io.ReadAll(rsp.Body)
 	if err != nil {
 		return nil, err
 	}
